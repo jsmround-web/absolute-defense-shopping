@@ -368,9 +368,10 @@ body {
 
 .admin-controls {
     display: flex;
-    gap: 15px;
-    margin-bottom: 25px;
-    justify-content: center;
+    gap: 6px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
 }
 
 .admin-btn {
@@ -386,6 +387,367 @@ body {
 
 .admin-btn:hover {
     background: linear-gradient(135deg, #d97706, #ea580c);
+    transform: translateY(-2px);
+}
+
+.edit-btn {
+    background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+}
+
+.edit-btn:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+}
+
+.logout-btn {
+    background: linear-gradient(135deg, #dc2626, #ef4444) !important;
+    margin-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.logout-btn:hover {
+    background: linear-gradient(135deg, #b91c1c, #dc2626) !important;
+}
+
+/* 드래그 스크롤 스타일 */
+.all-product-item, .pending-product-item, .price-report-item {
+    cursor: grab;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    user-select: none;
+}
+
+.all-product-item.dragging, .pending-product-item.dragging, .price-report-item.dragging {
+    opacity: 0.7;
+    cursor: grabbing;
+    transform: scale(1.02);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.scroll-indicator {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border: 2px solid #ffffff;
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    margin: 20px 0;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+}
+
+.scroll-indicator.drag-over {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    transform: scale(1.05);
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+}
+
+.scroll-indicator::before {
+    content: "⬇️ ";
+    margin-right: 8px;
+}
+
+.scroll-indicator::after {
+    content: " ⬇️";
+    margin-left: 8px;
+}
+
+/* 관리자 패널 스크롤 영역 */
+.admin-panel {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.admin-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+.admin-panel::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.admin-panel::-webkit-scrollbar-thumb {
+    background: #3b82f6;
+    border-radius: 4px;
+}
+
+.admin-panel::-webkit-scrollbar-thumb:hover {
+    background: #2563eb;
+}
+
+/* 수정 팝업 스타일 */
+.edit-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 50px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.edit-popup-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.edit-popup-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    transform: scale(0.8);
+    transition: transform 0.3s ease;
+}
+
+.edit-popup-overlay.open .edit-popup-container {
+    transform: scale(1);
+}
+
+.edit-popup-header {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    padding: 20px;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.edit-popup-header h3 {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.edit-popup-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.8rem;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.edit-popup-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.edit-popup-content {
+    padding: 30px;
+}
+
+.edit-popup-content .product-form {
+    margin: 0;
+}
+
+.edit-popup-content .form-group {
+    margin-bottom: 20px;
+}
+
+.edit-popup-content .form-actions {
+    margin-top: 30px;
+    display: flex;
+    gap: 15px;
+}
+
+/* 아이템 하이라이트 스타일 */
+.item-highlighted {
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe) !important;
+    border: 2px solid #3b82f6 !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+    transform: scale(1.02);
+    transition: all 0.3s ease;
+}
+
+.item-highlighted .admin-actions button,
+.item-highlighted .admin-controls button {
+    background: #3b82f6 !important;
+    color: white !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+/* 관리자 패널 스크롤 스타일 */
+.admin-panel {
+    max-height: 70vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px;
+    margin-right: 0;
+    transition: margin-right 0.3s ease;
+    /* 마우스 휠 스크롤 활성화 */
+    scroll-behavior: smooth;
+    /* 스크롤바 스타일링 */
+    scrollbar-width: thin;
+    scrollbar-color: #3b82f6 #f1f5f9;
+}
+
+/* 스크롤바 커스텀 스타일 */
+.admin-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+.admin-panel::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.admin-panel::-webkit-scrollbar-thumb {
+    background: #3b82f6;
+    border-radius: 4px;
+}
+
+.admin-panel::-webkit-scrollbar-thumb:hover {
+    background: #2563eb;
+}
+
+/* 모바일 반응형 */
+@media (max-width: 768px) {
+    .edit-popup-container {
+        width: 95%;
+        max-height: 85vh;
+    }
+    
+    .edit-popup-content {
+        padding: 20px;
+    }
+    
+    .edit-popup-content .form-actions {
+        flex-direction: column;
+    }
+    
+    .edit-popup-content .form-actions button {
+        width: 100%;
+    }
+}
+
+/* 수정 폼 스타일 */
+.edit-form-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.edit-form-container {
+    background: white;
+    border-radius: 15px;
+    padding: 0;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.edit-form-header {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    padding: 20px;
+    border-radius: 15px 15px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.edit-form-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.edit-form-container .product-form {
+    padding: 30px;
+    margin: 0;
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+    margin-top: 25px;
+}
+
+.cancel-btn {
+    padding: 12px 24px;
+    background: #6b7280;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.cancel-btn:hover {
+    background: #4b5563;
+    transform: translateY(-2px);
+}
+
+.submit-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.submit-btn:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
     transform: translateY(-2px);
 }
 
@@ -422,31 +784,77 @@ body {
 }
 
 .approve-btn {
-    padding: 8px 16px;
+    padding: 6px 10px;
     background: #059669;
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
     font-weight: 600;
+    font-size: 0.75rem;
+    flex: 1;
+    min-width: 0;
 }
 
 .approve-btn:hover {
     background: #047857;
 }
 
+.edit-btn {
+    padding: 6px 10px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.edit-btn:hover {
+    background: #2563eb;
+}
+
 .reject-btn {
-    padding: 8px 16px;
+    padding: 6px 10px;
     background: #dc2626;
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
     font-weight: 600;
+    font-size: 0.75rem;
+    flex: 1;
+    min-width: 0;
 }
 
 .reject-btn:hover {
     background: #b91c1c;
+}
+
+.link-btn {
+    padding: 6px 10px;
+    background: #8b5cf6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.75rem;
+    flex: 1;
+    min-width: 0;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.link-btn:hover {
+    background: #7c3aed;
+    color: white;
+    text-decoration: none;
 }
 
 .price-reports {
@@ -981,19 +1389,19 @@ body {
         min-height: 30px;
     }
     
-    /* 드롭다운 모바일 최적화 - fixed position으로 화면 안에 표시 */
+    /* 드롭다운 모바일 최적화 - 관리 버튼 아래에 배치 */
     .header-dropdown {
         position: fixed;
-        top: auto;
-        bottom: 0;
+        top: 110px; /* 카테고리 바 아래, 최저가 신고 칸 위 */
+        bottom: auto;
         left: 0;
         right: 0;
         width: 100%;
         max-width: 100%;
         min-width: auto;
-        border-radius: 16px 16px 0 0;
+        border-radius: 0 0 16px 16px;
         z-index: 9999;
-        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         transition: max-height 0.3s ease, padding 0.3s ease;
     }
     
@@ -1011,6 +1419,7 @@ body {
         padding: 20px;
         margin-top: 0;
         overflow-y: auto;
+        padding-top: 20px; /* 상단 패딩 제거 */
     }
     
     .header-right .header-dropdown {
@@ -1121,8 +1530,56 @@ body {
     
     .update-time {
         font-size: 0.65rem;
-        color: #6b7280;
+        color: #000000;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 600;
+        text-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
     }
+    
+    /* 모바일용 시간별 색상 */
+    .update-time.recent {
+        background: linear-gradient(45deg, #00ff00, #ffff00);
+        animation: glow-green 2s ease-in-out infinite alternate;
+    }
+    
+    .update-time.daily {
+        background: linear-gradient(45deg, #ffcc00, #ffaa00);
+        animation: glow-orange 2s ease-in-out infinite alternate;
+    }
+    
+    .update-time.old {
+        background: linear-gradient(45deg, #ff6666, #ff4444);
+        animation: glow-red 2s ease-in-out infinite alternate;
+    }
+    
+@keyframes glow-green {
+    from {
+        box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+    }
+    to {
+        box-shadow: 0 0 12px rgba(0, 255, 0, 0.6);
+    }
+}
+
+@keyframes glow-orange {
+    from {
+        box-shadow: 0 0 8px rgba(255, 204, 0, 0.3);
+    }
+    to {
+        box-shadow: 0 0 12px rgba(255, 204, 0, 0.6);
+    }
+}
+
+@keyframes glow-red {
+    from {
+        box-shadow: 0 0 8px rgba(255, 102, 102, 0.3);
+    }
+    to {
+        box-shadow: 0 0 12px rgba(255, 102, 102, 0.6);
+    }
+}
     
     .product-store {
         font-size: 0.65rem;
@@ -1130,14 +1587,14 @@ body {
     
     .product-link-btn,
     .price-report-btn {
-        padding: 3px 6px;
-        font-size: 0.65rem;
-        min-height: 24px;
+        padding: 2px 4px;
+        font-size: 0.6rem;
+        min-height: 20px;
         display: flex;
         align-items: center;
         justify-content: center;
         white-space: nowrap;
-        min-width: 38px;
+        min-width: 30px;
         flex-shrink: 0;
     }
     
@@ -1221,14 +1678,52 @@ body {
     
     /* 관리자 패널 모바일 */
     .admin-controls {
-        flex-direction: column;
-        gap: 12px;
+        flex-direction: row;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    /* 관리자 패널 모바일 스크롤 최적화 */
+    .admin-panel {
+        max-height: 50vh;
+        overflow-y: auto;
+        padding: 15px;
+        margin-right: 0;
+        transition: margin-right 0.3s ease;
+        scroll-behavior: smooth;
+        scrollbar-width: thin;
+        scrollbar-color: #3b82f6 #f1f5f9;
     }
     
     .admin-btn {
-        width: 100%;
-        padding: 14px 24px;
-        min-height: 48px;
+        flex: 1;
+        min-width: 0;
+        padding: 6px 8px;
+        min-height: 32px;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+    
+    /* 관리 메뉴 메인 버튼들 최소화 */
+    .admin-panel .admin-btn {
+        padding: 6px 8px;
+        font-size: 0.7rem;
+        min-height: 30px;
+        flex: 1;
+        min-width: 0;
+    }
+    
+    /* 관리 메뉴 버튼들 최소화 */
+    .admin-controls .approve-btn,
+    .admin-controls .edit-btn,
+    .admin-controls .reject-btn,
+    .admin-controls .link-btn {
+        padding: 6px 8px;
+        font-size: 0.7rem;
+        min-height: 30px;
+        flex: 1;
+        min-width: 0;
     }
     
     /* 메시지 모바일 */
@@ -1305,6 +1800,16 @@ body {
         min-height: 26px;
     }
     
+    /* 작은 모바일에서 드롭다운 최적화 */
+    .header-dropdown {
+        top: 95px; /* 작은 화면에서도 카테고리 바를 가리지 않도록 */
+    }
+    
+    .header-dropdown:not(.collapsed) {
+        padding-top: 20px;
+        max-height: 65vh;
+    }
+    
     .product-list {
         grid-template-columns: 1fr;
         gap: 6px;
@@ -1327,10 +1832,27 @@ body {
     
     .product-link-btn,
     .price-report-btn {
-        padding: 2px 5px;
-        font-size: 0.6rem;
-        min-width: 34px;
-        min-height: 22px;
+        padding: 1px 3px;
+        font-size: 0.55rem;
+        min-width: 28px;
+        min-height: 18px;
+    }
+    
+    /* 관리 메뉴 버튼들 더욱 최소화 */
+    .admin-controls .approve-btn,
+    .admin-controls .edit-btn,
+    .admin-controls .reject-btn,
+    .admin-controls .link-btn {
+        padding: 4px 6px;
+        font-size: 0.65rem;
+        min-height: 28px;
+    }
+    
+    /* 관리 메뉴 메인 버튼들 더욱 최소화 */
+    .admin-panel .admin-btn {
+        padding: 4px 6px;
+        font-size: 0.65rem;
+        min-height: 26px;
     }
     
     .product-category {
@@ -1391,7 +1913,30 @@ body {
 
 .update-time {
     font-size: 0.7rem;
-    color: #6b7280;
+    color: #000000;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-weight: 600;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 6시간 이내 - 형광색 배경 */
+.update-time.recent {
+    background: linear-gradient(45deg, #00ff00, #ffff00);
+    animation: glow-green 2s ease-in-out infinite alternate;
+}
+
+/* 1일 이내 - 연한 주황 형광색 배경 */
+.update-time.daily {
+    background: linear-gradient(45deg, #ffcc00, #ffaa00);
+    animation: glow-orange 2s ease-in-out infinite alternate;
+}
+
+/* 1일 이상 - 연한 빨간 형광색 배경 */
+.update-time.old {
+    background: linear-gradient(45deg, #ff6666, #ff4444);
+    animation: glow-red 2s ease-in-out infinite alternate;
 }
 
 .product-title {
@@ -1473,3 +2018,143 @@ body {
 }
 
 /* 업데이트 시간 표시 제거 - 모바일 최적화 */
+
+/* 삭제 확인 팝업 스타일 */
+.delete-confirmation-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 100px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.delete-confirmation-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.delete-confirmation-popup {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    transform: scale(0.8);
+    transition: transform 0.3s ease;
+}
+
+.delete-confirmation-overlay.open .delete-confirmation-popup {
+    transform: scale(1);
+}
+
+.delete-confirmation-header {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    padding: 20px;
+    border-radius: 15px 15px 0 0;
+    text-align: center;
+}
+
+.delete-confirmation-header h3 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.delete-confirmation-content {
+    padding: 25px;
+    text-align: center;
+}
+
+.delete-confirmation-content p {
+    margin: 0 0 15px 0;
+    font-size: 1.1rem;
+    color: #374151;
+}
+
+.delete-warning {
+    color: #ef4444 !important;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.delete-confirmation-actions {
+    padding: 20px 25px 25px;
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.delete-yes-btn, .delete-no-btn {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 80px;
+}
+
+.delete-yes-btn {
+    background: #ef4444;
+    color: white;
+}
+
+.delete-yes-btn:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.delete-no-btn {
+    background: #6b7280;
+    color: white;
+}
+
+.delete-no-btn:hover {
+    background: #4b5563;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
+}
+
+/* 모바일 반응형 */
+@media (max-width: 768px) {
+    .delete-confirmation-overlay {
+        padding-top: 50px;
+    }
+    
+    .delete-confirmation-popup {
+        width: 95%;
+        margin: 0 10px;
+    }
+    
+    .delete-confirmation-header h3 {
+        font-size: 1.2rem;
+    }
+    
+    .delete-confirmation-content p {
+        font-size: 1rem;
+    }
+    
+    .delete-confirmation-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .delete-yes-btn, .delete-no-btn {
+        width: 100%;
+        padding: 15px;
+    }
+}

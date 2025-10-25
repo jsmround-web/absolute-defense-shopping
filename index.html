@@ -215,23 +215,23 @@ const firebaseConfig = {
                     <form id="productForm" class="product-form">
                         <div class="form-group">
                             <label for="productName">제품명</label>
-                            <input type="text" id="productName" name="productName" placeholder="제품명을 입력하세요" required>
+                            <input type="text" id="productName" name="productName" placeholder="제품명을 입력하세요">
                         </div>
                         
                         <div class="form-group">
                             <label for="productPrice">가격</label>
-                            <input type="number" id="productPrice" name="productPrice" placeholder="가격을 입력하세요 (원)" required>
+                            <input type="number" id="productPrice" name="productPrice" placeholder="가격을 입력하세요 (원)">
                         </div>
                         
                         <div class="form-group">
                             <label for="productLink">링크</label>
-                            <input type="url" id="productLink" name="productLink" placeholder="https://example.com" required>
+                            <input type="url" id="productLink" name="productLink" placeholder="https://example.com">
                         </div>
                         
                         <div class="form-group">
                             <label for="productStore">쇼핑몰</label>
-                            <select id="productStore" name="productStore" required>
-                                <option value="">쇼핑몰을 선택하세요</option>
+                            <select id="productStore" name="productStore">
+                                <option value="">미선택</option>
                                 <option value="쿠팡">쿠팡</option>
                                 <option value="네이버쇼핑">네이버쇼핑</option>
                                 <option value="11번가">11번가</option>
@@ -274,7 +274,7 @@ const firebaseConfig = {
                             <button id="loadPendingProducts" class="admin-btn">승인 대기 제품 보기</button>
                             <button id="loadAllProducts" class="admin-btn">전체 제품 보기</button>
                             <button id="loadPriceReports" class="admin-btn">가격 변경 신고 보기</button>
-                            <button id="exportAnalyticsData" class="admin-btn">📊 분석 데이터 내보내기</button>
+                            <button id="adminLogout" class="admin-btn logout-btn">🚪 관리자 로그아웃</button>
                         </div>
                         <div id="pendingProductsList" class="pending-products-list"></div>
                     </div>
@@ -367,6 +367,23 @@ const firebaseConfig = {
                 <p>검색 결과가 없습니다. 다른 키워드로 검색해보세요.</p>
             </div>
         </main>
+    </div>
+
+    <!-- 삭제 확인 팝업 -->
+    <div id="deleteConfirmationPopup" class="delete-confirmation-overlay">
+        <div class="delete-confirmation-popup">
+            <div class="delete-confirmation-header">
+                <h3>⚠️ 삭제 확인</h3>
+            </div>
+            <div class="delete-confirmation-content">
+                <p id="deleteConfirmationMessage">정말로 삭제하시겠습니까?</p>
+                <p class="delete-warning">이 작업은 되돌릴 수 없습니다.</p>
+            </div>
+            <div class="delete-confirmation-actions">
+                <button id="deleteConfirmYes" class="delete-yes-btn">YES</button>
+                <button id="deleteConfirmNo" class="delete-no-btn">NO</button>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>

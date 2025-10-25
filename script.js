@@ -1,5 +1,168 @@
 // 절대방어 쇼핑 - 가격비교 사이트
 
+// Google Analytics 추적 시스템
+class GoogleAnalyticsTracker {
+    constructor() {
+        this.isGAReady = false;
+        this.checkGAReady();
+    }
+
+    checkGAReady() {
+        // Google Analytics가 로드되었는지 확인
+        if (typeof gtag !== 'undefined' && window.gtag) {
+            this.isGAReady = true;
+            console.log('Google Analytics 추적 시스템 활성화됨');
+            
+            // 즉시 페이지뷰 전송
+            this.sendInitialPageView();
+        } else {
+            // GA가 아직 로드되지 않았다면 잠시 후 다시 확인 (최대 10초)
+            if (this.checkAttempts < 100) {
+                this.checkAttempts = (this.checkAttempts || 0) + 1;
+                setTimeout(() => this.checkGAReady(), 100);
+            } else {
+                console.log('Google Analytics 로드 타임아웃 - 대체 추적 모드로 전환');
+                this.isGAReady = true; // 대체 모드에서도 추적 허용
+            }
+        }
+    }
+    
+    sendInitialPageView() {
+        if (this.isGAReady && typeof gtag !== 'undefined') {
+            gtag('event', 'page_view', {
+                page_title: '절대방어 쇼핑 - 가격비교 사이트',
+                page_location: window.location.href,
+                page_path: window.location.pathname
+            });
+            console.log('초기 페이지뷰 이벤트 전송 완료');
+        }
+    }
+
+    // 이벤트 추적
+    trackEvent(action, category, label, value) {
+        if (this.isGAReady) {
+            // gtag 함수가 있으면 사용, 없으면 대체 방법 사용
+            if (typeof gtag !== 'undefined' && window.gtag) {
+                gtag('event', action, {
+                    event_category: category,
+                    event_label: label,
+                    value: value,
+                    custom_map: {
+                        dimension1: 'local_test'
+                    }
+                });
+                console.log(`GA 이벤트 추적 (정상): ${action} - ${category} - ${label}`, {
+                    isGAReady: this.isGAReady,
+                    gtagExists: typeof gtag !== 'undefined',
+                    timestamp: new Date().toISOString()
+                });
+            } else {
+                // 대체 추적 방법 (Measurement Protocol 또는 로컬 로깅)
+                console.log(`GA 이벤트 추적 (대체): ${action} - ${category} - ${label}`, {
+                    isGAReady: this.isGAReady,
+                    gtagExists: typeof gtag !== 'undefined',
+                    timestamp: new Date().toISOString(),
+                    fallbackMode: true
+                });
+                
+                // 로컬 스토리지에 이벤트 저장 (나중에 전송 가능)
+                this.saveEventLocally(action, category, label, value);
+            }
+        } else {
+            console.log('Google Analytics가 준비되지 않음', {
+                isGAReady: this.isGAReady,
+                gtagExists: typeof gtag !== 'undefined'
+            });
+        }
+    }
+    
+    // 로컬 이벤트 저장 (대체 방법)
+    saveEventLocally(action, category, label, value) {
+        try {
+            const events = JSON.parse(localStorage.getItem('ga_events') || '[]');
+            const event = {
+                action,
+                category,
+                label,
+                value,
+                timestamp: new Date().toISOString(),
+                page_title: document.title,
+                page_location: window.location.href,
+                user_agent: navigator.userAgent,
+                screen_resolution: `${screen.width}x${screen.height}`,
+                language: navigator.language
+            };
+            
+            events.push(event);
+            localStorage.setItem('ga_events', JSON.stringify(events.slice(-100))); // 최근 100개만 유지
+            
+            console.log('로컬 이벤트 저장 완료:', action, category, label);
+            console.log(`총 저장된 이벤트: ${events.length}개`);
+            
+            // 이벤트 내보내기 안내
+            if (events.length >= 5) {
+                console.log('💡 이벤트 데이터 내보내기: localStorage.getItem("ga_events")');
+            }
+            
+        } catch (error) {
+            console.log('로컬 이벤트 저장 실패:', error);
+        }
+    }
+
+    // 페이지뷰 추적
+    trackPageView(pageName, pagePath) {
+        if (this.isGAReady && typeof gtag !== 'undefined') {
+            gtag('config', 'G-4B3GWTJ2B3', {
+                page_title: pageName,
+                page_location: pagePath || window.location.href
+            });
+            console.log(`GA 페이지뷰 추적: ${pageName}`);
+        }
+    }
+
+    // 검색 추적
+    trackSearch(searchTerm, resultsCount) {
+        this.trackEvent('search', 'engagement', searchTerm, resultsCount);
+    }
+
+    // 제품 클릭 추적
+    trackProductClick(productName, productCategory) {
+        this.trackEvent('product_click', 'engagement', `${productName} (${productCategory})`);
+    }
+
+    // 카테고리 변경 추적
+    trackCategoryChange(category) {
+        this.trackEvent('category_change', 'navigation', category);
+    }
+
+    // 가격 신고 추적
+    trackPriceReport(productName, price) {
+        this.trackEvent('price_report', 'conversion', productName, price);
+    }
+
+    // 폼 제출 추적
+    trackFormSubmit(formType, success) {
+        this.trackEvent('form_submit', 'conversion', formType, success ? 1 : 0);
+    }
+
+    // 에러 추적
+    trackError(errorType, errorMessage) {
+        this.trackEvent('error', 'technical', errorType, 0);
+    }
+}
+
+// 전역 추적기 인스턴스
+const gaTracker = new GoogleAnalyticsTracker();
+
+// 전역 추적 함수들
+function trackProductClick(productName, productCategory) {
+    gaTracker.trackProductClick(productName, productCategory);
+}
+
+function trackPurchaseClick(productName, productCategory) {
+    gaTracker.trackEvent('purchase_click', 'conversion', `${productName} (${productCategory})`);
+}
+
 // 페이지가 로드되면 앱 실행
 document.addEventListener('DOMContentLoaded', function() {
     const app = new PriceComparisonSite();
@@ -14,6 +177,24 @@ class PriceComparisonSite {
     }
 
     async init() {
+        // 페이지뷰 추적
+        gaTracker.trackPageView('절대방어 쇼핑 - 메인 페이지');
+        
+        // 테스트 이벤트 전송 (GA 연결 확인용)
+        setTimeout(() => {
+            gaTracker.trackEvent('test_event', 'debug', 'site_loaded', 1);
+            console.log('테스트 이벤트 전송 완료');
+        }, 2000);
+        
+        // 추가 자동 이벤트 생성 (데이터 수집용)
+        setTimeout(() => {
+            gaTracker.trackEvent('page_interaction', 'engagement', 'auto_scroll', 1);
+        }, 5000);
+        
+        setTimeout(() => {
+            gaTracker.trackEvent('user_behavior', 'engagement', 'time_on_page', 10);
+        }, 10000);
+        
         // this.loadSampleData(); // 샘플 데이터 로드 제거 - Firebase 데이터만 사용
         
         // 테스트 제품 데이터 제거 - Firebase 데이터만 사용
@@ -45,12 +226,28 @@ class PriceComparisonSite {
         console.log('현재 제품 개수:', this.products.length);
         console.log('승인된 제품 목록:', this.products.filter(p => p.status === 'approved'));
         
+        let resultsCount = 0;
+        
         if (!finalSearchTerm) {
             console.log('검색어가 없어서 전체 제품 표시');
             this.displayAllProducts();
+            resultsCount = this.products.filter(p => p.status === 'approved').length;
         } else {
             console.log('검색어가 있어서 검색 결과 표시');
             this.displaySearchResults(finalSearchTerm);
+            // 검색 결과 개수 계산
+            resultsCount = this.products.filter(product => {
+                const nameMatch = product.name.toLowerCase().includes(finalSearchTerm.toLowerCase());
+                const categoryMatch = product.category.toLowerCase().includes(finalSearchTerm.toLowerCase());
+                const matchesSearch = nameMatch || categoryMatch;
+                const isApproved = product.status === 'approved';
+                return matchesSearch && isApproved;
+            }).length;
+        }
+        
+        // 검색 이벤트 추적
+        if (finalSearchTerm) {
+            gaTracker.trackSearch(finalSearchTerm, resultsCount);
         }
         
         console.log('=== performSearch 완료 ===');
@@ -118,6 +315,12 @@ class PriceComparisonSite {
         console.log('=== displayCategoryResults 시작 ===');
         console.log('선택된 카테고리:', category);
         console.log('전체 제품 목록:', this.products);
+        
+        // 카테고리 변경 추적
+        if (this.currentCategory !== category) {
+            gaTracker.trackCategoryChange(category);
+            this.currentCategory = category;
+        }
         
         const filteredProducts = this.products.filter(product => {
             const categoryMatch = product.category === category;
@@ -222,7 +425,7 @@ class PriceComparisonSite {
         
 
             const htmlElement = `
-                <div class="product-item">
+                <div class="product-item" onclick="trackProductClick('${product.name}', '${product.category}')">
                     <div class="product-info">
                         <div class="product-row-1">
                             <div class="product-title">${product.name || '제품명 없음'}</div>
@@ -231,14 +434,14 @@ class PriceComparisonSite {
                             <div class="row-top">
                                 <span class="product-category">${product.category || '기타'}</span>
                                 <span class="product-price">${finalPrice.toLocaleString()}원</span>
-                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn">구매</a>
+                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매</a>
                             </div>
                             <div class="row-bottom">
                                 <div class="store-time-info">
                                     <span class="product-store">${product.store || '쇼핑몰 없음'}</span>
                                     <span class="update-time">${this.formatUpdateTime(product.lastUpdated || product.createdAt)}</span>
                                 </div>
-                                <button class="price-report-btn" onclick="reportPriceChange('${product.id}', '${product.originalPrice || 0}')">변경</button>
+                                <button class="price-report-btn" onclick="event.stopPropagation(); reportPriceChange('${product.id}', '${product.originalPrice || 0}')">변경</button>
                             </div>
                         </div>
                     </div>
@@ -346,6 +549,7 @@ class PriceComparisonSite {
             
             if (!newPrice || isNaN(newPrice) || parseInt(newPrice) <= 0) {
                 alert('올바른 가격을 입력해주세요.');
+                gaTracker.trackFormSubmit('price_report', false);
                 return;
             }
         
@@ -358,12 +562,20 @@ class PriceComparisonSite {
                 status: 'pending'
             };
             
+            // 가격 신고 추적
+            const product = this.products.find(p => p.id === productId);
+            if (product) {
+                gaTracker.trackPriceReport(product.name, parseInt(newPrice));
+            }
+            
             // Firebase에 가격 변경 신고 저장
             await window.firebaseAddDoc(window.firebaseCollection(window.firebaseDb, 'priceReports'), priceChange);
             alert('가격 변경 신고가 접수되었습니다. 검토 후 반영됩니다.');
+            gaTracker.trackFormSubmit('price_report', true);
         } catch (error) {
             console.error('가격 변경 신고 실패:', error);
             alert('신고 접수에 실패했습니다. 다시 시도해주세요.');
+            gaTracker.trackError('price_report_error', error.message);
         }
     }
 
@@ -395,6 +607,106 @@ class PriceComparisonSite {
         document.getElementById('loadPriceReports').addEventListener('click', () => {
             this.loadPriceReports();
         });
+        
+        // 분석 데이터 내보내기 버튼
+        document.getElementById('exportAnalyticsData').addEventListener('click', () => {
+            this.exportAnalyticsData();
+        });
+    }
+    
+    // 분석 데이터 내보내기
+    exportAnalyticsData() {
+        try {
+            const events = JSON.parse(localStorage.getItem('ga_events') || '[]');
+            const config = JSON.parse(localStorage.getItem('ga_config') || '{}');
+            
+            if (events.length === 0) {
+                alert('저장된 분석 데이터가 없습니다.');
+                return;
+            }
+            
+            // 데이터 정리 및 통계 생성
+            const analyticsData = {
+                export_info: {
+                    export_date: new Date().toISOString(),
+                    total_events: events.length,
+                    date_range: {
+                        first_event: events[0]?.timestamp,
+                        last_event: events[events.length - 1]?.timestamp
+                    }
+                },
+                config: config,
+                events: events,
+                statistics: this.generateAnalyticsStats(events)
+            };
+            
+            // JSON 파일로 다운로드
+            const dataStr = JSON.stringify(analyticsData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `analytics_data_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            console.log('분석 데이터 내보내기 완료:', analyticsData);
+            alert(`분석 데이터가 다운로드되었습니다.\n총 ${events.length}개의 이벤트가 포함되었습니다.`);
+            
+        } catch (error) {
+            console.error('분석 데이터 내보내기 실패:', error);
+            alert('데이터 내보내기에 실패했습니다.');
+        }
+    }
+    
+    // 분석 통계 생성
+    generateAnalyticsStats(events) {
+        const stats = {
+            total_events: events.length,
+            event_types: {},
+            categories: {},
+            hourly_distribution: {},
+            daily_distribution: {},
+            top_events: [],
+            user_sessions: new Set()
+        };
+        
+        events.forEach(event => {
+            // 이벤트 타입별 통계
+            const eventType = event.event_name || event.action || 'unknown';
+            stats.event_types[eventType] = (stats.event_types[eventType] || 0) + 1;
+            
+            // 카테고리별 통계
+            if (event.category) {
+                stats.categories[event.category] = (stats.categories[event.category] || 0) + 1;
+            }
+            
+            // 시간별 분포
+            const hour = new Date(event.timestamp).getHours();
+            stats.hourly_distribution[hour] = (stats.hourly_distribution[hour] || 0) + 1;
+            
+            // 일별 분포
+            const date = event.timestamp.split('T')[0];
+            stats.daily_distribution[date] = (stats.daily_distribution[date] || 0) + 1;
+            
+            // 사용자 세션 추적
+            if (event.client_id) {
+                stats.user_sessions.add(event.client_id);
+            }
+        });
+        
+        // 상위 이벤트 정렬
+        stats.top_events = Object.entries(stats.event_types)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 10)
+            .map(([event, count]) => ({ event, count }));
+        
+        stats.unique_users = stats.user_sessions.size;
+        
+        return stats;
     }
 
     setupFormSubmitListener() {
@@ -434,10 +746,12 @@ class PriceComparisonSite {
 
         if (!this.validateFormData(formData)) {
             this.isSubmitting = false; // 검증 실패 시 플래그 리셋
+            gaTracker.trackFormSubmit('product_submission', false);
             return;
         }
 
         console.log('폼 검증 통과, Firebase 저장 시작');
+        gaTracker.trackFormSubmit('product_submission', true);
         this.saveProductToFirebase(formData);
     }
 
@@ -527,6 +841,9 @@ class PriceComparisonSite {
             }
             
             alert(errorMessage + '\n\n상세 에러: ' + error.message);
+            
+            // 에러 추적
+            gaTracker.trackError('product_save_error', error.message);
             
             // 에러 발생 시에도 플래그 리셋
             this.isSubmitting = false;
@@ -628,6 +945,7 @@ class PriceComparisonSite {
             console.log('Firebase 설정 완료');
         } catch (error) {
             console.error('Firebase 초기화 실패:', error);
+            gaTracker.trackError('firebase_init_error', error.message);
             alert('Firebase 연결에 실패했습니다. 페이지를 새로고침해주세요.');
         }
     }

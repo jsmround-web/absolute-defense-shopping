@@ -8,14 +8,138 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>절대방어 쇼핑</title>
     
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4B3GWTJ2B3"></script>
+    <!-- Google Analytics 동적 로드 (CORB 오류 해결) -->
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'G-4B3GWTJ2B3');
+    // Google Analytics 동적 로드 함수
+    function loadGoogleAnalytics() {
+        console.log('Google Analytics 동적 로드 시작...');
+        
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://www.googletagmanager.com/gtag/js?id=G-4B3GWTJ2B3';
+        
+        script.onload = function() {
+            console.log('Google Analytics 스크립트 로드 성공');
+            
+            // gtag 함수 정의
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            window.gtag = gtag;
+            
+            gtag('js', new Date());
+            gtag('config', 'G-BVJPXJP2T9', {
+                page_title: '절대방어 쇼핑 - 가격비교 사이트',
+                page_location: window.location.href,
+                send_page_view: true,
+                anonymize_ip: false,
+                allow_google_signals: true,
+                allow_ad_personalization_signals: false,
+                debug_mode: true
+            });
+            
+            console.log('Google Analytics 초기화 완료');
+            
+            // 즉시 페이지뷰 이벤트 전송
+            gtag('event', 'page_view', {
+                page_title: '절대방어 쇼핑 - 가격비교 사이트',
+                page_location: window.location.href,
+                page_path: window.location.pathname
+            });
+            
+            console.log('초기 페이지뷰 이벤트 전송 완료');
+        };
+        
+        script.onerror = function() {
+            console.error('Google Analytics 스크립트 로드 실패 - CORB 차단됨');
+            console.log('대체 추적 방법을 사용합니다...');
+            
+            // 대체 추적 방법 (Measurement Protocol)
+            initFallbackTracking();
+        };
+        
+        document.head.appendChild(script);
+    }
+    
+    // 로컬 스토리지 기반 추적 시스템
+    function initFallbackTracking() {
+        console.log('로컬 스토리지 추적 시스템 초기화...');
+        
+        // 클라이언트 ID 생성
+        function generateClientId() {
+            let clientId = localStorage.getItem('ga_client_id');
+            if (!clientId) {
+                clientId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+                localStorage.setItem('ga_client_id', clientId);
+            }
+            return clientId;
+        }
+        
+        // 로컬 스토리지에 이벤트 저장
+        function saveEventToLocal(eventName, parameters) {
+            try {
+                const events = JSON.parse(localStorage.getItem('ga_events') || '[]');
+                const event = {
+                    client_id: generateClientId(),
+                    event_name: eventName,
+                    parameters: parameters,
+                    timestamp: new Date().toISOString(),
+                    page_title: parameters.page_title || document.title,
+                    page_location: parameters.page_location || window.location.href,
+                    user_agent: navigator.userAgent,
+                    screen_resolution: `${screen.width}x${screen.height}`,
+                    language: navigator.language
+                };
+                
+                events.push(event);
+                // 최근 100개 이벤트만 유지
+                localStorage.setItem('ga_events', JSON.stringify(events.slice(-100)));
+                
+                console.log('로컬 이벤트 저장 완료:', eventName, parameters);
+                
+                // 저장된 이벤트 개수 표시
+                console.log(`총 저장된 이벤트: ${events.length}개`);
+                
+                // 이벤트 내보내기 기능 제공
+                if (events.length >= 10) {
+                    console.log('이벤트 내보내기 가능: localStorage.getItem("ga_events")');
+                }
+                
+            } catch (error) {
+                console.error('로컬 이벤트 저장 실패:', error);
+            }
+        }
+        
+        // gtag 함수 구현 (로컬 저장)
+        window.gtag = function(command, targetId, parameters) {
+            if (command === 'event') {
+                const eventName = parameters.event_name || parameters.event_category || 'custom_event';
+                saveEventToLocal(eventName, parameters);
+            } else if (command === 'config') {
+                console.log('GA 설정 저장:', targetId, parameters);
+                localStorage.setItem('ga_config', JSON.stringify({
+                    measurement_id: targetId,
+                    config: parameters,
+                    timestamp: new Date().toISOString()
+                }));
+            }
+        };
+        
+        // 페이지뷰 이벤트 즉시 저장
+        saveEventToLocal('page_view', {
+            page_title: '절대방어 쇼핑 - 가격비교 사이트',
+            page_location: window.location.href,
+            page_path: window.location.pathname
+        });
+        
+        console.log('로컬 추적 시스템 활성화됨');
+        console.log('저장된 이벤트 확인: localStorage.getItem("ga_events")');
+    }
+    
+    // 페이지 로드 후 Google Analytics 로드
+    document.addEventListener('DOMContentLoaded', function() {
+        // 약간의 지연 후 로드 (다른 스크립트들이 먼저 로드되도록)
+        setTimeout(loadGoogleAnalytics, 100);
+    });
     </script>
     
     <link rel="stylesheet" href="style.css">
@@ -141,6 +265,7 @@ const firebaseConfig = {
                             <button id="loadPendingProducts" class="admin-btn">승인 대기 제품 보기</button>
                             <button id="loadAllProducts" class="admin-btn">전체 제품 보기</button>
                             <button id="loadPriceReports" class="admin-btn">가격 변경 신고 보기</button>
+                            <button id="exportAnalyticsData" class="admin-btn">📊 분석 데이터 내보내기</button>
                         </div>
                         <div id="pendingProductsList" class="pending-products-list"></div>
                     </div>

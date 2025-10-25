@@ -193,25 +193,32 @@ const firebaseConfig = {
 </head>
 <body>
     <div class="container">
+        <!-- 최상단 버튼 바 (최저가신고, 필독, 관리만) -->
+        <div class="top-button-bar">
+            <button class="header-btn mini-btn" onclick="toggleSection('productFormDropdown')">
+                📝 최저가 신고
+            </button>
+            <button class="header-btn" onclick="toggleSection('noticePanel')">
+                📢 필독
+            </button>
+            <button class="header-btn" id="adminBtn" onclick="toggleSection('adminPanel')">
+                ⚙️ 관리
+                <span id="adminNotification" class="admin-notification hidden">•</span>
+            </button>
+        </div>
+
         <!-- 헤더 -->
         <header class="header">
             <div class="header-left">
-                <button class="header-btn" onclick="toggleSection('productFormDropdown')">
-                    📝 최저가 신고
-                </button>
-                <div id="productFormDropdown" class="header-dropdown collapsed">
-                    <!-- 사용자 타입 선택 -->
-                    <div class="user-type-selector">
-                        <label class="user-type-option">
-                            <input type="radio" name="userType" value="customer" checked>
-                            <span>고객 신청</span>
-                        </label>
-                        <label class="user-type-option">
-                            <input type="radio" name="userType" value="admin">
-                            <span>관리자 등록</span>
-                        </label>
-                    </div>
+                <!-- 빈 공간 -->
+            </div>
 
+            <div class="header-center">
+                <h1 class="logo">절대방어 쇼핑</h1>
+            </div>
+
+            <div class="header-right">
+                <div id="productFormDropdown" class="header-dropdown collapsed">
                     <form id="productForm" class="product-form">
                         <div class="form-group">
                             <label for="productName">제품명</label>
@@ -242,6 +249,20 @@ const firebaseConfig = {
                             </select>
                         </div>
                         
+                        <!-- 카테고리 선택 (선택사항) -->
+                        <div class="category-selector">
+                            <label for="productCategory">카테고리 (선택사항)</label>
+                            <select id="productCategory" name="productCategory">
+                                <option value="">카테고리 선택 안함</option>
+                                <option value="식품">식품</option>
+                                <option value="생활">생활</option>
+                                <option value="가전">가전</option>
+                                <option value="유아">유아</option>
+                                <option value="특가">특가</option>
+                                <option value="기타">기타</option>
+                            </select>
+                        </div>
+                        
                         <button type="submit" class="submit-btn">제품 등록</button>
                     </form>
                     
@@ -254,22 +275,139 @@ const firebaseConfig = {
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <div class="header-center">
-                <h1 class="logo">절대방어 쇼핑</h1>
-                <div class="search-container">
-                    <input type="text" id="searchInput" placeholder="상품명을 입력하세요..." class="search-input">
-                    <button id="searchBtn" class="search-btn">검색</button>
+                
+                <!-- 필독 패널 -->
+                <div id="noticePanel" class="notice-panel collapsed">
+                    <!-- 공지사항 섹션 -->
+                    <div class="notice-section">
+                        <div class="notice-header">
+                            <h4>📢 공지사항</h4>
+                            <button id="editNotice" class="notice-btn edit-btn hidden">✏️ 수정</button>
+                        </div>
+                        
+                        <!-- 공지사항 표시 -->
+                        <div id="noticeDisplay" class="notice-display">
+                            <div class="main-notice">
+                                <h5>대문글</h5>
+                                <div id="mainNoticeContent" class="notice-content-item">대문글이 없습니다.</div>
+                            </div>
+                            <div class="sub-notices">
+                                <div class="notice-item">
+                                    <span class="notice-label">공지1:</span>
+                                    <span id="notice1Content" class="notice-content-item">공지1이 없습니다.</span>
+                                </div>
+                                <div class="notice-item">
+                                    <span class="notice-label">공지2:</span>
+                                    <span id="notice2Content" class="notice-content-item">공지2가 없습니다.</span>
+                                </div>
+                                <div class="notice-item">
+                                    <span class="notice-label">공지3:</span>
+                                    <span id="notice3Content" class="notice-content-item">공지3이 없습니다.</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 공지사항 편집 -->
+                        <div id="noticeEdit" class="notice-edit hidden">
+                            <div class="notice-edit-form">
+                                <div class="form-group">
+                                    <label for="mainNoticeTextarea">대문글</label>
+                                    <textarea id="mainNoticeTextarea" rows="4" placeholder="대문글을 입력하세요..."></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="notice1Textarea">공지1</label>
+                                    <textarea id="notice1Textarea" rows="1" placeholder="공지1을 입력하세요..."></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="notice2Textarea">공지2</label>
+                                    <textarea id="notice2Textarea" rows="1" placeholder="공지2를 입력하세요..."></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="notice3Textarea">공지3</label>
+                                    <textarea id="notice3Textarea" rows="1" placeholder="공지3을 입력하세요..."></textarea>
+                                </div>
+                                
+                                <div class="notice-actions">
+                                    <button id="saveNotice" class="notice-btn save-btn">저장</button>
+                                    <button id="cancelNotice" class="notice-btn cancel-btn">취소</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 숫자별 댓글 섹션 -->
+                    <div class="comments-section">
+                        <div class="comments-header">
+                            <h4>💬 댓글</h4>
+                            <span id="commentCount" class="comment-count">0개</span>
+                        </div>
+                        
+                        <!-- 숫자 선택 및 댓글 작성 -->
+                        <div class="number-comment-form">
+                            <div class="form-group">
+                                <label for="commentNumber">번호 선택</label>
+                                <div class="number-selector" id="numberSelector">
+                                    <!-- 숫자 버튼들이 동적으로 생성됩니다 -->
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="commentInput">댓글 작성</label>
+                                <textarea id="commentInput" rows="3" placeholder="선택한 번호에 댓글을 작성하세요..."></textarea>
+                            </div>
+                            
+                            <button id="submitComment" class="comment-btn submit-btn">댓글 작성</button>
+                        </div>
+                        
+                        <!-- 숫자별 댓글 목록 -->
+                        <div id="commentsList" class="comments-list">
+                            <!-- 숫자별 댓글들이 여기에 동적으로 추가됩니다 -->
+                        </div>
+                    </div>
                 </div>
-            </div>
-
-            <div class="header-right">
-                <button class="header-btn" id="adminBtn" onclick="toggleSection('adminPanel')">
-                    ⚙️ 관리
-                    <span id="adminNotification" class="admin-notification hidden">•</span>
-                </button>
-                <div id="adminPanel" class="header-dropdown collapsed">
+                
+                <!-- 공지사항 상세보기 모달 -->
+                <div id="noticeDetailModal" class="modal hidden">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3 id="noticeDetailTitle">공지사항 상세보기</h3>
+                            <button id="closeNoticeDetail" class="close-btn">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="noticeDetailContent" class="notice-detail-content">
+                                <!-- 공지사항 내용이 여기에 표시됩니다 -->
+                            </div>
+                            
+                            <!-- 공지사항별 댓글 섹션 -->
+                            <div class="notice-comments-section">
+                                <div class="comments-header">
+                                    <h4>💬 댓글</h4>
+                                    <span id="noticeCommentCount" class="comment-count">0개</span>
+                                </div>
+                                
+                                <!-- 댓글 작성 -->
+                                <div class="notice-comment-form">
+                                    <div class="form-group">
+                                        <label for="noticeCommentInput">댓글 작성</label>
+                                        <textarea id="noticeCommentInput" rows="3" placeholder="댓글을 작성하세요..."></textarea>
+                                    </div>
+                                    
+                                    <button id="submitNoticeComment" class="comment-btn submit-btn">댓글 작성</button>
+                                </div>
+                                
+                                <!-- 댓글 목록 -->
+                                <div id="noticeCommentsList" class="comments-list">
+                                    <!-- 댓글들이 여기에 동적으로 추가됩니다 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="adminPanel" class="header-dropdown collapsed" style="display: none !important;">
                     <div class="admin-panel">
                         <div class="admin-controls">
                             <button id="loadPendingProducts" class="admin-btn">
@@ -295,61 +433,25 @@ const firebaseConfig = {
                 <span class="category-name">전체</span>
                 <span class="category-count" id="totalCount">0</span>
             </div>
-            <div class="category-item" onclick="filterByCategory('두유')">
-                <span class="category-name">두유</span>
-                <span class="category-count" id="soyMilkCount">0</span>
+            <div class="category-item" onclick="filterByCategory('식품')">
+                <span class="category-name">식품</span>
+                <span class="category-count" id="foodCount">0</span>
             </div>
-            <div class="category-item" onclick="filterByCategory('노트북')">
-                <span class="category-name">노트북</span>
-                <span class="category-count" id="laptopCount">0</span>
+            <div class="category-item" onclick="filterByCategory('생활')">
+                <span class="category-name">생활</span>
+                <span class="category-count" id="dailyCount">0</span>
             </div>
-            <div class="category-item" onclick="filterByCategory('마우스')">
-                <span class="category-name">마우스</span>
-                <span class="category-count" id="mouseCount">0</span>
+            <div class="category-item" onclick="filterByCategory('가전')">
+                <span class="category-name">가전</span>
+                <span class="category-count" id="electronicsCount">0</span>
             </div>
-            <div class="category-item" onclick="filterByCategory('이어폰')">
-                <span class="category-name">이어폰</span>
-                <span class="category-count" id="earphoneCount">0</span>
+            <div class="category-item" onclick="filterByCategory('유아')">
+                <span class="category-name">유아</span>
+                <span class="category-count" id="babyCount">0</span>
             </div>
-            <div class="category-item" onclick="filterByCategory('우유')">
-                <span class="category-name">우유</span>
-                <span class="category-count" id="milkCount">0</span>
-            </div>
-            <div class="category-item" onclick="filterByCategory('라면')">
-                <span class="category-name">라면</span>
-                <span class="category-count" id="ramenCount">0</span>
-            </div>
-            <div class="category-item" onclick="filterByCategory('생수')">
-                <span class="category-name">생수</span>
-                <span class="category-count" id="waterCount">0</span>
-            </div>
-            <div class="category-item" onclick="filterByCategory('화장지')">
-                <span class="category-name">화장지</span>
-                <span class="category-count" id="tissueCount">0</span>
-            </div>
-            <div class="category-item" onclick="filterByCategory('세제')">
-                <span class="category-name">세제</span>
-                <span class="category-count" id="detergentCount">0</span>
-            </div>
-            <div class="category-item" onclick="filterByCategory('샴푸')">
-                <span class="category-name">샴푸</span>
-                <span class="category-count" id="shampooCount">0</span>
-            </div>
-            <div class="category-item" onclick="filterByCategory('기저귀')">
-                <span class="category-name">기저귀</span>
-                <span class="category-count" id="diaperCount">0</span>
-            </div>
-            <div class="category-item" onclick="filterByCategory('분유')">
-                <span class="category-name">분유</span>
-                <span class="category-count" id="formulaCount">0</span>
-            </div>
-            <div class="category-item" onclick="filterByCategory('물티슈')">
-                <span class="category-name">물티슈</span>
-                <span class="category-count" id="wipesCount">0</span>
-            </div>
-            <div class="category-item" onclick="filterByCategory('이유식')">
-                <span class="category-name">이유식</span>
-                <span class="category-count" id="babyFoodCount">0</span>
+            <div class="category-item" onclick="filterByCategory('특가')">
+                <span class="category-name">특가</span>
+                <span class="category-count" id="specialCount">0</span>
             </div>
             <div class="category-item" onclick="filterByCategory('기타')">
                 <span class="category-name">기타</span>

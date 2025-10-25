@@ -4,7 +4,7 @@
 class AdminAuth {
     constructor() {
         this.adminPassword = 'jsmwta5556'; // 관리자 비밀번호
-        this.isAuthenticated = false;
+        this.authenticated = false;
         this.sessionTimeout = 2 * 60 * 60 * 1000; // 2시간 세션 타임아웃
         this.sessionStartTime = null;
         this.lastActivityTime = null;
@@ -30,7 +30,7 @@ class AdminAuth {
         
         activities.forEach(activity => {
             document.addEventListener(activity, () => {
-                if (this.isAuthenticated) {
+                if (this.authenticated) {
                     this.updateLastActivityTime();
                 }
             }, { passive: true });
@@ -40,7 +40,7 @@ class AdminAuth {
         const adminPanel = document.getElementById('adminPanel');
         if (adminPanel) {
             const observer = new MutationObserver(() => {
-                if (this.isAuthenticated) {
+                if (this.authenticated) {
                     this.updateLastActivityTime();
                 }
             });
@@ -60,7 +60,7 @@ class AdminAuth {
     authenticate() {
         const password = prompt('관리자 비밀번호를 입력하세요:');
         if (password === this.adminPassword) {
-            this.isAuthenticated = true;
+            this.authenticated = true;
             const now = Date.now();
             this.sessionStartTime = now;
             this.lastActivityTime = now;
@@ -70,6 +70,12 @@ class AdminAuth {
             localStorage.setItem('admin_last_activity', now.toString());
             
             console.log('관리자 인증 성공 - 2시간 세션 시작');
+            
+            // 필독 패널 수정 버튼 표시
+            if (window.priceComparisonSite) {
+                window.priceComparisonSite.updateNoticeEditButton();
+            }
+            
             return true;
         } else {
             alert('잘못된 비밀번호입니다.');
@@ -89,13 +95,18 @@ class AdminAuth {
             
             if (elapsed < this.sessionTimeout) {
                 // 세션 유효
-                this.isAuthenticated = true;
+                this.authenticated = true;
                 this.lastActivityTime = lastActivityTime;
                 
                 // 남은 시간 표시 (선택사항)
                 const remainingTime = Math.floor((this.sessionTimeout - elapsed) / 60000); // 분 단위
                 if (remainingTime < 5 && remainingTime > 0) {
                     console.log(`관리자 세션: ${remainingTime}분 남음`);
+                }
+                
+                // 필독 패널 수정 버튼 표시
+                if (window.priceComparisonSite) {
+                    window.priceComparisonSite.updateNoticeEditButton();
                 }
                 
                 return true;
@@ -111,7 +122,7 @@ class AdminAuth {
 
     // 로그아웃
     logout() {
-        this.isAuthenticated = false;
+        this.authenticated = false;
         this.sessionStartTime = null;
         this.lastActivityTime = null;
         localStorage.removeItem('admin_session');
@@ -136,6 +147,11 @@ class AdminAuth {
         } else {
             return this.authenticate();
         }
+    }
+
+    // 인증 상태 확인 메서드
+    isAuthenticated() {
+        return this.authenticated;
     }
 }
 
@@ -316,6 +332,8 @@ class PriceComparisonSite {
         this.currentCategory = '전체';
         this.currentSearchTerm = '';
         this.isSubmitting = false; // 중복 제출 방지 플래그
+        this.isSubmittingComment = false; // 댓글 중복 제출 방지 플래그
+        this.noticeListenersSetup = false; // 필독 패널 이벤트 리스너 중복 방지 플래그
         this.previousTotalPending = -1; // 이전 대기 신고 개수 (알림 소리용, 초기값 -1)
         this.init();
     }
@@ -323,6 +341,26 @@ class PriceComparisonSite {
     async init() {
         // 페이지뷰 추적
         gaTracker.trackPageView('절대방어 쇼핑 - 메인 페이지');
+        
+        // 모바일에서 헤더를 최상단으로 강제 이동
+        this.forceHeaderToTop();
+        
+        // 모든 드롭다운 패널을 강제로 닫기
+        this.closeAllDropdowns();
+        
+        // 추가로 관리 패널만 완전히 숨기기
+        setTimeout(() => {
+            const adminPanel = document.getElementById('adminPanel');
+            if (adminPanel) {
+                adminPanel.style.display = 'none';
+                adminPanel.style.visibility = 'hidden';
+                adminPanel.style.maxHeight = '0';
+                adminPanel.style.padding = '0';
+                adminPanel.style.overflow = 'hidden';
+                adminPanel.classList.add('collapsed');
+                console.log('관리 패널만 완전히 숨겼습니다.');
+            }
+        }, 100);
         
         // 테스트 이벤트 전송 (GA 연결 확인용)
         setTimeout(() => {
@@ -348,6 +386,20 @@ class PriceComparisonSite {
         
         this.setupEventListeners();
         await this.initFirebase();
+        
+        // Firebase 초기화 후 관리 패널만 다시 숨기기 (혹시 모를 경우 대비)
+        setTimeout(() => {
+            const adminPanel = document.getElementById('adminPanel');
+            if (adminPanel) {
+                adminPanel.style.display = 'none';
+                adminPanel.style.visibility = 'hidden';
+                adminPanel.style.maxHeight = '0';
+                adminPanel.style.padding = '0';
+                adminPanel.style.overflow = 'hidden';
+                adminPanel.classList.add('collapsed');
+                console.log('Firebase 후 관리 패널만 다시 숨겼습니다.');
+            }
+        }, 1000);
         
         // Firebase 로드 완료 후 알림 업데이트 시작
         setTimeout(() => {
@@ -707,10 +759,19 @@ class PriceComparisonSite {
     displayAllProducts() {
         console.log('=== displayAllProducts 시작 ===');
         console.log('전체 제품 목록:', this.products);
-        console.log('제품 상태별 분류:', this.products.map(p => ({ name: p.name, status: p.status })));
+        console.log('제품 상태별 분류:', this.products.map(p => ({ name: p.name, status: p.status, id: p.id })));
+        
+        // 모든 제품의 상태 상세 로그
+        this.products.forEach(p => {
+            console.log(`제품 "${p.name}": status = "${p.status}", id = "${p.id}"`);
+        });
         
         // 승인된 제품만 표시
-        let approvedProducts = this.products.filter(p => p.status === 'approved');
+        let approvedProducts = this.products.filter(p => {
+            const isApproved = p.status === 'approved';
+            console.log(`제품 "${p.name}": status="${p.status}", isApproved=${isApproved}`);
+            return isApproved;
+        });
         console.log('표시할 제품 목록 (승인된 제품만):', approvedProducts);
         console.log('표시할 제품 개수:', approvedProducts.length);
         
@@ -959,13 +1020,19 @@ class PriceComparisonSite {
             
             if (diffMinutes < 60) {
                 timeText = `${diffMinutes}분 전`;
-                cssClass = 'recent'; // 6시간 이내
+                cssClass = 'recent'; // 3시간 이내 - 연두 형광
             } else if (diffHours < 24) {
                 timeText = `${diffHours}시간 전`;
-                cssClass = diffHours <= 6 ? 'recent' : 'daily'; // 6시간 이내는 recent, 그 외는 daily
+                if (diffHours <= 3) {
+                    cssClass = 'recent'; // 3시간 이내 - 연두 형광
+                } else if (diffHours <= 10) {
+                    cssClass = 'daily'; // 3~10시간 - 주황 형광
+                } else {
+                    cssClass = 'old'; // 10시간 이상 - 빨강 형광
+                }
             } else if (diffDays < 7) {
                 timeText = `${diffDays}일 전`;
-                cssClass = 'old'; // 1일 이상
+                cssClass = 'old'; // 1일 이상 - 빨강 형광
             } else {
                 timeText = updateTime.toLocaleDateString('ko-KR', {
                     month: '2-digit',
@@ -973,7 +1040,7 @@ class PriceComparisonSite {
                     hour: '2-digit',
                     minute: '2-digit'
                 });
-                cssClass = 'old'; // 1일 이상
+                cssClass = 'old'; // 1주 이상 - 빨강 형광
             }
             
             return `<span class="update-time ${cssClass}">${timeText}</span>`;
@@ -1038,18 +1105,6 @@ class PriceComparisonSite {
     }
 
     setupEventListeners() {
-        // 검색 버튼
-        document.getElementById('searchBtn').addEventListener('click', () => {
-            this.performSearch();
-        });
-
-        // 엔터키 검색
-        document.getElementById('searchInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.performSearch();
-            }
-        });
-
         // 폼 제출 - 폼이 열릴 때마다 이벤트 리스너 재설정
         this.setupFormSubmitListener();
         
@@ -1087,7 +1142,661 @@ class PriceComparisonSite {
             if (adminPanel) {
                 adminPanel.classList.add('collapsed');
             }
+            // 필독 패널 수정 버튼 숨기기
+            this.updateNoticeEditButton();
         });
+        
+        // 필독 패널 이벤트 리스너
+        this.setupNoticePanelListeners();
+        
+        // 윈도우 리사이즈 이벤트 리스너 추가
+        window.addEventListener('resize', () => {
+            this.updateCategoryCounts();
+            this.forceHeaderToTop(); // 모바일에서 헤더 위치 재조정
+        });
+    }
+
+    // 필독 패널 이벤트 리스너 설정
+    setupNoticePanelListeners() {
+        // 중복 실행 방지
+        if (this.noticeListenersSetup) {
+            return;
+        }
+        this.noticeListenersSetup = true;
+        
+        // 수정 버튼 (관리자만 표시)
+        const editBtn = document.getElementById('editNotice');
+        if (editBtn) {
+            editBtn.addEventListener('click', () => {
+                if (adminAuth.requireAuth()) {
+                    this.toggleNoticeEdit(true);
+                }
+            });
+        }
+
+        // 저장 버튼
+        const saveBtn = document.getElementById('saveNotice');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                if (adminAuth.requireAuth()) {
+                    this.saveNotice();
+                }
+            });
+        }
+
+        // 취소 버튼
+        const cancelBtn = document.getElementById('cancelNotice');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                this.toggleNoticeEdit(false);
+            });
+        }
+
+        // 공지1~3 클릭 이벤트 (편집 모드로 전환)
+        this.setupNoticeItemClickListeners();
+
+        // 초기 공지사항 로드
+        this.loadNotice();
+        
+        // 관리자 권한에 따른 수정 버튼 표시/숨김
+        this.updateNoticeEditButton();
+        
+        // 숫자별 댓글 시스템 이벤트 리스너
+        this.setupNumberCommentListeners();
+    }
+
+    // 공지1~3 클릭 이벤트 설정
+    setupNoticeItemClickListeners() {
+        const noticeItems = ['notice1Content', 'notice2Content', 'notice3Content'];
+        noticeItems.forEach((itemId, index) => {
+            const element = document.getElementById(itemId);
+            if (element) {
+                element.addEventListener('click', () => {
+                    this.showNoticeDetail(index + 1);
+                });
+            }
+        });
+        
+        // 모달 닫기 이벤트
+        const closeBtn = document.getElementById('closeNoticeDetail');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.closeNoticeDetail();
+            });
+        }
+        
+        // 모달 배경 클릭 시 닫기
+        const modal = document.getElementById('noticeDetailModal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.closeNoticeDetail();
+                }
+            });
+        }
+    }
+
+    // 공지1~3 개별 편집
+    editNoticeItem(noticeNumber) {
+        const currentContent = this.getNoticeData()[`notice${noticeNumber}`] || '';
+        const newContent = prompt(`공지${noticeNumber}을 수정하세요:`, currentContent);
+        
+        if (newContent !== null) {
+            const noticeData = this.getNoticeData();
+            noticeData[`notice${noticeNumber}`] = newContent.trim();
+            this.saveNoticeData(noticeData);
+            this.loadNotice();
+        }
+    }
+
+    // 공지사항 상세보기 모달 열기
+    showNoticeDetail(noticeNumber) {
+        const noticeData = this.getNoticeData();
+        const content = noticeData[`notice${noticeNumber}`] || '';
+        
+        // 모달 제목 설정
+        const title = document.getElementById('noticeDetailTitle');
+        if (title) {
+            title.textContent = `공지${noticeNumber} 상세보기`;
+        }
+        
+        // 모달 내용 설정
+        const contentElement = document.getElementById('noticeDetailContent');
+        if (contentElement) {
+            contentElement.textContent = content || '내용이 없습니다.';
+        }
+        
+        // 모달 표시
+        const modal = document.getElementById('noticeDetailModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
+        
+        // 현재 공지사항 번호 저장
+        this.currentNoticeNumber = noticeNumber;
+        
+        // 공지사항별 댓글 로드
+        this.loadNoticeComments();
+        
+        // 공지사항별 댓글 이벤트 리스너 설정
+        this.setupNoticeCommentListeners();
+    }
+
+    // 공지사항 상세보기 모달 닫기
+    closeNoticeDetail() {
+        const modal = document.getElementById('noticeDetailModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+
+    // 공지사항별 댓글 이벤트 리스너 설정
+    setupNoticeCommentListeners() {
+        // 기존 이벤트 리스너 제거
+        const submitBtn = document.getElementById('submitNoticeComment');
+        const commentInput = document.getElementById('noticeCommentInput');
+        
+        if (submitBtn) {
+            submitBtn.replaceWith(submitBtn.cloneNode(true));
+        }
+        
+        if (commentInput) {
+            commentInput.replaceWith(commentInput.cloneNode(true));
+        }
+        
+        // 새로운 이벤트 리스너 등록
+        const newSubmitBtn = document.getElementById('submitNoticeComment');
+        const newCommentInput = document.getElementById('noticeCommentInput');
+        
+        if (newSubmitBtn) {
+            newSubmitBtn.addEventListener('click', () => {
+                this.submitNoticeComment();
+            });
+        }
+
+        // 엔터키로 댓글 작성 (Ctrl+Enter)
+        if (newCommentInput) {
+            newCommentInput.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    this.submitNoticeComment();
+                }
+            });
+        }
+    }
+
+    // 공지사항별 댓글 작성
+    submitNoticeComment() {
+        if (this.isSubmittingComment) {
+            return;
+        }
+        
+        this.isSubmittingComment = true;
+        
+        const commentInput = document.getElementById('noticeCommentInput');
+        
+        if (!commentInput) {
+            this.isSubmittingComment = false;
+            return;
+        }
+        
+        const content = commentInput.value.trim();
+        
+        if (!content) {
+            alert('댓글 내용을 입력해주세요.');
+            this.isSubmittingComment = false;
+            return;
+        }
+
+        const comment = {
+            id: Date.now().toString(),
+            content: content,
+            author: '익명',
+            timestamp: new Date().toISOString(),
+            noticeNumber: this.currentNoticeNumber,
+            parentId: null,
+            replies: []
+        };
+
+        this.saveNoticeComment(comment);
+        commentInput.value = '';
+        this.loadNoticeComments();
+        
+        setTimeout(() => {
+            this.isSubmittingComment = false;
+        }, 100);
+    }
+
+    // 공지사항별 댓글 저장
+    saveNoticeComment(comment) {
+        const comments = this.getNoticeComments();
+        comments.push(comment);
+        localStorage.setItem('noticeComments', JSON.stringify(comments));
+    }
+
+    // 공지사항별 댓글 가져오기
+    getNoticeComments() {
+        const data = localStorage.getItem('noticeComments');
+        return data ? JSON.parse(data) : [];
+    }
+
+    // 공지사항별 댓글 로드
+    loadNoticeComments() {
+        const comments = this.getNoticeComments();
+        const commentsList = document.getElementById('noticeCommentsList');
+        const commentCount = document.getElementById('noticeCommentCount');
+
+        // 현재 공지사항의 댓글만 필터링
+        const noticeComments = comments.filter(c => c.noticeNumber === this.currentNoticeNumber);
+
+        // 댓글 개수 업데이트
+        if (commentCount) {
+            commentCount.textContent = `${noticeComments.length}개`;
+        }
+
+        if (noticeComments.length === 0) {
+            if (commentsList) {
+                commentsList.innerHTML = '<p style="text-align: center; color: #6b7280; font-size: 0.8rem;">아직 댓글이 없습니다.</p>';
+            }
+            return;
+        }
+
+        // 시간순으로 정렬 (오래된 것이 위로)
+        noticeComments.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+        let html = '';
+        noticeComments.forEach(comment => {
+            if (!comment.parentId) { // 대댓글이 아닌 경우만 표시
+                html += this.createNoticeCommentHTML(comment, noticeComments);
+            }
+        });
+
+        if (commentsList) {
+            commentsList.innerHTML = html;
+        }
+    }
+
+    // 공지사항별 댓글 HTML 생성 (중첩 댓글 지원)
+    createNoticeCommentHTML(comment, allComments, depth = 0) {
+        const isAdmin = adminAuth.isAuthenticated();
+        const timeStr = new Date(comment.timestamp).toLocaleString();
+        
+        // 중첩 깊이에 따른 스타일 클래스
+        const depthClass = depth > 0 ? `reply depth-${depth}` : '';
+        const marginLeft = depth * 20; // 깊이에 따른 들여쓰기
+        
+        let html = `
+            <div class="comment-item ${depthClass}" data-id="${comment.id}" style="margin-left: ${marginLeft}px;">
+                <div class="comment-header">
+                    <span class="comment-author">${comment.author}</span>
+                    <span class="comment-time">${timeStr}</span>
+                </div>
+                <div class="comment-content">${comment.content}</div>
+                <div class="comment-actions">
+                    <button class="comment-action-btn reply-btn" onclick="priceComparisonSite.submitNoticeReply('${comment.id}')">답글</button>
+        `;
+
+        // 관리자만 수정/삭제 가능
+        if (isAdmin) {
+            html += `
+                <button class="comment-action-btn edit-btn-comment" onclick="priceComparisonSite.editNoticeComment('${comment.id}')">수정</button>
+                <button class="comment-action-btn delete-btn-comment" onclick="priceComparisonSite.deleteNoticeComment('${comment.id}')">삭제</button>
+            `;
+        }
+
+        html += `
+                </div>
+            </div>
+        `;
+
+        // 하위 댓글들 재귀적으로 추가
+        const replies = allComments.filter(c => c.parentId === comment.id);
+        replies.forEach(reply => {
+            html += this.createNoticeCommentHTML(reply, allComments, depth + 1);
+        });
+
+        return html;
+    }
+
+    // 숫자별 댓글 시스템 이벤트 리스너 설정
+    setupNumberCommentListeners() {
+        // 기존 이벤트 리스너 제거 (중복 방지)
+        const submitBtn = document.getElementById('submitComment');
+        const commentInput = document.getElementById('commentInput');
+        
+        if (submitBtn) {
+            submitBtn.replaceWith(submitBtn.cloneNode(true));
+        }
+        
+        if (commentInput) {
+            commentInput.replaceWith(commentInput.cloneNode(true));
+        }
+        
+        // 숫자 선택기 생성
+        this.createNumberSelector();
+        
+        // 새로운 이벤트 리스너 등록
+        const newSubmitBtn = document.getElementById('submitComment');
+        const newCommentInput = document.getElementById('commentInput');
+        
+        if (newSubmitBtn) {
+            newSubmitBtn.addEventListener('click', () => {
+                this.submitNumberComment();
+            });
+        }
+
+        // 엔터키로 댓글 작성 (Ctrl+Enter)
+        if (newCommentInput) {
+            newCommentInput.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    this.submitNumberComment();
+                }
+            });
+        }
+
+        // 초기 댓글 로드
+        this.loadNumberComments();
+    }
+
+    // 숫자 선택기 생성
+    createNumberSelector() {
+        const numberSelector = document.getElementById('numberSelector');
+        if (!numberSelector) return;
+
+        // 최대 숫자 결정 (댓글이 있는 번호 + 여유분)
+        const comments = this.getNumberComments();
+        const maxNumber = Math.max(20, ...comments.map(c => parseInt(c.number) || 0)) + 5;
+
+        let html = '';
+        for (let i = 1; i <= maxNumber; i++) {
+            html += `<button class="number-btn" data-number="${i}" onclick="priceComparisonSite.selectNumber(${i})">${i}</button>`;
+        }
+
+        numberSelector.innerHTML = html;
+
+        // 기본값 1 선택
+        this.selectNumber(1);
+    }
+
+    // 숫자 선택
+    selectNumber(number) {
+        // 모든 버튼에서 selected 클래스 제거
+        const allButtons = document.querySelectorAll('.number-btn');
+        allButtons.forEach(btn => btn.classList.remove('selected'));
+
+        // 선택된 버튼에 selected 클래스 추가
+        const selectedButton = document.querySelector(`[data-number="${number}"]`);
+        if (selectedButton) {
+            selectedButton.classList.add('selected');
+        }
+
+        // 현재 선택된 번호 저장
+        this.selectedNumber = number;
+        
+        // 선택된 번호의 댓글만 표시
+        this.loadNumberComments();
+    }
+
+    // 공지사항 데이터 가져오기
+    getNoticeData() {
+        const data = localStorage.getItem('noticeData');
+        return data ? JSON.parse(data) : {
+            mainNotice: '',
+            notice1: '',
+            notice2: '',
+            notice3: ''
+        };
+    }
+
+    // 공지사항 데이터 저장
+    saveNoticeData(data) {
+        localStorage.setItem('noticeData', JSON.stringify(data));
+    }
+
+    // 공지사항 로드
+    loadNotice() {
+        const data = this.getNoticeData();
+        
+        // 대문글 표시
+        const mainNoticeContent = document.getElementById('mainNoticeContent');
+        if (mainNoticeContent) {
+            mainNoticeContent.textContent = data.mainNotice || '대문글이 없습니다.';
+        }
+        
+        // 공지1~3 표시 (한 줄로 제한)
+        const notices = ['notice1', 'notice2', 'notice3'];
+        notices.forEach((notice, index) => {
+            const element = document.getElementById(`${notice}Content`);
+            if (element) {
+                const content = data[notice] || `${notice.charAt(0).toUpperCase() + notice.slice(1)}이 없습니다.`;
+                // 한 줄로 제한 (줄바꿈을 공백으로 변경)
+                element.textContent = content.replace(/\n/g, ' ').substring(0, 100);
+                if (content.length > 100) {
+                    element.textContent += '...';
+                }
+            }
+        });
+    }
+
+    // 공지사항 저장
+    saveNotice() {
+        if (!adminAuth.requireAuth()) {
+            return;
+        }
+
+        const mainNoticeTextarea = document.getElementById('mainNoticeTextarea');
+        const notice1Textarea = document.getElementById('notice1Textarea');
+        const notice2Textarea = document.getElementById('notice2Textarea');
+        const notice3Textarea = document.getElementById('notice3Textarea');
+
+        const data = {
+            mainNotice: mainNoticeTextarea ? mainNoticeTextarea.value.trim() : '',
+            notice1: notice1Textarea ? notice1Textarea.value.trim() : '',
+            notice2: notice2Textarea ? notice2Textarea.value.trim() : '',
+            notice3: notice3Textarea ? notice3Textarea.value.trim() : ''
+        };
+
+        this.saveNoticeData(data);
+        this.toggleNoticeEdit(false);
+        this.loadNotice();
+    }
+
+    // 숫자별 댓글 작성 (선택된 번호에만 작성)
+    submitNumberComment() {
+        // 중복 실행 방지
+        if (this.isSubmittingComment) {
+            return;
+        }
+        
+        this.isSubmittingComment = true;
+        
+        const commentInput = document.getElementById('commentInput');
+        
+        if (!commentInput) {
+            this.isSubmittingComment = false;
+            return;
+        }
+        
+        const content = commentInput.value.trim();
+        const number = this.selectedNumber || 1;
+        
+        if (!content) {
+            alert('댓글 내용을 입력해주세요.');
+            this.isSubmittingComment = false;
+            return;
+        }
+
+        const comment = {
+            id: Date.now().toString(),
+            content: content,
+            author: '익명',
+            timestamp: new Date().toISOString(),
+            number: number.toString(),
+            parentId: null,
+            replies: []
+        };
+
+        this.saveNumberComment(comment);
+        commentInput.value = '';
+        this.loadNumberComments(); // 선택된 번호의 댓글만 다시 로드
+        
+        // 실행 완료 후 플래그 해제
+        setTimeout(() => {
+            this.isSubmittingComment = false;
+        }, 100);
+    }
+
+    // 숫자별 댓글 저장
+    saveNumberComment(comment) {
+        const comments = this.getNumberComments();
+        comments.push(comment);
+        localStorage.setItem('numberComments', JSON.stringify(comments));
+    }
+
+    // 숫자별 댓글 가져오기
+    getNumberComments() {
+        const data = localStorage.getItem('numberComments');
+        return data ? JSON.parse(data) : [];
+    }
+
+    // 숫자별 댓글 로드 (선택된 번호만 표시)
+    loadNumberComments() {
+        const comments = this.getNumberComments();
+        const commentsList = document.getElementById('commentsList');
+        const commentCount = document.getElementById('commentCount');
+
+        // 현재 선택된 번호의 댓글만 필터링
+        const selectedNumber = this.selectedNumber || 1;
+        const filteredComments = comments.filter(comment => comment.number === selectedNumber.toString());
+
+        // 댓글 개수 업데이트 (선택된 번호의 댓글만)
+        if (commentCount) {
+            commentCount.textContent = `${filteredComments.length}개`;
+        }
+
+        if (filteredComments.length === 0) {
+            if (commentsList) {
+                commentsList.innerHTML = `
+                    <div class="number-comment-group">
+                        <div class="number-comment-header">
+                            <span>번호 ${selectedNumber}</span>
+                            <span>0개</span>
+                        </div>
+                        <div class="number-comment-content">
+                            <p style="text-align: center; color: #6b7280; font-size: 0.8rem;">아직 댓글이 없습니다.</p>
+                        </div>
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        // 시간순으로 정렬 (오래된 것이 위로)
+        filteredComments.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+        let html = `
+            <div class="number-comment-group">
+                <div class="number-comment-header">
+                    <span>번호 ${selectedNumber}</span>
+                    <span>${filteredComments.length}개</span>
+                </div>
+                <div class="number-comment-content">
+        `;
+        
+        // 최상위 댓글만 표시 (대댓글이 아닌 경우)
+        filteredComments.forEach(comment => {
+            if (!comment.parentId) { // 대댓글이 아닌 경우만 표시
+                html += this.createNumberCommentHTML(comment, filteredComments);
+            }
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+
+        if (commentsList) {
+            commentsList.innerHTML = html;
+        }
+    }
+
+    // 숫자별 댓글 HTML 생성 (중첩 댓글 지원)
+    createNumberCommentHTML(comment, allComments, depth = 0) {
+        const isAdmin = adminAuth.isAuthenticated();
+        const timeStr = new Date(comment.timestamp).toLocaleString();
+        
+        // 중첩 깊이에 따른 스타일 클래스
+        const depthClass = depth > 0 ? `reply depth-${depth}` : '';
+        const marginLeft = depth * 20; // 깊이에 따른 들여쓰기
+        
+        let html = `
+            <div class="comment-item ${depthClass}" data-id="${comment.id}" style="margin-left: ${marginLeft}px;">
+                <div class="comment-header">
+                    <span class="comment-author">${comment.author}</span>
+                    <span class="comment-time">${timeStr}</span>
+                </div>
+                <div class="comment-content">${comment.content}</div>
+                <div class="comment-actions">
+                    <button class="comment-action-btn reply-btn" onclick="priceComparisonSite.submitReply('${comment.id}')">답글</button>
+        `;
+
+        // 관리자만 수정/삭제 가능
+        if (isAdmin) {
+            html += `
+                <button class="comment-action-btn edit-btn-comment" onclick="priceComparisonSite.editComment('${comment.id}')">수정</button>
+                <button class="comment-action-btn delete-btn-comment" onclick="priceComparisonSite.deleteComment('${comment.id}')">삭제</button>
+            `;
+        }
+
+        html += `
+                </div>
+            </div>
+        `;
+
+        // 하위 댓글들 재귀적으로 추가
+        const replies = allComments.filter(c => c.parentId === comment.id);
+        replies.forEach(reply => {
+            html += this.createNumberCommentHTML(reply, allComments, depth + 1);
+        });
+
+        return html;
+    }
+
+    // 공지사항 편집 모드 토글
+    toggleNoticeEdit(isEdit) {
+        const display = document.getElementById('noticeDisplay');
+        const edit = document.getElementById('noticeEdit');
+
+        if (isEdit) {
+            display.classList.add('hidden');
+            edit.classList.remove('hidden');
+            
+            // 기존 데이터를 폼에 로드
+            const data = this.getNoticeData();
+            const mainNoticeTextarea = document.getElementById('mainNoticeTextarea');
+            const notice1Textarea = document.getElementById('notice1Textarea');
+            const notice2Textarea = document.getElementById('notice2Textarea');
+            const notice3Textarea = document.getElementById('notice3Textarea');
+            
+            if (mainNoticeTextarea) mainNoticeTextarea.value = data.mainNotice || '';
+            if (notice1Textarea) notice1Textarea.value = data.notice1 || '';
+            if (notice2Textarea) notice2Textarea.value = data.notice2 || '';
+            if (notice3Textarea) notice3Textarea.value = data.notice3 || '';
+        } else {
+            display.classList.remove('hidden');
+            edit.classList.add('hidden');
+        }
+    }
+
+    // 관리자 권한에 따른 수정 버튼 표시/숨김
+    updateNoticeEditButton() {
+        const editBtn = document.getElementById('editNotice');
+        if (!editBtn) return;
+
+        if (adminAuth.isAuthenticated()) {
+            editBtn.classList.remove('hidden');
+        } else {
+            editBtn.classList.add('hidden');
+        }
     }
 
     setupFormSubmitListener() {
@@ -1120,19 +1829,10 @@ class PriceComparisonSite {
             price: parseInt(document.getElementById('productPrice').value) || 0,
             link: document.getElementById('productLink').value.trim() || '링크 미입력',
             store: document.getElementById('productStore').value.trim() || '미선택',
-            userType: document.querySelector('input[name="userType"]:checked').value
+            category: document.getElementById('productCategory').value.trim() || ''
         };
 
         console.log('폼 데이터:', formData);
-
-        // 관리자 등록 시 인증 확인
-        if (formData.userType === 'admin') {
-            if (!adminAuth.requireAuth()) {
-                this.isSubmitting = false; // 인증 실패 시 플래그 리셋
-                gaTracker.trackFormSubmit('admin_submission', false);
-                return;
-            }
-        }
 
         if (!this.validateFormData(formData)) {
             this.isSubmitting = false; // 검증 실패 시 플래그 리셋
@@ -1146,29 +1846,30 @@ class PriceComparisonSite {
     }
 
     validateFormData(data) {
-        // 관리자 등록 시에는 빈칸 허용
-        if (data.userType === 'admin') {
-            console.log('관리자 등록 - 빈칸 허용');
-            return true;
-        }
-
-        // 고객 신청 시에는 기존 검증 로직 적용
+        // 제품명 검증
         if (!data.name) {
             alert('제품명을 입력해주세요.');
             return false;
         }
+        
+        // 가격 검증
         if (!data.price || data.price <= 0) {
             alert('올바른 가격을 입력해주세요.');
             return false;
         }
+        
+        // 링크 검증
         if (!data.link) {
             alert('제품 링크를 입력해주세요.');
             return false;
         }
+        
+        // 쇼핑몰 검증
         if (!data.store) {
             alert('쇼핑몰을 입력해주세요.');
             return false;
         }
+        
         return true;
     }
 
@@ -1188,9 +1889,9 @@ class PriceComparisonSite {
                 originalPrice: productData.price,
                 deliveryFee: 0, // 기본값
                 rating: 4.0, // 기본값
-                category: this.detectCategory(productData.name),
-                status: productData.userType === 'customer' ? 'pending' : 'approved',
-                submittedBy: productData.userType,
+                category: productData.category || this.detectCategory(productData.name),
+                status: 'pending',
+                submittedBy: 'customer',
                 link: productData.link,
                 createdAt: new Date().toISOString()
             };
@@ -1202,7 +1903,7 @@ class PriceComparisonSite {
             const docRef = await window.firebaseAddDoc(window.firebaseCollection(window.firebaseDb, 'products'), product);
             console.log('제품 저장 성공, 문서 ID:', docRef.id);
             
-            this.showThankYouMessage(productData.userType);
+            this.showThankYouMessage();
             this.clearForm();
             this.closeForm();
             
@@ -1219,7 +1920,22 @@ class PriceComparisonSite {
             // 제출 완료 후 플래그 리셋
             this.isSubmitting = false;
             
-            // 알림은 주기적으로 업데이트됨 (10초마다)
+            // 승인 대기 제품 추가 시 즉시 알림 업데이트
+            if (product.status === 'pending') {
+                console.log('승인 대기 제품 추가됨, 즉시 알림 업데이트');
+                // 로컬 배열에 추가
+                const productData = {
+                    ...product,
+                    id: docRef.id
+                };
+                // 이미 추가되어 있을 수 있으므로 중복 체크
+                const exists = this.products.find(p => p.id === productData.id);
+                if (!exists) {
+                    this.products.push(productData);
+                }
+                // 즉시 알림 업데이트
+                this.updateAdminNotification();
+            }
             
         } catch (error) {
             console.error('Firebase에 제품 저장 실패:', error);
@@ -1249,17 +1965,13 @@ class PriceComparisonSite {
         }
     }
 
-    showThankYouMessage(userType) {
-        const message = userType === 'customer' 
-            ? '신고해주셔서 감사합니다!\n관리자 검토 후 승인되면 사이트에 표시됩니다.\n\n관리자 승인 패널에서 승인 대기 제품을 확인할 수 있습니다.' 
-            : '제품이 등록되었습니다!';
-        
+    showThankYouMessage() {
+        const message = '신고해주셔서 감사합니다!\n관리자 검토 후 승인되면 사이트에 표시됩니다.\n\n관리자 승인 패널에서 승인 대기 제품을 확인할 수 있습니다.';
         alert(message);
     }
 
     clearForm() {
         document.getElementById('productForm').reset();
-        document.querySelector('input[name="userType"][value="customer"]').checked = true;
     }
 
     closeForm() {
@@ -1273,58 +1985,113 @@ class PriceComparisonSite {
         const name = productName.toLowerCase();
         console.log(`카테고리 감지 - 제품명: "${productName}"`);
         
-        if (name.includes('노트북') || name.includes('laptop') || name.includes('맥북') || 
-            name.includes('lg그램') || name.includes('lg gram') || name.includes('그램')) {
-            console.log('→ 노트북 카테고리로 분류');
-            return '노트북';
-        } else if (name.includes('마우스') || name.includes('mouse')) {
-            console.log('→ 마우스 카테고리로 분류');
-            return '마우스';
-        } else if (name.includes('이어폰') || name.includes('헤드폰') || name.includes('earphone')) {
-            console.log('→ 이어폰 카테고리로 분류');
-            return '이어폰';
-        } else if (name.includes('두유') || name.includes('soy milk') || name.includes('콩우유') || name.includes('두유음료') || 
+        // 식품 카테고리
+        if (name.includes('두유') || name.includes('soy milk') || name.includes('콩우유') || name.includes('두유음료') || 
                    name.includes('두유제품') || name.includes('콩음료') || name.includes('식물성우유') || name.includes('비건우유') ||
-                   name.includes('베지밀') || name.includes('vegemil') || name.includes('베지밀a') || name.includes('베지밀a')) {
-            console.log('→ 두유 카테고리로 분류');
-            return '두유';
-        } else if (name.includes('우유') || name.includes('milk')) {
-            console.log('→ 우유 카테고리로 분류');
-            return '우유';
-        } else if (name.includes('라면') || name.includes('ramen') || name.includes('면')) {
-            console.log('→ 라면 카테고리로 분류');
-            return '라면';
-        } else if (name.includes('생수') || name.includes('물') || name.includes('water')) {
-            console.log('→ 생수 카테고리로 분류');
-            return '생수';
-        } else if (name.includes('화장지') || name.includes('티슈') || name.includes('tissue')) {
-            console.log('→ 화장지 카테고리로 분류');
-            return '화장지';
-        } else if (name.includes('세제') || name.includes('detergent') || name.includes('유연제')) {
-            console.log('→ 세제 카테고리로 분류');
-            return '세제';
-        } else if (name.includes('샴푸') || name.includes('shampoo') || name.includes('린스')) {
-            console.log('→ 샴푸 카테고리로 분류');
-            return '샴푸';
-        } else if (name.includes('기저귀') || name.includes('diaper')) {
-            console.log('→ 기저귀 카테고리로 분류');
-            return '기저귀';
-        } else if (name.includes('분유') || name.includes('formula')) {
-            console.log('→ 분유 카테고리로 분류');
-            return '분유';
-        } else if (name.includes('물티슈') || name.includes('wet wipe')) {
-            console.log('→ 물티슈 카테고리로 분류');
-            return '물티슈';
-        } else if (name.includes('이유식') || name.includes('baby food')) {
-            console.log('→ 이유식 카테고리로 분류');
-            return '이유식';
-        } else if (name.includes('키보드') || name.includes('keyboard')) {
-            console.log('→ 키보드 카테고리로 분류');
-            return '키보드';
-        } else if (name.includes('모니터') || name.includes('monitor')) {
-            console.log('→ 모니터 카테고리로 분류');
-            return '모니터';
-        } else {
+            name.includes('베지밀') || name.includes('vegemil') || name.includes('베지밀a') || name.includes('베지밀a') ||
+            name.includes('우유') || name.includes('milk') ||
+            name.includes('라면') || name.includes('ramen') || name.includes('면') ||
+            name.includes('생수') || name.includes('물') || name.includes('water') ||
+            name.includes('음료') || name.includes('drink') || name.includes('주스') || name.includes('juice') ||
+            name.includes('과자') || name.includes('snack') || name.includes('쿠키') || name.includes('cookie') ||
+            name.includes('빵') || name.includes('bread') || name.includes('떡') || name.includes('rice cake') ||
+            name.includes('쌀') || name.includes('rice') || name.includes('곡물') || name.includes('grain') ||
+            name.includes('육류') || name.includes('meat') || name.includes('닭') || name.includes('chicken') ||
+            name.includes('생선') || name.includes('fish') || name.includes('해산물') || name.includes('seafood') ||
+            name.includes('채소') || name.includes('vegetable') || name.includes('과일') || name.includes('fruit') ||
+            name.includes('냉동') || name.includes('frozen') || name.includes('냉장') || name.includes('refrigerated') ||
+            name.includes('조미료') || name.includes('seasoning') || name.includes('소스') || name.includes('sauce') ||
+            name.includes('간식') || name.includes('dessert') || name.includes('아이스크림') || name.includes('ice cream')) {
+            console.log('→ 식품 카테고리로 분류');
+            return '식품';
+        }
+        
+        // 생활 카테고리
+        else if (name.includes('화장지') || name.includes('티슈') || name.includes('tissue') ||
+                 name.includes('세제') || name.includes('detergent') || name.includes('유연제') ||
+                 name.includes('샴푸') || name.includes('shampoo') || name.includes('린스') ||
+                 name.includes('비누') || name.includes('soap') || name.includes('바디워시') || name.includes('body wash') ||
+                 name.includes('치약') || name.includes('toothpaste') || name.includes('칫솔') || name.includes('toothbrush') ||
+                 name.includes('수건') || name.includes('towel') || name.includes('타월') ||
+                 name.includes('청소') || name.includes('cleaning') || name.includes('걸레') || name.includes('mop') ||
+                 name.includes('휴지') || name.includes('toilet paper') || name.includes('화장실') ||
+                 name.includes('세탁') || name.includes('laundry') || name.includes('세탁기') || name.includes('washing machine') ||
+                 name.includes('건조') || name.includes('dryer') || name.includes('건조기') ||
+                 name.includes('주방') || name.includes('kitchen') || name.includes('주방용품') ||
+                 name.includes('욕실') || name.includes('bathroom') || name.includes('욕실용품') ||
+                 name.includes('침구') || name.includes('bedding') || name.includes('이불') || name.includes('blanket') ||
+                 name.includes('베개') || name.includes('pillow') || name.includes('매트리스') || name.includes('mattress')) {
+            console.log('→ 생활 카테고리로 분류');
+            return '생활';
+        }
+        
+        // 가전 카테고리
+        else if (name.includes('노트북') || name.includes('laptop') || name.includes('맥북') || 
+                 name.includes('lg그램') || name.includes('lg gram') || name.includes('그램') ||
+                 name.includes('마우스') || name.includes('mouse') ||
+                 name.includes('이어폰') || name.includes('헤드폰') || name.includes('earphone') ||
+                 name.includes('키보드') || name.includes('keyboard') ||
+                 name.includes('모니터') || name.includes('monitor') || name.includes('디스플레이') || name.includes('display') ||
+                 name.includes('스피커') || name.includes('speaker') ||
+                 name.includes('충전기') || name.includes('charger') || name.includes('케이블') || name.includes('cable') ||
+                 name.includes('스마트폰') || name.includes('smartphone') || name.includes('핸드폰') || name.includes('phone') ||
+                 name.includes('태블릿') || name.includes('tablet') || name.includes('아이패드') || name.includes('ipad') ||
+                 name.includes('컴퓨터') || name.includes('computer') || name.includes('pc') ||
+                 name.includes('프린터') || name.includes('printer') || name.includes('복사기') || name.includes('copier') ||
+                 name.includes('tv') || name.includes('텔레비전') || name.includes('television') ||
+                 name.includes('냉장고') || name.includes('refrigerator') || name.includes('냉동고') || name.includes('freezer') ||
+                 name.includes('전자레인지') || name.includes('microwave') || name.includes('오븐') || name.includes('oven') ||
+                 name.includes('청소기') || name.includes('vacuum') || name.includes('로봇청소기') || name.includes('robot vacuum') ||
+                 name.includes('에어컨') || name.includes('air conditioner') || name.includes('공기청정기') || name.includes('air purifier') ||
+                 name.includes('선풍기') || name.includes('fan') || name.includes('히터') || name.includes('heater') ||
+                 name.includes('전기') || name.includes('electric') || name.includes('전자') || name.includes('electronic') ||
+                 name.includes('가전') || name.includes('appliance') || name.includes('기기') || name.includes('device')) {
+            console.log('→ 가전 카테고리로 분류');
+            return '가전';
+        }
+        
+        // 유아 카테고리
+        else if (name.includes('기저귀') || name.includes('diaper') ||
+                 name.includes('분유') || name.includes('formula') ||
+                 name.includes('물티슈') || name.includes('wet wipe') ||
+                 name.includes('이유식') || name.includes('baby food') ||
+                 name.includes('유아용') || name.includes('baby') || name.includes('아기') || name.includes('infant') ||
+                 name.includes('아동') || name.includes('child') || name.includes('키즈') || name.includes('kids') ||
+                 name.includes('유모차') || name.includes('stroller') || name.includes('카시트') || name.includes('car seat') ||
+                 name.includes('유아복') || name.includes('baby clothes') || name.includes('아기옷') ||
+                 name.includes('장난감') || name.includes('toy') || name.includes('완구') ||
+                 name.includes('유아식품') || name.includes('baby food') || name.includes('아기음식') ||
+                 name.includes('수유') || name.includes('feeding') || name.includes('젖병') || name.includes('bottle') ||
+                 name.includes('유아용품') || name.includes('baby products') || name.includes('아기용품') ||
+                 name.includes('육아') || name.includes('parenting') || name.includes('육아용품') ||
+                 name.includes('아기침대') || name.includes('baby bed') || name.includes('유아침대') ||
+                 name.includes('아기욕조') || name.includes('baby bathtub') || name.includes('유아욕조')) {
+            console.log('→ 유아 카테고리로 분류');
+            return '유아';
+        }
+        
+        // 특가 카테고리 (특별 할인이나 한정 상품)
+        else if (name.includes('초특가') || name.includes('특가') || name.includes('할인') || name.includes('discount') ||
+                 name.includes('세일') || name.includes('sale') || name.includes('프로모션') || name.includes('promotion') ||
+                 name.includes('한정') || name.includes('limited') || name.includes('기간한정') ||
+                 name.includes('오늘만') || name.includes('오늘특가') || name.includes('오늘할인') ||
+                 name.includes('플래시세일') || name.includes('flash sale') || name.includes('번개세일') ||
+                 name.includes('데일리딜') || name.includes('daily deal') || name.includes('일일특가') ||
+                 name.includes('위클리딜') || name.includes('weekly deal') || name.includes('주간특가') ||
+                 name.includes('월간특가') || name.includes('monthly deal') || name.includes('월간할인') ||
+                 name.includes('쿠폰') || name.includes('coupon') || name.includes('바우처') || name.includes('voucher') ||
+                 name.includes('리베이트') || name.includes('rebate') || name.includes('캐시백') || name.includes('cashback') ||
+                 name.includes('무료배송') || name.includes('free shipping') || name.includes('배송비무료') ||
+                 name.includes('추가할인') || name.includes('additional discount') || name.includes('추가혜택') ||
+                 name.includes('이벤트') || name.includes('event') || name.includes('기획전') ||
+                 name.includes('단독') || name.includes('exclusive') || name.includes('단독특가') ||
+                 name.includes('신상품특가') || name.includes('new product sale') || name.includes('신제품할인')) {
+            console.log('→ 특가 카테고리로 분류');
+            return '특가';
+        }
+        
+        // 기타 카테고리 (위에 해당하지 않는 모든 상품)
+        else {
             console.log('→ 기타 카테고리로 분류');
             return '기타';
         }
@@ -1533,11 +2300,29 @@ class PriceComparisonSite {
                                 console.log('DOM에서 삭제된 제품 요소 제거 완료');
                             }
                             
-                            // UI 강제 업데이트
-                            this.forceUIUpdate();
+                            // 현재 관리자 패널 상태를 세션 스토리지로 확인하여 해당 화면만 새로고침
+                            const currentView = sessionStorage.getItem('currentAdminView') || 'all';
+                            
+                            console.log('제품 삭제 후 현재 뷰 새로고침:', currentView);
+                            
+                            if (currentView === 'pending') {
+                                // 승인대기 화면이면 승인대기 목록만 새로고침
+                                const pendingProducts = this.products.filter(p => p.status === 'pending');
+                                this.displayPendingProducts(pendingProducts);
+                            } else if (currentView === 'all') {
+                                // 전체 제품 화면이면 전체 제품 목록만 새로고침
+                                const approvedProducts = this.products.filter(p => p.status === 'approved');
+                                this.displayAllProductsAdmin(approvedProducts);
+                            } else if (currentView === 'reports') {
+                                // 가격 변경 신고 화면이면 신고 목록만 새로고침
+                                this.loadPriceReports().catch(err => console.error('loadPriceReports 실패:', err));
+                            }
                             
                             // 메인 화면도 즉시 업데이트
                             this.updateMainProductList();
+                            
+                            // 알림 업데이트
+                            this.updateAdminNotification();
                         } else if (change.type === 'added' || change.type === 'modified') {
                             console.log('제품 추가/수정 감지:', change.doc.id);
                             const productData = { id: change.doc.id, ...change.doc.data() };
@@ -1678,6 +2463,9 @@ class PriceComparisonSite {
             
             this.displayPendingProducts(products);
             this.setupWheelNavigation(products, 'pending');
+            
+            // 현재 화면 상태 저장
+            sessionStorage.setItem('currentAdminView', 'pending');
         } catch (error) {
             console.error('대기 중인 제품 불러오기 실패:', error);
         }
@@ -1688,13 +2476,17 @@ class PriceComparisonSite {
             console.log('전체 제품 불러오기 시작 - 로컬 데이터 사용');
             
             // 로컬 데이터 사용 (실시간 동기화된 데이터)
-            const products = this.products.filter(p => p.status !== 'rejected');
+            // rejected와 pending 상태를 제외 (승인된 제품만 표시)
+            const products = this.products.filter(p => p.status === 'approved');
             
             console.log('로컬에서 필터링된 제품 수:', products.length);
             console.log('전체 제품 목록:', products.map(p => ({ name: p.name, status: p.status })));
             
             this.displayAllProductsAdmin(products);
             this.setupWheelNavigation(products, 'all');
+            
+            // 현재 화면 상태 저장
+            sessionStorage.setItem('currentAdminView', 'all');
         } catch (error) {
             console.error('전체 제품 불러오기 실패:', error);
         }
@@ -1859,15 +2651,16 @@ class PriceComparisonSite {
             return;
         }
 
-        // 현재 필터링된 제품들만 표시
-        let filteredProducts = this.products;
+        // 승인된 제품만 표시
+        let filteredProducts = this.products.filter(p => p.status === 'approved');
+        console.log('updateMainProductList: 승인된 제품만 필터링:', filteredProducts.length, '개');
         
         // 현재 선택된 카테고리 필터 적용
         const activeCategory = document.querySelector('.category-item.active');
         if (activeCategory) {
             const categoryName = activeCategory.querySelector('.category-name').textContent;
             if (categoryName !== '전체') {
-                filteredProducts = this.products.filter(product => 
+                filteredProducts = filteredProducts.filter(product => 
                     this.getCategoryFromName(product.name) === categoryName
                 );
             }
@@ -2219,6 +3012,9 @@ class PriceComparisonSite {
             
             this.displayPriceReports(reports);
             this.setupWheelNavigation(reports, 'reports');
+            
+            // 현재 화면 상태 저장
+            sessionStorage.setItem('currentAdminView', 'reports');
         } catch (error) {
             console.error('가격 변경 신고 불러오기 실패:', error);
         }
@@ -2421,6 +3217,64 @@ class PriceComparisonSite {
         this.setupDeleteConfirmationEvents(itemType, itemId);
     }
 
+    // 모바일에서 최상단 버튼 바만 우측 최상단에 고정
+    forceHeaderToTop() {
+        if (window.innerWidth <= 768) {
+            const topButtonBar = document.querySelector('.top-button-bar');
+            const header = document.querySelector('.header');
+            const container = document.querySelector('.container');
+            
+            if (topButtonBar) {
+                topButtonBar.style.position = 'fixed';
+                topButtonBar.style.top = '0';
+                topButtonBar.style.right = '0';
+                topButtonBar.style.left = 'auto';
+                topButtonBar.style.width = 'auto';
+                topButtonBar.style.zIndex = '9999';
+                topButtonBar.style.display = 'flex';
+            }
+            
+            if (header) {
+                header.style.position = 'relative';
+                header.style.marginTop = '4px';
+            }
+            
+            if (container) {
+                container.style.marginTop = '0px';
+                container.style.paddingTop = '0px';
+            }
+        }
+    }
+    
+    // 모든 드롭다운 패널을 강제로 닫기 (관리 패널만 완전 숨김)
+    closeAllDropdowns() {
+        // 관리 패널만 완전히 숨기기
+        const adminPanel = document.getElementById('adminPanel');
+        if (adminPanel) {
+            adminPanel.classList.add('collapsed');
+            adminPanel.style.display = 'none';
+            adminPanel.style.visibility = 'hidden';
+            adminPanel.style.maxHeight = '0';
+            adminPanel.style.padding = '0';
+            adminPanel.style.overflow = 'hidden';
+            console.log('관리 패널을 완전히 숨겼습니다.');
+        }
+        
+        // 최저가신고와 필독칸은 정상적으로 닫기만 (숨기지 않음)
+        const productFormDropdown = document.getElementById('productFormDropdown');
+        const noticePanel = document.getElementById('noticePanel');
+        
+        if (productFormDropdown) {
+            productFormDropdown.classList.add('collapsed');
+            console.log('최저가신고 패널을 닫았습니다.');
+        }
+        
+        if (noticePanel) {
+            noticePanel.classList.add('collapsed');
+            console.log('필독 패널을 닫았습니다.');
+        }
+    }
+
     // 삭제 확인 팝업 이벤트 설정
     setupDeleteConfirmationEvents(itemType, itemId) {
         const yesBtn = document.getElementById('deleteConfirmYes');
@@ -2595,14 +3449,23 @@ class PriceComparisonSite {
             
             alert('제품이 성공적으로 삭제되었습니다.');
             
-            // 즉시 UI 강제 업데이트
-            this.forceUIUpdate();
+            // 현재 관리자 패널 상태를 세션 스토리지로 확인
+            const currentView = sessionStorage.getItem('currentAdminView') || 'all';
             
-            // 목록 새로고침
-            await this.loadPendingProducts();
-            await this.loadAllProducts();
+            console.log('현재 관리자 뷰:', currentView);
             
-            // 추가로 메인 화면도 새로고침
+            if (currentView === 'pending') {
+                // 승인대기 화면이면 승인대기 목록만 새로고침
+                await this.loadPendingProducts();
+            } else if (currentView === 'all') {
+                // 전체 제품 화면이면 전체 제품 목록만 새로고침
+                await this.loadAllProducts();
+            } else if (currentView === 'reports') {
+                // 가격 변경 신고 화면이면 신고 목록만 새로고침
+                await this.loadPriceReports();
+            }
+            
+            // 메인 화면도 새로고침
             this.updateMainProductList();
             
             // 알림 업데이트
@@ -2909,6 +3772,143 @@ class PriceComparisonSite {
     }
 
     // 카테고리 관련 메서드들
+    
+    // 기존 제품들의 카테고리를 새로운 대분류로 마이그레이션
+    async migrateProductCategories() {
+        console.log('제품 카테고리 마이그레이션 시작...');
+        
+        try {
+            // Firebase에서 모든 제품 가져오기
+            const productsRef = window.firebaseCollection(window.firebaseDb, 'products');
+            const snapshot = await window.firebaseGetDocs(productsRef);
+            
+            const migrationPromises = [];
+            
+            snapshot.forEach((doc) => {
+                const productData = doc.data();
+                const oldCategory = productData.category;
+                
+                // 새로운 카테고리로 변환
+                const newCategory = this.convertOldCategoryToNew(oldCategory);
+                
+                if (oldCategory !== newCategory) {
+                    console.log(`제품 "${productData.name}" 카테고리 변경: ${oldCategory} → ${newCategory}`);
+                    
+                    // Firebase 문서 업데이트
+                    const productRef = window.firebaseDoc(window.firebaseDb, 'products', doc.id);
+                    const updatePromise = window.firebaseUpdateDoc(productRef, {
+                        category: newCategory
+                    });
+                    
+                    migrationPromises.push(updatePromise);
+                }
+            });
+            
+            if (migrationPromises.length > 0) {
+                await Promise.all(migrationPromises);
+                console.log(`${migrationPromises.length}개 제품의 카테고리가 성공적으로 마이그레이션되었습니다.`);
+                
+                // 로컬 제품 목록도 업데이트
+                this.products.forEach(product => {
+                    product.category = this.convertOldCategoryToNew(product.category);
+                });
+                
+                // 카테고리 카운트 업데이트
+                this.updateCategoryCounts();
+                
+                alert('제품 카테고리가 새로운 분류 체계로 성공적으로 업데이트되었습니다!');
+            } else {
+                console.log('마이그레이션이 필요한 제품이 없습니다.');
+            }
+            
+        } catch (error) {
+            console.error('카테고리 마이그레이션 실패:', error);
+            alert('카테고리 마이그레이션 중 오류가 발생했습니다.');
+        }
+    }
+    
+    // 기존 소분류를 새로운 대분류로 변환하는 함수
+    convertOldCategoryToNew(oldCategory) {
+        const categoryMap = {
+            // 식품 카테고리
+            '두유': '식품',
+            '우유': '식품',
+            '라면': '식품',
+            '생수': '식품',
+            '음료': '식품',
+            '과자': '식품',
+            '빵': '식품',
+            '쌀': '식품',
+            '육류': '식품',
+            '생선': '식품',
+            '채소': '식품',
+            '냉동': '식품',
+            '조미료': '식품',
+            '간식': '식품',
+            
+            // 생활 카테고리
+            '화장지': '생활',
+            '세제': '생활',
+            '샴푸': '생활',
+            '비누': '생활',
+            '치약': '생활',
+            '수건': '생활',
+            '청소': '생활',
+            '휴지': '생활',
+            '세탁': '생활',
+            '건조': '생활',
+            '주방': '생활',
+            '욕실': '생활',
+            '침구': '생활',
+            '베개': '생활',
+            
+            // 가전 카테고리
+            '노트북': '가전',
+            '마우스': '가전',
+            '이어폰': '가전',
+            '키보드': '가전',
+            '모니터': '가전',
+            '스피커': '가전',
+            '충전기': '가전',
+            '스마트폰': '가전',
+            '태블릿': '가전',
+            '컴퓨터': '가전',
+            '프린터': '가전',
+            'TV': '가전',
+            '냉장고': '가전',
+            '전자레인지': '가전',
+            '청소기': '가전',
+            '에어컨': '가전',
+            '선풍기': '가전',
+            '전자제품': '가전',
+            '가전제품': '가전',
+            
+            // 유아 카테고리
+            '기저귀': '유아',
+            '분유': '유아',
+            '물티슈': '유아',
+            '이유식': '유아',
+            '유아용': '유아',
+            '아동': '유아',
+            '유모차': '유아',
+            '유아복': '유아',
+            '장난감': '유아',
+            '유아식품': '유아',
+            '수유': '유아',
+            '유아용품': '유아',
+            '육아': '유아',
+            '아기침대': '유아',
+            '아기욕조': '유아',
+            '아동용품': '유아',
+            '육아용품': '유아',
+            
+            // 특가 카테고리
+            '초특가': '특가'
+        };
+        
+        return categoryMap[oldCategory] || '기타';
+    }
+    
     updateCategoryCounts() {
         const approvedProducts = this.products.filter(p => p.status === 'approved');
         
@@ -2920,35 +3920,17 @@ class PriceComparisonSite {
         // 전체 제품 수
         document.getElementById('totalCount').textContent = approvedProducts.length;
         
-        // 카테고리별 제품 수
-        document.getElementById('soyMilkCount').textContent = 
-            approvedProducts.filter(p => p.category === '두유').length;
-        document.getElementById('laptopCount').textContent = 
-            approvedProducts.filter(p => p.category === '노트북').length;
-        document.getElementById('mouseCount').textContent = 
-            approvedProducts.filter(p => p.category === '마우스').length;
-        document.getElementById('earphoneCount').textContent = 
-            approvedProducts.filter(p => p.category === '이어폰').length;
-        document.getElementById('milkCount').textContent = 
-            approvedProducts.filter(p => p.category === '우유').length;
-        document.getElementById('ramenCount').textContent = 
-            approvedProducts.filter(p => p.category === '라면').length;
-        document.getElementById('waterCount').textContent = 
-            approvedProducts.filter(p => p.category === '생수').length;
-        document.getElementById('tissueCount').textContent = 
-            approvedProducts.filter(p => p.category === '화장지').length;
-        document.getElementById('detergentCount').textContent = 
-            approvedProducts.filter(p => p.category === '세제').length;
-        document.getElementById('shampooCount').textContent = 
-            approvedProducts.filter(p => p.category === '샴푸').length;
-        document.getElementById('diaperCount').textContent = 
-            approvedProducts.filter(p => p.category === '기저귀').length;
-        document.getElementById('formulaCount').textContent = 
-            approvedProducts.filter(p => p.category === '분유').length;
-        document.getElementById('wipesCount').textContent = 
-            approvedProducts.filter(p => p.category === '물티슈').length;
-        document.getElementById('babyFoodCount').textContent = 
-            approvedProducts.filter(p => p.category === '이유식').length;
+        // 새로운 대분류별 제품 수
+        document.getElementById('foodCount').textContent = 
+            approvedProducts.filter(p => p.category === '식품').length;
+        document.getElementById('dailyCount').textContent = 
+            approvedProducts.filter(p => p.category === '생활').length;
+        document.getElementById('electronicsCount').textContent = 
+            approvedProducts.filter(p => p.category === '가전').length;
+        document.getElementById('babyCount').textContent = 
+            approvedProducts.filter(p => p.category === '유아').length;
+        document.getElementById('specialCount').textContent = 
+            approvedProducts.filter(p => p.category === '특가').length;
         document.getElementById('etcCount').textContent = 
             approvedProducts.filter(p => p.category === '기타').length;
     }
@@ -3000,7 +3982,45 @@ function toggleSection(sectionId) {
     
     const section = document.getElementById(sectionId);
     if (section) {
-        section.classList.toggle('collapsed');
+        const isCollapsed = section.classList.contains('collapsed');
+        
+        if (isCollapsed) {
+            // 패널을 열기
+            section.classList.remove('collapsed');
+            if (sectionId === 'adminPanel') {
+                section.style.display = 'block';
+                section.style.visibility = 'visible';
+                section.style.maxHeight = '70vh';
+                section.style.padding = '20px';
+                section.style.overflow = 'auto';
+            } else if (sectionId === 'noticePanel') {
+                // 필독 패널 열기 - PC와 모바일 모두 지원
+                section.style.display = 'block';
+                section.style.visibility = 'visible';
+                section.style.maxHeight = window.innerWidth <= 768 ? '70vh' : '600px';
+                section.style.padding = '20px';
+                section.style.overflow = 'auto';
+                console.log('필독 패널을 열었습니다. 화면 크기:', window.innerWidth);
+            }
+        } else {
+            // 패널을 닫기
+            section.classList.add('collapsed');
+            if (sectionId === 'adminPanel') {
+                section.style.display = 'none';
+                section.style.visibility = 'hidden';
+                section.style.maxHeight = '0';
+                section.style.padding = '0';
+                section.style.overflow = 'hidden';
+            } else if (sectionId === 'noticePanel') {
+                // 필독 패널 닫기
+                section.style.display = 'none';
+                section.style.visibility = 'hidden';
+                section.style.maxHeight = '0';
+                section.style.padding = '0';
+                section.style.overflow = 'hidden';
+                console.log('필독 패널을 닫았습니다.');
+            }
+        }
         
         // 폼이 열릴 때 이벤트 리스너 재설정
         if (sectionId === 'productFormDropdown' && !section.classList.contains('collapsed')) {
@@ -3009,13 +4029,13 @@ function toggleSection(sectionId) {
             }
         }
         
-        // 관리자 패널이 열릴 때 승인 대기 제품 자동 로드
-        if (sectionId === 'adminPanel' && !section.classList.contains('collapsed')) {
-            if (window.priceComparisonSite) {
-                console.log('관리자 패널 열림 - 승인 대기 제품 로드');
-                window.priceComparisonSite.loadPendingProducts();
-            }
-        }
+        // 관리자 패널이 열릴 때 승인 대기 제품 자동 로드 제거
+        // if (sectionId === 'adminPanel' && !section.classList.contains('collapsed')) {
+        //     if (window.priceComparisonSite) {
+        //         console.log('관리자 패널 열림 - 승인 대기 제품 로드');
+        //         window.priceComparisonSite.loadPendingProducts();
+        //     }
+        // }
     }
 }
 
@@ -3122,3 +4142,263 @@ function refreshProductTime(productId) {
 document.addEventListener('DOMContentLoaded', () => {
     window.priceComparisonSite = new PriceComparisonSite();
 });
+
+// 숫자별 댓글 시스템의 추가 함수들
+PriceComparisonSite.prototype.editComment = function(commentId) {
+    if (!adminAuth.requireAuth()) {
+        return;
+    }
+
+    const comments = this.getNumberComments();
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return;
+
+    // 기존 댓글 요소 찾기
+    const commentElement = document.querySelector(`[data-id="${commentId}"]`);
+    if (!commentElement) return;
+
+    // 수정 폼 HTML 생성
+    const editForm = `
+        <div class="comment-edit-form" data-comment-id="${commentId}">
+            <textarea class="comment-edit-textarea" rows="3" placeholder="댓글을 수정하세요...">${comment.content}</textarea>
+            <div class="comment-edit-actions">
+                <button class="comment-action-btn save-edit-btn" onclick="priceComparisonSite.saveCommentEdit('${commentId}')">저장</button>
+                <button class="comment-action-btn cancel-edit-btn" onclick="priceComparisonSite.cancelCommentEdit('${commentId}')">취소</button>
+            </div>
+        </div>
+    `;
+
+    // 댓글 내용을 수정 폼으로 교체
+    const contentElement = commentElement.querySelector('.comment-content');
+    if (contentElement) {
+        contentElement.innerHTML = editForm;
+        
+        // 텍스트에어리어에 포커스
+        const textarea = commentElement.querySelector('.comment-edit-textarea');
+        if (textarea) {
+            textarea.focus();
+            textarea.select();
+            
+            // 키보드 단축키 이벤트 리스너 추가
+            textarea.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    // Ctrl+Enter로 저장
+                    e.preventDefault();
+                    this.saveCommentEdit(commentId);
+                } else if (e.key === 'Escape') {
+                    // Escape로 취소
+                    e.preventDefault();
+                    this.cancelCommentEdit(commentId);
+                }
+            });
+        }
+    }
+};
+
+PriceComparisonSite.prototype.saveCommentEdit = function(commentId) {
+    const commentElement = document.querySelector(`[data-id="${commentId}"]`);
+    if (!commentElement) return;
+
+    const textarea = commentElement.querySelector('.comment-edit-textarea');
+    if (!textarea) return;
+
+    const newContent = textarea.value.trim();
+    if (!newContent) {
+        alert('댓글 내용을 입력해주세요.');
+        return;
+    }
+
+    const comments = this.getNumberComments();
+    const comment = comments.find(c => c.id === commentId);
+    if (comment) {
+        comment.content = newContent;
+        localStorage.setItem('numberComments', JSON.stringify(comments));
+        this.loadNumberComments(); // 선택된 번호의 댓글만 다시 로드
+    }
+};
+
+PriceComparisonSite.prototype.cancelCommentEdit = function(commentId) {
+    // 댓글 목록을 다시 로드하여 원래 상태로 복원
+    this.loadNumberComments();
+};
+
+PriceComparisonSite.prototype.deleteComment = function(commentId) {
+    if (!adminAuth.requireAuth()) {
+        return;
+    }
+
+    if (!confirm('정말로 이 댓글을 삭제하시겠습니까? 하위 댓글도 함께 삭제됩니다.')) {
+        return;
+    }
+
+    const comments = this.getNumberComments();
+    
+    // 삭제할 댓글과 모든 하위 댓글들을 찾는 함수
+    const getCommentsToDelete = (parentId) => {
+        const toDelete = [parentId];
+        const findChildren = (id) => {
+            const children = comments.filter(c => c.parentId === id);
+            children.forEach(child => {
+                toDelete.push(child.id);
+                findChildren(child.id); // 재귀적으로 하위 댓글 찾기
+            });
+        };
+        findChildren(parentId);
+        return toDelete;
+    };
+
+    const commentsToDelete = getCommentsToDelete(commentId);
+    const filteredComments = comments.filter(c => !commentsToDelete.includes(c.id));
+    
+    localStorage.setItem('numberComments', JSON.stringify(filteredComments));
+    this.loadNumberComments(); // 선택된 번호의 댓글만 다시 로드
+};
+
+PriceComparisonSite.prototype.submitReply = function(parentId) {
+    const replyContent = prompt('댓글을 입력하세요:');
+    if (!replyContent || !replyContent.trim()) {
+        return;
+    }
+
+    const reply = {
+        id: Date.now().toString(),
+        content: replyContent.trim(),
+        author: '익명',
+        timestamp: new Date().toISOString(),
+        parentId: parentId,
+        number: this.selectedNumber ? this.selectedNumber.toString() : '1' // 현재 선택된 번호로 설정
+    };
+
+    this.saveNumberComment(reply);
+    this.loadNumberComments(); // 선택된 번호의 댓글만 다시 로드
+};
+
+// 공지사항별 댓글 시스템의 추가 함수들
+PriceComparisonSite.prototype.submitNoticeReply = function(parentId) {
+    const replyContent = prompt('댓글을 입력하세요:');
+    if (!replyContent || !replyContent.trim()) {
+        return;
+    }
+
+    const reply = {
+        id: Date.now().toString(),
+        content: replyContent.trim(),
+        author: '익명',
+        timestamp: new Date().toISOString(),
+        parentId: parentId,
+        noticeNumber: this.currentNoticeNumber
+    };
+
+    this.saveNoticeComment(reply);
+    this.loadNoticeComments();
+};
+
+PriceComparisonSite.prototype.editNoticeComment = function(commentId) {
+    if (!adminAuth.requireAuth()) {
+        return;
+    }
+
+    const comments = this.getNoticeComments();
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return;
+
+    // 기존 댓글 요소 찾기
+    const commentElement = document.querySelector(`[data-id="${commentId}"]`);
+    if (!commentElement) return;
+
+    // 수정 폼 HTML 생성
+    const editForm = `
+        <div class="comment-edit-form" data-comment-id="${commentId}">
+            <textarea class="comment-edit-textarea" rows="3" placeholder="댓글을 수정하세요...">${comment.content}</textarea>
+            <div class="comment-edit-actions">
+                <button class="comment-action-btn save-edit-btn" onclick="priceComparisonSite.saveNoticeCommentEdit('${commentId}')">저장</button>
+                <button class="comment-action-btn cancel-edit-btn" onclick="priceComparisonSite.cancelNoticeCommentEdit('${commentId}')">취소</button>
+            </div>
+        </div>
+    `;
+
+    // 댓글 내용을 수정 폼으로 교체
+    const contentElement = commentElement.querySelector('.comment-content');
+    if (contentElement) {
+        contentElement.innerHTML = editForm;
+        
+        // 텍스트에어리어에 포커스
+        const textarea = commentElement.querySelector('.comment-edit-textarea');
+        if (textarea) {
+            textarea.focus();
+            textarea.select();
+            
+            // 키보드 단축키 이벤트 리스너 추가
+            textarea.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    // Ctrl+Enter로 저장
+                    e.preventDefault();
+                    this.saveNoticeCommentEdit(commentId);
+                } else if (e.key === 'Escape') {
+                    // Escape로 취소
+                    e.preventDefault();
+                    this.cancelNoticeCommentEdit(commentId);
+                }
+            });
+        }
+    }
+};
+
+PriceComparisonSite.prototype.saveNoticeCommentEdit = function(commentId) {
+    const commentElement = document.querySelector(`[data-id="${commentId}"]`);
+    if (!commentElement) return;
+
+    const textarea = commentElement.querySelector('.comment-edit-textarea');
+    if (!textarea) return;
+
+    const newContent = textarea.value.trim();
+    if (!newContent) {
+        alert('댓글 내용을 입력해주세요.');
+        return;
+    }
+
+    const comments = this.getNoticeComments();
+    const comment = comments.find(c => c.id === commentId);
+    if (comment) {
+        comment.content = newContent;
+        localStorage.setItem('noticeComments', JSON.stringify(comments));
+        this.loadNoticeComments();
+    }
+};
+
+PriceComparisonSite.prototype.cancelNoticeCommentEdit = function(commentId) {
+    // 댓글 목록을 다시 로드하여 원래 상태로 복원
+    this.loadNoticeComments();
+};
+
+PriceComparisonSite.prototype.deleteNoticeComment = function(commentId) {
+    if (!adminAuth.requireAuth()) {
+        return;
+    }
+
+    if (!confirm('정말로 이 댓글을 삭제하시겠습니까? 하위 댓글도 함께 삭제됩니다.')) {
+        return;
+    }
+
+    const comments = this.getNoticeComments();
+    
+    // 삭제할 댓글과 모든 하위 댓글들을 찾는 함수
+    const getCommentsToDelete = (parentId) => {
+        const toDelete = [parentId];
+        const findChildren = (id) => {
+            const children = comments.filter(c => c.parentId === id);
+            children.forEach(child => {
+                toDelete.push(child.id);
+                findChildren(child.id); // 재귀적으로 하위 댓글 찾기
+            });
+        };
+        findChildren(parentId);
+        return toDelete;
+    };
+
+    const commentsToDelete = getCommentsToDelete(commentId);
+    const filteredComments = comments.filter(c => !commentsToDelete.includes(c.id));
+    
+    localStorage.setItem('noticeComments', JSON.stringify(filteredComments));
+    this.loadNoticeComments();
+};

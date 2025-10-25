@@ -14,9 +14,20 @@
     function loadGoogleAnalytics() {
         console.log('Google Analytics 동적 로드 시작...');
         
-        const script = document.createElement('script');
-        script.async = true;
-        script.src = 'https://www.googletagmanager.com/gtag/js?id=G-4B3GWTJ2B3';
+    // 환경별 측정 ID 자동 선택
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1';
+    
+    const measurementId = isLocalhost ? 
+        'G-BVJPXJP2T9' :  // 로컬 개발용 (Netlify)
+        'G-4B3GWTJ2B3';   // 프로덕션용 (GitHub Pages)
+    
+    console.log('현재 환경:', isLocalhost ? '로컬 개발' : '프로덕션');
+    console.log('사용할 측정 ID:', measurementId);
+    
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;
         
         script.onload = function() {
             console.log('Google Analytics 스크립트 로드 성공');
@@ -27,7 +38,7 @@
             window.gtag = gtag;
             
             gtag('js', new Date());
-            gtag('config', 'G-BVJPXJP2T9', {
+            gtag('config', measurementId, {
                 page_title: '절대방어 쇼핑 - 가격비교 사이트',
                 page_location: window.location.href,
                 send_page_view: true,

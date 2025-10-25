@@ -265,16 +265,23 @@ const firebaseConfig = {
             </div>
 
             <div class="header-right">
-                <button class="header-btn" onclick="toggleSection('adminPanel')">
+                <button class="header-btn" id="adminBtn" onclick="toggleSection('adminPanel')">
                     ⚙️ 관리
+                    <span id="adminNotification" class="admin-notification hidden">•</span>
                 </button>
                 <div id="adminPanel" class="header-dropdown collapsed">
                     <div class="admin-panel">
                         <div class="admin-controls">
-                            <button id="loadPendingProducts" class="admin-btn">승인 대기 제품 보기</button>
-                            <button id="loadAllProducts" class="admin-btn">전체 제품 보기</button>
-                            <button id="loadPriceReports" class="admin-btn">가격 변경 신고 보기</button>
-                            <button id="adminLogout" class="admin-btn logout-btn">🚪 관리자 로그아웃</button>
+                            <button id="loadPendingProducts" class="admin-btn">
+                                승인대기
+                                <span id="pendingProductsBadge" class="admin-badge hidden">0</span>
+                            </button>
+                            <button id="loadAllProducts" class="admin-btn">전체</button>
+                            <button id="loadPriceReports" class="admin-btn">
+                                변경신고
+                                <span id="priceReportsBadge" class="admin-badge hidden">0</span>
+                            </button>
+                            <button id="adminLogout" class="admin-btn logout-btn">🚪 로그아웃</button>
                         </div>
                         <div id="pendingProductsList" class="pending-products-list"></div>
                     </div>

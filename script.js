@@ -5,8 +5,55 @@ class AdminAuth {
     constructor() {
         this.adminPassword = 'jsmwta5556'; // 관리자 비밀번호
         this.isAuthenticated = false;
-        this.sessionTimeout = 30 * 60 * 1000; // 30분 세션 타임아웃
+        this.sessionTimeout = 2 * 60 * 60 * 1000; // 2시간 세션 타임아웃
         this.sessionStartTime = null;
+        this.lastActivityTime = null;
+        this.sessionCheckInterval = null;
+        this.init();
+    }
+
+    // 초기화 - 세션 체크 시작
+    init() {
+        // 세션 자동 체크 (1분마다)
+        this.sessionCheckInterval = setInterval(() => {
+            this.checkSession();
+        }, 60000); // 1분마다 체크
+        
+        // 마지막 활동 시간 업데이트 (이벤트 리스너)
+        this.setupActivityTracking();
+    }
+
+    // 마지막 활동 시간 추적
+    setupActivityTracking() {
+        // 클릭, 키보드, 스크롤 등의 활동 감지
+        const activities = ['click', 'keydown', 'scroll', 'mousemove', 'touchstart'];
+        
+        activities.forEach(activity => {
+            document.addEventListener(activity, () => {
+                if (this.isAuthenticated) {
+                    this.updateLastActivityTime();
+                }
+            }, { passive: true });
+        });
+        
+        // 관리자 패널 열기/닫기도 활동으로 간주
+        const adminPanel = document.getElementById('adminPanel');
+        if (adminPanel) {
+            const observer = new MutationObserver(() => {
+                if (this.isAuthenticated) {
+                    this.updateLastActivityTime();
+                }
+            });
+            observer.observe(adminPanel, { attributes: true, attributeFilter: ['class'] });
+        }
+    }
+
+    // 마지막 활동 시간 업데이트
+    updateLastActivityTime() {
+        const now = Date.now();
+        this.lastActivityTime = now;
+        localStorage.setItem('admin_last_activity', now.toString());
+        console.log('활동 시간 업데이트:', new Date(now).toLocaleString());
     }
 
     // 관리자 인증
@@ -14,10 +61,15 @@ class AdminAuth {
         const password = prompt('관리자 비밀번호를 입력하세요:');
         if (password === this.adminPassword) {
             this.isAuthenticated = true;
-            this.sessionStartTime = Date.now();
+            const now = Date.now();
+            this.sessionStartTime = now;
+            this.lastActivityTime = now;
+            
             localStorage.setItem('admin_session', 'true');
-            localStorage.setItem('admin_time', this.sessionStartTime.toString());
-            console.log('관리자 인증 성공');
+            localStorage.setItem('admin_time', now.toString());
+            localStorage.setItem('admin_last_activity', now.toString());
+            
+            console.log('관리자 인증 성공 - 2시간 세션 시작');
             return true;
         } else {
             alert('잘못된 비밀번호입니다.');
@@ -26,19 +78,30 @@ class AdminAuth {
         }
     }
 
-    // 세션 확인
+    // 세션 확인 (마지막 활동 시간 기준)
     checkSession() {
         const session = localStorage.getItem('admin_session');
-        const sessionTime = localStorage.getItem('admin_time');
+        const lastActivity = localStorage.getItem('admin_last_activity');
         
-        if (session === 'true' && sessionTime) {
-            const elapsed = Date.now() - parseInt(sessionTime);
+        if (session === 'true' && lastActivity) {
+            const lastActivityTime = parseInt(lastActivity);
+            const elapsed = Date.now() - lastActivityTime;
+            
             if (elapsed < this.sessionTimeout) {
+                // 세션 유효
                 this.isAuthenticated = true;
-                this.sessionStartTime = parseInt(sessionTime);
+                this.lastActivityTime = lastActivityTime;
+                
+                // 남은 시간 표시 (선택사항)
+                const remainingTime = Math.floor((this.sessionTimeout - elapsed) / 60000); // 분 단위
+                if (remainingTime < 5 && remainingTime > 0) {
+                    console.log(`관리자 세션: ${remainingTime}분 남음`);
+                }
+                
                 return true;
             } else {
-                // 세션 만료
+                // 세션 만료 (마지막 활동으로부터 2시간 경과)
+                console.log('관리자 세션이 만료되었습니다. (마지막 활동으로부터 2시간 경과)');
                 this.logout();
                 return false;
             }
@@ -50,14 +113,25 @@ class AdminAuth {
     logout() {
         this.isAuthenticated = false;
         this.sessionStartTime = null;
+        this.lastActivityTime = null;
         localStorage.removeItem('admin_session');
         localStorage.removeItem('admin_time');
+        localStorage.removeItem('admin_last_activity');
+        
+        // 관리자 패널 닫기
+        const adminPanel = document.getElementById('adminPanel');
+        if (adminPanel) {
+            adminPanel.classList.add('collapsed');
+        }
+        
         console.log('관리자 세션 종료');
     }
 
     // 관리자 권한 확인
     requireAuth() {
         if (this.checkSession()) {
+            // 활동 시간 업데이트
+            this.updateLastActivityTime();
             return true;
         } else {
             return this.authenticate();
@@ -242,6 +316,7 @@ class PriceComparisonSite {
         this.currentCategory = '전체';
         this.currentSearchTerm = '';
         this.isSubmitting = false; // 중복 제출 방지 플래그
+        this.previousTotalPending = -1; // 이전 대기 신고 개수 (알림 소리용, 초기값 -1)
         this.init();
     }
 
@@ -273,6 +348,267 @@ class PriceComparisonSite {
         
         this.setupEventListeners();
         await this.initFirebase();
+        
+        // Firebase 로드 완료 후 알림 업데이트 시작
+        setTimeout(() => {
+            console.log('=== 알림 시스템 시작 ===');
+            console.log('현재 제품 개수:', this.products.length);
+            console.log('현재 신고 개수:', this.priceReports ? this.priceReports.length : 0);
+            this.startNotificationCheck();
+        }, 5000);
+        
+        // 10초마다 리스너 상태 확인
+        setInterval(() => {
+            console.log('=== 리스너 상태 확인 ===');
+            console.log('제품 개수:', this.products.length);
+            console.log('신고 개수:', this.priceReports ? this.priceReports.length : 0);
+            console.log('대기 제품:', this.products.filter(p => p.status === 'pending').length);
+            console.log('대기 신고:', this.priceReports ? this.priceReports.filter(r => r.status === 'pending').length : 0);
+            this.updateAdminNotification();
+        }, 10000);
+    }
+    
+    // 알림 확인 함수
+    startNotificationCheck() {
+        console.log('알림 체크 시스템 시작');
+        
+        // 초기 대기 신고 개수 저장
+        const initializeNotification = () => {
+            const pendingProducts = this.products.filter(p => p.status === 'pending').length;
+            const pendingReports = this.priceReports ? this.priceReports.filter(r => r.status === 'pending').length : 0;
+            const totalPending = pendingProducts + pendingReports;
+            
+            console.log('초기 알림 상태:', {
+                previousTotalPending: this.previousTotalPending,
+                totalPending: totalPending,
+                pendingProducts: pendingProducts,
+                pendingReports: pendingReports
+            });
+            
+            // 초기 상태는 소리 없이 저장만
+            if (this.previousTotalPending === -1) {
+                this.previousTotalPending = totalPending;
+                console.log('초기 대기 신고 개수 저장:', totalPending);
+            }
+            
+            // 초기 알림 상태 확인
+            this.updateAdminNotification();
+        };
+        
+        // 3초 후 초기화 (Firebase 로딩 대기)
+        setTimeout(initializeNotification, 3000);
+        
+        // 2초마다 주기적으로 알림 확인 (빠른 반응)
+        setInterval(() => {
+            console.log('주기적 알림 체크 실행');
+            this.updateAdminNotification();
+        }, 2000);
+    }
+    
+    // 관리자 알림 업데이트
+    updateAdminNotification() {
+        console.log('=== 알림 업데이트 시작 ===');
+        console.log('this.products:', this.products);
+        console.log('this.priceReports:', this.priceReports);
+        
+        const notificationEl = document.getElementById('adminNotification');
+        if (!notificationEl) {
+            console.log('알림 요소를 찾을 수 없습니다.');
+            return;
+        }
+        
+        // 대기 중인 신고 개수 계산
+        const pendingProducts = this.products.filter(p => p.status === 'pending').length;
+        const pendingReports = this.priceReports ? this.priceReports.filter(r => r.status === 'pending').length : 0;
+        const totalPending = pendingProducts + pendingReports;
+        
+        console.log('현재 데이터 상태:', {
+            productsCount: this.products.length,
+            priceReportsCount: this.priceReports ? this.priceReports.length : 0,
+            pendingProducts,
+            pendingReports,
+            totalPending,
+            allProducts: this.products.map(p => ({ name: p.name, status: p.status })),
+            allReports: this.priceReports ? this.priceReports.map(r => ({ id: r.id, status: r.status })) : []
+        });
+        
+        console.log('알림 업데이트:', {
+            pendingProducts: pendingProducts,
+            pendingReports: pendingReports,
+            totalPending: totalPending,
+            previousTotalPending: this.previousTotalPending
+        });
+        
+        // 이전 개수 확인 및 저장
+        const wasDifferent = totalPending !== this.previousTotalPending;
+        const wasIncrease = totalPending > this.previousTotalPending;
+        
+        // 새로운 신고가 들어왔는지 확인 (개수가 증가한 경우)
+        if (wasIncrease && wasDifferent) {
+            // 알림 소리 재생
+            this.playNotificationSound();
+            console.log('새로운 신고 감지! 알림 소리 재생', {
+                previous: this.previousTotalPending,
+                current: totalPending,
+                increase: totalPending - this.previousTotalPending
+            });
+        }
+        
+        // 이전 개수 업데이트
+        this.previousTotalPending = totalPending;
+        
+        // 알림 표시/숨김
+        if (totalPending > 0) {
+            notificationEl.classList.remove('hidden');
+            notificationEl.textContent = totalPending;
+            console.log('알림 표시:', totalPending);
+        } else {
+            notificationEl.classList.add('hidden');
+            console.log('알림 숨김');
+        }
+        
+        // 개별 버튼 배지 업데이트
+        this.updateAdminBadges(pendingProducts, pendingReports);
+        
+        console.log(`관리자 알림 업데이트 완료: 제품 ${pendingProducts}개, 신고 ${pendingReports}개`);
+    }
+    
+    // 개별 버튼 배지 업데이트
+    updateAdminBadges(pendingProducts, pendingReports) {
+        console.log('=== 배지 업데이트 시작 ===');
+        console.log('대기 제품:', pendingProducts, '대기 신고:', pendingReports);
+        
+        const pendingProductsBadge = document.getElementById('pendingProductsBadge');
+        const priceReportsBadge = document.getElementById('priceReportsBadge');
+        
+        console.log('배지 요소 찾기:', {
+            pendingProductsBadge: !!pendingProductsBadge,
+            priceReportsBadge: !!priceReportsBadge
+        });
+        
+        // 승인 대기 제품 배지
+        if (pendingProductsBadge) {
+            if (pendingProducts > 0) {
+                pendingProductsBadge.classList.remove('hidden');
+                pendingProductsBadge.textContent = pendingProducts;
+                console.log('승인 대기 배지 업데이트:', pendingProducts);
+            } else {
+                pendingProductsBadge.classList.add('hidden');
+                console.log('승인 대기 배지 숨김');
+            }
+        } else {
+            console.warn('승인 대기 배지 요소를 찾을 수 없습니다.');
+        }
+        
+        // 가격 변경 신고 배지
+        if (priceReportsBadge) {
+            if (pendingReports > 0) {
+                priceReportsBadge.classList.remove('hidden');
+                priceReportsBadge.textContent = pendingReports;
+                console.log('가격 변경 신고 배지 업데이트:', pendingReports);
+            } else {
+                priceReportsBadge.classList.add('hidden');
+                console.log('가격 변경 신고 배지 숨김');
+            }
+        } else {
+            console.warn('가격 변경 신고 배지 요소를 찾을 수 없습니다.');
+        }
+        
+        console.log('=== 배지 업데이트 완료 ===');
+    }
+    
+    // 알림 소리 재생
+    playNotificationSound() {
+        try {
+            // Web Audio API로 알림 소리 생성 (더 큰 소리, 더 긴 시간)
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800; // 주파수
+            oscillator.type = 'sine'; // 사인파
+            
+            // 더 크고 긴 소리 (화면 꺼짐 방지)
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime); // 볼륨 증가
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5); // 시간 증가
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+            
+            console.log('알림 소리 재생 성공 (Web Audio API)');
+        } catch (error) {
+            console.log('알림 소리 재생 실패 (일부 브라우저에서 지원 안 함):', error);
+            // 대체 방법: HTML5 Audio 사용
+            this.playFallbackSound();
+        }
+    }
+    
+    // 대체 알림 소리 (HTML5 Audio)
+    playFallbackSound() {
+        try {
+            // 간단한 beep 사운드를 data URL로 생성
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjGH0fPTgjMGHm7A7+OXTw0PSKHg8sJrJQUwfMry2Yw9CRliuO/qnVgTCkii4vTEayYFLIHM8tiINggZaLzt66BPEAxPp+LwtmMcBjiQ1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjGH0fPTgjMGHm7A7+OXTw0PSKHg8sJrJQUwfMry2Yw9CRliuO/qnVgTCkii4vTEayYFLIHM8tiINggZaLzt66BPEAxPp+LwtmMcBjiQ1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjGH0fPTgjMGHm7A7+OXTw0PSKHg8sJrJQUwfMry2Yw9CRliuO/qnVgTCkii4vTEayYFLIHM8tiINggZaLzt66BPEAxPp+LwtmMcBjiQ1/LMeSwFJHfH8N2QQAo=');
+            audio.volume = 0.5; // 볼륨 증가
+            
+            // 화면 꺼짐 방지를 위한 Promise 체인
+            const playPromise = audio.play();
+            
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        console.log('알림 소리 재생 성공 (HTML5 Audio)');
+                    })
+                    .catch(error => {
+                        console.log('알림 소리 재생 실패 (사용자 상호작용 필요):', error);
+                        // 최후의 수단: 여러 번 반복 재생 시도
+                        this.retryPlaySound();
+                    });
+            }
+        } catch (error) {
+            console.log('대체 알림 소리 재생 실패:', error);
+            this.retryPlaySound();
+        }
+    }
+    
+    // 알림 소리 재생 재시도 (여러 번 반복)
+    retryPlaySound() {
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        const tryPlay = () => {
+            retryCount++;
+            console.log(`알림 소리 재생 재시도 ${retryCount}/${maxRetries}`);
+            
+            // 브라우저 API로 직접 소리 생성
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = 800;
+                osc.type = 'sine';
+                
+                gain.gain.setValueAtTime(0.6, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.4);
+                
+                console.log('알림 소리 재생 성공 (재시도)');
+            } catch (err) {
+                console.log('알림 소리 재시도 실패:', err);
+                if (retryCount < maxRetries) {
+                    setTimeout(tryPlay, 500);
+                }
+            }
+        };
+        
+        tryPlay();
     }
 
 
@@ -674,9 +1010,26 @@ class PriceComparisonSite {
             }
             
             // Firebase에 가격 변경 신고 저장
+            console.log('=== 가격 변경 신고 제출 시작 ===');
             await window.firebaseAddDoc(window.firebaseCollection(window.firebaseDb, 'priceReports'), priceChange);
             alert('가격 변경 신고가 접수되었습니다. 검토 후 반영됩니다.');
             gaTracker.trackFormSubmit('price_report', true);
+            
+            // 수동으로 로컬 배열에 신고 추가 및 즉시 알림 업데이트
+            const reportData = {
+                ...priceChange,
+                id: `temp_${Date.now()}` // 임시 ID
+            };
+            
+            // 로컬 배열에 추가
+            if (!this.priceReports) {
+                this.priceReports = [];
+            }
+            this.priceReports.push(reportData);
+            
+            // 즉시 알림 업데이트 강제 실행
+            console.log('신고 제출 후 즉시 알림 업데이트 실행');
+            this.updateAdminNotification();
         } catch (error) {
             console.error('가격 변경 신고 실패:', error);
             alert('신고 접수에 실패했습니다. 다시 시도해주세요.');
@@ -703,19 +1056,25 @@ class PriceComparisonSite {
         // 관리자 버튼들
         document.getElementById('loadPendingProducts').addEventListener('click', () => {
             if (adminAuth.requireAuth()) {
-            this.loadPendingProducts();
+                this.loadPendingProducts();
+                // 알림 업데이트
+                this.updateAdminNotification();
             }
         });
         
         document.getElementById('loadAllProducts').addEventListener('click', () => {
             if (adminAuth.requireAuth()) {
-            this.loadAllProducts();
+                this.loadAllProducts();
+                // 알림 업데이트
+                this.updateAdminNotification();
             }
         });
         
         document.getElementById('loadPriceReports').addEventListener('click', () => {
             if (adminAuth.requireAuth()) {
-            this.loadPriceReports();
+                this.loadPriceReports();
+                // 알림 업데이트
+                this.updateAdminNotification();
             }
         });
         
@@ -859,6 +1218,8 @@ class PriceComparisonSite {
             
             // 제출 완료 후 플래그 리셋
             this.isSubmitting = false;
+            
+            // 알림은 주기적으로 업데이트됨 (10초마다)
             
         } catch (error) {
             console.error('Firebase에 제품 저장 실패:', error);
@@ -1132,13 +1493,10 @@ class PriceComparisonSite {
                 firebaseReports.push(report);
             });
             
-            // 기존 데이터와 병합 (중복 제거)
-            const existingIds = new Set(this.priceReports.map(r => r.id));
-            const newFirebaseReports = firebaseReports.filter(r => !existingIds.has(r.id));
-            this.priceReports = [...this.priceReports, ...newFirebaseReports];
+            // 전체 교체 (중복 제거 대신 Firebase 데이터를 신뢰)
+            this.priceReports = firebaseReports;
             
             console.log('Firebase에서 가격 변경 신고 불러오기 완료:', firebaseReports.length, '개');
-            console.log('새로 추가된 Firebase 신고:', newFirebaseReports.length, '개');
             console.log('전체 가격 변경 신고 목록:', this.priceReports.map(r => ({ 
                 id: r.id, 
                 productId: r.productId, 
@@ -1182,8 +1540,55 @@ class PriceComparisonSite {
                             this.updateMainProductList();
                         } else if (change.type === 'added' || change.type === 'modified') {
                             console.log('제품 추가/수정 감지:', change.doc.id);
-                            // 전체 목록 새로고침
-            this.loadProductsFromFirebase();
+                            const productData = { id: change.doc.id, ...change.doc.data() };
+                            
+                            if (change.type === 'added') {
+                                // 중복 체크
+                                const exists = this.products.find(p => p.id === productData.id);
+                                if (!exists) {
+                                    this.products.push(productData);
+                                    console.log('=== 새 제품 추가됨 ===');
+                                    console.log('제품 데이터:', productData);
+                                    console.log('현재 제품 개수:', this.products.length);
+                                    console.log('대기 중인 제품:', this.products.filter(p => p.status === 'pending').length);
+                                    
+                                    // 강제로 알림 업데이트 즉시 실행 (3번 시도)
+                                    let retryCount = 0;
+                                    const updateNotificationWithRetry = () => {
+                                        retryCount++;
+                                        console.log(`알림 업데이트 시도 ${retryCount}/3`);
+                                        this.updateAdminNotification();
+                                        
+                                        if (retryCount < 3) {
+                                            setTimeout(updateNotificationWithRetry, 100);
+                                        }
+                                    };
+                                    setTimeout(updateNotificationWithRetry, 100);
+                                } else {
+                                    console.log('이미 존재하는 제품:', productData.id);
+                                }
+                            } else if (change.type === 'modified') {
+                                // 기존 제품 수정
+                                const index = this.products.findIndex(p => p.id === change.doc.id);
+                                if (index !== -1) {
+                                    this.products[index] = productData;
+                                    console.log('제품 수정됨:', productData);
+                                }
+                            }
+                            
+                            // UI 업데이트
+                            this.forceUIUpdate();
+                            
+                            // 관리자 패널이 열려있으면 새로고침
+                            const adminPanel = document.getElementById('adminPanel');
+                            if (adminPanel && !adminPanel.classList.contains('collapsed')) {
+                                const pendingList = document.getElementById('pendingProductsList');
+                                if (pendingList && pendingList.innerHTML.includes('승인 대기')) {
+                                    this.loadPendingProducts();
+                                } else if (pendingList && pendingList.innerHTML.includes('전체 제품')) {
+                                    this.loadAllProducts();
+                                }
+                            }
                         }
                     });
                 });
@@ -1212,9 +1617,30 @@ class PriceComparisonSite {
                             const reportData = { id: change.doc.id, ...change.doc.data() };
                             
                             if (change.type === 'added') {
-                                // 새 신고 추가
-                                this.priceReports.push(reportData);
-                                console.log('새 가격 변경 신고 추가됨:', reportData);
+                                // 중복 체크
+                                const exists = this.priceReports.find(r => r.id === reportData.id);
+                                if (!exists) {
+                                    this.priceReports.push(reportData);
+                                    console.log('=== 새 가격 변경 신고 추가됨 ===');
+                                    console.log('신고 데이터:', reportData);
+                                    console.log('현재 신고 개수:', this.priceReports.length);
+                                    console.log('대기 중인 신고:', this.priceReports.filter(r => r.status === 'pending').length);
+                                    
+                                    // 강제로 알림 업데이트 즉시 실행 (3번 시도)
+                                    let retryCount = 0;
+                                    const updateNotificationWithRetry = () => {
+                                        retryCount++;
+                                        console.log(`알림 업데이트 시도 ${retryCount}/3`);
+                                        this.updateAdminNotification();
+                                        
+                                        if (retryCount < 3) {
+                                            setTimeout(updateNotificationWithRetry, 100);
+                                        }
+                                    };
+                                    setTimeout(updateNotificationWithRetry, 100);
+                                } else {
+                                    console.log('이미 존재하는 신고:', reportData.id);
+                                }
                             } else if (change.type === 'modified') {
                                 // 기존 신고 수정
                                 const index = this.priceReports.findIndex(r => r.id === change.doc.id);
@@ -1275,26 +1701,67 @@ class PriceComparisonSite {
     }
 
     displayPendingProducts(products) {
+        // 최신순으로 정렬 (먼저 신고한 게 위로)
+        console.log('정렬 전 products:', products.map(p => ({ 
+            name: p.name, 
+            createdAt: p.createdAt,
+            status: p.status 
+        })));
+        
+        const sortedProducts = [...products].sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+            const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+            
+            // 디버깅: 날짜 비교 결과 로그
+            console.log('날짜 비교:', {
+                nameA: a.name,
+                dateA: dateA.getTime(),
+                nameB: b.name,
+                dateB: dateB.getTime(),
+                result: dateA - dateB
+            });
+            
+            return dateA - dateB; // 최신순 (나중에 신고한 게 위에)
+        });
+        
+        console.log('정렬 후 products:', sortedProducts.map(p => ({ 
+            name: p.name, 
+            createdAt: p.createdAt 
+        })));
+        
         const adminContent = document.getElementById('pendingProductsList');
         adminContent.innerHTML = `
-            <h3>승인 대기 중인 제품 (${products.length}개)</h3>
+            <h3>승인 대기 중인 제품 (${sortedProducts.length}개)</h3>
             <div class="pending-products">
-                ${products.map(product => this.createPendingProductElement(product)).join('')}
+                ${sortedProducts.map(product => this.createPendingProductElement(product)).join('')}
             </div>
         `;
+        
+        // 드래그 스크롤 설정
+        this.setupDragScroll();
     }
 
     displayAllProductsAdmin(products) {
+        // 가격순으로 정렬 (낮은 가격이 위로)
+        const sortedProducts = [...products].sort((a, b) => {
+            const priceA = this.calculateFinalPrice(a) || 0;
+            const priceB = this.calculateFinalPrice(b) || 0;
+            return priceA - priceB; // 낮은 가격이 위에
+        });
+        
         const adminContent = document.getElementById('pendingProductsList');
         adminContent.innerHTML = `
-            <h3>전체 제품 관리 (${products.length}개)</h3>
+            <h3>전체 제품 관리 (${sortedProducts.length}개)</h3>
             <div class="all-products">
-                ${products.map(product => this.createAllProductElement(product)).join('')}
+                ${sortedProducts.map(product => this.createAllProductElement(product)).join('')}
             </div>
         `;
         
         // 마우스 휠 네비게이션 설정
-        this.setupWheelNavigation(products, 'all');
+        this.setupWheelNavigation(sortedProducts, 'all');
+        
+        // 드래그 스크롤 설정
+        this.setupDragScroll();
     }
 
     createPendingProductElement(product) {
@@ -1305,8 +1772,8 @@ class PriceComparisonSite {
                 <div class="product-info">
                     <h4>${product.name}</h4>
                     <p><strong>쇼핑몰:</strong> ${product.store}</p>
-                    <p><strong>가격:</strong> ${product.originalPrice.toLocaleString()}원</p>
-                    <p><strong>최종가격:</strong> ${finalPrice.toLocaleString()}원</p>
+                    <p><strong class="price-label">가격:</strong> <span class="price-value">${product.originalPrice.toLocaleString()}원</span></p>
+                    <p><strong>최종가격:</strong> <span class="final-price-value">${finalPrice.toLocaleString()}원</span></p>
                     <p><strong>카테고리:</strong> ${product.category}</p>
                     <p><strong>신고자:</strong> ${product.submittedBy}</p>
                     <p><strong>링크:</strong> <a href="${product.link}" target="_blank">제품 보기</a></p>
@@ -1328,20 +1795,25 @@ class PriceComparisonSite {
         const statusClass = product.status === 'approved' ? 'status-approved' : 
                            product.status === 'pending' ? 'status-pending' : 'status-rejected';
         
+        // 제품 정보 시간 표시 (Firebase에서 가져온 시간 또는 현재 시간)
+        const lastUpdated = product.lastUpdated ? this.formatUpdateTime(product.lastUpdated) : '미확인';
+        
         return `
             <div class="admin-product-item all-product-item" data-product-id="${product.id}" draggable="true">
                 <div class="product-info">
                     <h4>${product.name}</h4>
                     <p><strong>쇼핑몰:</strong> ${product.store}</p>
-                    <p><strong>가격:</strong> ${product.originalPrice.toLocaleString()}원</p>
-                    <p><strong>최종가격:</strong> ${finalPrice.toLocaleString()}원</p>
+                    <p><strong class="price-label">가격:</strong> <span class="price-value">${product.originalPrice.toLocaleString()}원</span></p>
+                    <p><strong>최종가격:</strong> <span class="final-price-value">${finalPrice.toLocaleString()}원</span></p>
                     <p><strong>카테고리:</strong> ${product.category}</p>
                     <p><strong>상태:</strong> <span class="${statusClass}">${statusText}</span></p>
                     <p><strong>등록자:</strong> ${product.submittedBy}</p>
+                    <p><strong>마지막 확인:</strong> <span id="lastUpdated-${product.id}" class="last-updated-time">${lastUpdated}</span></p>
                 </div>
                 <div class="admin-controls">
                     ${product.status !== 'approved' ? `<button class="approve-btn" onclick="approveProduct('${product.id}')">승인</button>` : ''}
                     <button class="edit-btn" onclick="editProduct('${product.id}')">수정</button>
+                    <button class="refresh-btn" onclick="refreshProductTime('${product.id}')">🔄 갱신</button>
                     ${product.status !== 'rejected' ? `<button class="reject-btn" onclick="showDeleteConfirmation('product', '${product.id}', '${product.name}')">삭제</button>` : ''}
                     <a href="${product.link || '#'}" target="_blank" class="link-btn">연결</a>
                 </div>
@@ -1689,9 +2161,46 @@ class PriceComparisonSite {
             alert('제품이 승인되었습니다.');
             this.loadPendingProducts();
             
+            // 알림 업데이트
+            this.updateAdminNotification();
+            
         } catch (error) {
             console.error('제품 승인 실패:', error);
             alert('제품 승인에 실패했습니다.');
+        }
+    }
+
+    async refreshProductTime(productId) {
+        try {
+            console.log('제품 시간 갱신 시작:', productId);
+            
+            const now = new Date();
+            const nowISO = now.toISOString();
+            
+            // Firebase에서 제품 업데이트
+            const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
+            await window.firebaseUpdateDoc(productRef, {
+                lastUpdated: nowISO
+            });
+            
+            // 로컬 데이터도 업데이트
+            const productIndex = this.products.findIndex(p => p.id === productId);
+            if (productIndex !== -1) {
+                this.products[productIndex].lastUpdated = nowISO;
+            }
+            
+            // UI 업데이트
+            const lastUpdatedElement = document.getElementById(`lastUpdated-${productId}`);
+            if (lastUpdatedElement) {
+                lastUpdatedElement.textContent = this.formatUpdateTime(nowISO);
+            }
+            
+            console.log('제품 시간 갱신 완료:', nowISO);
+            alert('확인 시간이 업데이트되었습니다.');
+            
+        } catch (error) {
+            console.error('제품 시간 갱신 실패:', error);
+            alert('시간 업데이트에 실패했습니다.');
         }
     }
 
@@ -1716,9 +2225,37 @@ class PriceComparisonSite {
     }
 
     displayPriceReports(reports) {
+        // 최신순으로 정렬 (먼저 신고한 게 위로)
+        console.log('정렬 전 reports:', reports.map(r => ({ 
+            id: r.id,
+            reportedAt: r.reportedAt,
+            status: r.status 
+        })));
+        
+        const sortedReports = [...reports].sort((a, b) => {
+            const dateA = a.reportedAt ? new Date(a.reportedAt) : new Date(0);
+            const dateB = b.reportedAt ? new Date(b.reportedAt) : new Date(0);
+            
+            // 디버깅: 날짜 비교 결과 로그
+            console.log('날짜 비교:', {
+                idA: a.id,
+                dateA: dateA.getTime(),
+                idB: b.id,
+                dateB: dateB.getTime(),
+                result: dateA - dateB
+            });
+            
+            return dateA - dateB; // 최신순 (나중에 신고한 게 위에)
+        });
+        
+        console.log('정렬 후 reports:', sortedReports.map(r => ({ 
+            id: r.id,
+            reportedAt: r.reportedAt 
+        })));
+        
         const adminContent = document.getElementById('pendingProductsList');
         
-        if (reports.length === 0) {
+        if (sortedReports.length === 0) {
             adminContent.innerHTML = `
                 <h3>가격 변경 신고 (0개)</h3>
                 <div class="no-reports">
@@ -1729,11 +2266,59 @@ class PriceComparisonSite {
         }
         
         adminContent.innerHTML = `
-            <h3>가격 변경 신고 (${reports.length}개)</h3>
+            <h3>가격 변경 신고 (${sortedReports.length}개)</h3>
             <div class="price-reports">
-                ${reports.map(report => this.createPriceReportElement(report)).join('')}
+                ${sortedReports.map(report => this.createPriceReportElement(report)).join('')}
             </div>
         `;
+        
+        // 드래그 스크롤 설정
+        this.setupDragScroll();
+    }
+
+    // 드래그 스크롤 설정
+    setupDragScroll() {
+        const adminPanel = document.querySelector('.admin-panel');
+        if (!adminPanel) return;
+
+        let isDragging = false;
+        let startY = 0;
+        let scrollStart = 0;
+
+        adminPanel.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startY = e.clientY;
+            scrollStart = adminPanel.scrollTop;
+            adminPanel.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const deltaY = startY - e.clientY;
+            adminPanel.scrollTop = scrollStart + deltaY;
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                adminPanel.style.cursor = 'default';
+            }
+        });
+
+        // 터치 이벤트 (모바일)
+        let touchStartY = 0;
+        let touchScrollStart = 0;
+
+        adminPanel.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+            touchScrollStart = adminPanel.scrollTop;
+        });
+
+        adminPanel.addEventListener('touchmove', (e) => {
+            const deltaY = touchStartY - e.touches[0].clientY;
+            adminPanel.scrollTop = touchScrollStart + deltaY;
+        });
     }
 
     // 마우스 휠 네비게이션 설정
@@ -2020,6 +2605,9 @@ class PriceComparisonSite {
             // 추가로 메인 화면도 새로고침
             this.updateMainProductList();
             
+            // 알림 업데이트
+            this.updateAdminNotification();
+            
         } catch (error) {
             console.error('제품 삭제 실패:', error);
             console.error('에러 상세:', {
@@ -2176,8 +2764,8 @@ class PriceComparisonSite {
                 <div class="report-info">
                     <h4>${productName}</h4>
                     <p><strong>제품 ID:</strong> ${report.productId}</p>
-                    <p><strong>기존 가격:</strong> ${report.oldPrice.toLocaleString()}원</p>
-                    <p><strong>신고 가격:</strong> ${report.newPrice.toLocaleString()}원</p>
+                    <p><strong class="old-price-label">기존 가격:</strong> <span class="old-price-value">${report.oldPrice.toLocaleString()}원</span></p>
+                    <p><strong>신고 가격:</strong> <span class="reported-price">${report.newPrice.toLocaleString()}원</span></p>
                     <p><strong>변동:</strong> <span class="${changeClass}">${changeText}</span></p>
                     <p><strong>신고자:</strong> ${report.reporter}</p>
                     <p><strong>신고 시간:</strong> ${this.formatUpdateTime(report.reportedAt)}</p>
@@ -2254,6 +2842,9 @@ class PriceComparisonSite {
             this.loadPriceReports();
             this.displayAllProducts();
             
+            // 알림 업데이트
+            this.updateAdminNotification();
+            
         } catch (error) {
             console.error('가격 변경 승인 실패:', error);
             console.error('오류 상세:', {
@@ -2292,6 +2883,9 @@ class PriceComparisonSite {
             
             // UI 새로고침
             this.loadPriceReports();
+            
+            // 알림 업데이트
+            this.updateAdminNotification();
             
         } catch (error) {
             console.error('가격 변경 거부 실패:', error);
@@ -2515,6 +3109,12 @@ function editPriceReport(reportId) {
 function reportPriceChange(productId, currentPrice) {
     if (window.priceComparisonSite) {
         window.priceComparisonSite.reportPriceChange(productId, currentPrice);
+    }
+}
+
+function refreshProductTime(productId) {
+    if (window.priceComparisonSite) {
+        window.priceComparisonSite.refreshProductTime(productId);
     }
 }
 

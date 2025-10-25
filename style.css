@@ -383,11 +383,36 @@ body {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
+    position: relative;
 }
 
 .admin-btn:hover {
     background: linear-gradient(135deg, #d97706, #ea580c);
     transform: translateY(-2px);
+}
+
+/* 관리자 버튼 배지 스타일 */
+.admin-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+    animation: pulse 2s infinite;
+}
+
+.admin-badge.hidden {
+    display: none;
 }
 
 .edit-btn {
@@ -461,7 +486,10 @@ body {
 .admin-panel {
     max-height: 70vh;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 20px;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
 }
 
 .admin-panel::-webkit-scrollbar {
@@ -756,6 +784,28 @@ body {
     gap: 20px;
 }
 
+.all-product-item {
+    background: white;
+    border: 2px solid #059669;
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    margin-bottom: 15px;
+}
+
+.all-product-item::before {
+    content: '📦 전체 제품';
+    position: absolute;
+    top: -10px;
+    right: 20px;
+    background: #059669;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
 .pending-product-item {
     background: white;
     border: 2px solid #f59e0b;
@@ -857,6 +907,28 @@ body {
     text-decoration: none;
 }
 
+.refresh-btn {
+    padding: 6px 10px;
+    background: #f59e0b;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.refresh-btn:hover {
+    background: #d97706;
+}
+
+.last-updated-time {
+    color: #2563eb;
+    font-weight: 600;
+}
+
 .price-reports {
     display: grid;
     gap: 15px;
@@ -891,6 +963,55 @@ body {
 .price-decrease {
     color: #059669;
     font-weight: 600;
+}
+
+/* 승인 대기 제품 가격 강조 - 가격 수치 빨간색, 최종가격 수치 파란색 */
+.pending-product-item .product-info .price-label {
+    color: #333;
+    font-weight: 600;
+}
+
+.pending-product-item .product-info .price-value {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+.pending-product-item .product-info .final-price-value {
+    color: #2563eb;
+    font-weight: 700;
+}
+
+/* 전체 제품 가격 강조 - 가격 수치 빨간색, 최종가격 수치 파란색 */
+.all-product-item .product-info .price-label {
+    color: #333;
+    font-weight: 600;
+}
+
+.all-product-item .product-info .price-value {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+.all-product-item .product-info .final-price-value {
+    color: #2563eb;
+    font-weight: 700;
+}
+
+/* 가격 변경 신고 가격 강조 - 기존 가격 수치만 빨간색 */
+.price-report-item .report-info .old-price-label {
+    color: #333;
+    font-weight: 600;
+}
+
+.price-report-item .report-info .old-price-value {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+/* 신고 가격 파란색 강조 */
+.price-report-item .report-info .reported-price {
+    color: #2563eb;
+    font-weight: 700;
 }
 
 .no-reports {
@@ -2129,6 +2250,47 @@ body {
     box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
 }
 
+/* 관리자 알림 배지 */
+.admin-notification {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: #ef4444;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    animation: pulse 2s infinite;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.5);
+}
+
+.admin-notification.hidden {
+    display: none;
+}
+
+/* 깜빡이는 애니메이션 */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+        background: #ef4444;
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.2);
+        background: #dc2626;
+    }
+}
+
+.header-btn {
+    position: relative;
+}
+
 /* 모바일 반응형 */
 @media (max-width: 768px) {
     .delete-confirmation-overlay {
@@ -2156,5 +2318,13 @@ body {
     .delete-yes-btn, .delete-no-btn {
         width: 100%;
         padding: 15px;
+    }
+    
+    .admin-notification {
+        top: 2px;
+        right: 2px;
+        width: 16px;
+        height: 16px;
+        font-size: 10px;
     }
 }

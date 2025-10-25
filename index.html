@@ -18,12 +18,10 @@
     const isLocalhost = window.location.hostname === 'localhost' || 
                        window.location.hostname === '127.0.0.1';
     
-    const measurementId = isLocalhost ? 
-        'G-BVJPXJP2T9' :  // 로컬 개발용 (Netlify)
-        'G-4B3GWTJ2B3';   // 프로덕션용 (GitHub Pages)
+    const measurementId = 'G-BVJPXJP2T9';  // 모든 환경에서 Netlify ID 사용
     
     console.log('현재 환경:', isLocalhost ? '로컬 개발' : '프로덕션');
-    console.log('사용할 측정 ID:', measurementId);
+    console.log('사용할 측정 ID:', measurementId, '(Netlify ID 통일)');
     
     const script = document.createElement('script');
     script.async = true;

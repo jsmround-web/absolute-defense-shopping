@@ -339,6 +339,10 @@ class PriceComparisonSite {
     }
 
     async init() {
+        console.log('PriceComparisonSite 초기화 시작');
+        console.log('현재 화면 크기:', window.innerWidth, 'x', window.innerHeight);
+        console.log('User Agent:', navigator.userAgent);
+        
         // 페이지뷰 추적
         gaTracker.trackPageView('절대방어 쇼핑 - 메인 페이지');
         
@@ -347,6 +351,16 @@ class PriceComparisonSite {
         
         // 모든 드롭다운 패널을 강제로 닫기
         this.closeAllDropdowns();
+        
+        // PC에서 버튼 바 상태 확인
+        if (window.innerWidth > 768) {
+            const topButtonBar = document.querySelector('.top-button-bar');
+            if (topButtonBar) {
+                console.log('PC 버튼 바 상태:', topButtonBar.style.display, topButtonBar.classList);
+            } else {
+                console.log('PC 버튼 바를 찾을 수 없습니다.');
+            }
+        }
         
         // 추가로 관리 패널만 완전히 숨기기
         setTimeout(() => {
@@ -2113,6 +2127,24 @@ class PriceComparisonSite {
             this.setupRealtimeListener();
             
             console.log('Firebase 설정 완료');
+            
+        // Firebase 초기화 후 PC 버튼 바 상태 재확인
+        if (window.innerWidth > 768) {
+            const topButtonBar = document.querySelector('.top-button-bar');
+            if (topButtonBar) {
+                console.log('Firebase 후 PC 버튼 바 상태:', topButtonBar.style.display, topButtonBar.classList);
+                // 강제로 표시
+                topButtonBar.style.display = 'flex';
+            } else {
+                console.log('Firebase 후 PC 버튼 바를 찾을 수 없습니다.');
+            }
+        }
+        
+        // 상품 로딩 상태 확인
+        console.log('현재 로드된 상품 개수:', this.products.length);
+        if (this.products.length === 0) {
+            console.log('상품이 로드되지 않았습니다. Firebase 연결을 확인하세요.');
+        }
         } catch (error) {
             console.error('Firebase 초기화 실패:', error);
             gaTracker.trackError('firebase_init_error', error.message);

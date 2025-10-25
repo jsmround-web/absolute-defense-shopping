@@ -192,21 +192,21 @@ const firebaseConfig = {
     </script>
 </head>
 <body>
-    <div class="container">
-        <!-- 최상단 버튼 바 (최저가신고, 필독, 관리만) -->
-        <div class="top-button-bar">
-            <button class="header-btn mini-btn" onclick="toggleSection('productFormDropdown')">
-                📝 최저가 신고
-            </button>
-            <button class="header-btn" onclick="toggleSection('noticePanel')">
-                📢 필독
-            </button>
-            <button class="header-btn" id="adminBtn" onclick="toggleSection('adminPanel')">
-                ⚙️ 관리
-                <span id="adminNotification" class="admin-notification hidden">•</span>
-            </button>
-        </div>
+    <!-- 최상단 버튼 바 (최저가신고, 필독, 관리만) -->
+    <div class="top-button-bar">
+        <button class="header-btn mini-btn" onclick="toggleSection('productFormDropdown')">
+            📝 최저가 신고
+        </button>
+        <button class="header-btn" onclick="toggleSection('noticePanel')">
+            📢 필독
+        </button>
+        <button class="header-btn" id="adminBtn" onclick="toggleSection('adminPanel')">
+            ⚙️ 관리
+            <span id="adminNotification" class="admin-notification hidden">•</span>
+        </button>
+    </div>
 
+    <div class="container">
         <!-- 헤더 -->
         <header class="header">
             <div class="header-left">

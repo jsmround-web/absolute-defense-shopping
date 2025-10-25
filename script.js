@@ -352,14 +352,93 @@ class PriceComparisonSite {
         // 모든 드롭다운 패널을 강제로 닫기
         this.closeAllDropdowns();
         
-        // PC에서 버튼 바 상태 확인
+        // PC에서 버튼 바 상태 확인 및 강제 표시
         if (window.innerWidth > 768) {
-            const topButtonBar = document.querySelector('.top-button-bar');
-            if (topButtonBar) {
-                console.log('PC 버튼 바 상태:', topButtonBar.style.display, topButtonBar.classList);
+            const pcButtonGroup = document.querySelector('.pc-button-group');
+            const mobileButtonBar = document.querySelector('.top-button-bar.mobile-only');
+            
+            if (pcButtonGroup) {
+                console.log('PC 버튼 그룹 상태:', pcButtonGroup.style.display, pcButtonGroup.classList);
+                // PC용 버튼 그룹 강제 표시
+                pcButtonGroup.style.display = 'flex';
+                pcButtonGroup.style.gap = '4px';
+                pcButtonGroup.style.alignItems = 'center';
+                pcButtonGroup.style.marginLeft = 'auto'; // 오른쪽 끝으로 밀기
+                console.log('PC 버튼 그룹 강제 표시 설정 완료');
             } else {
-                console.log('PC 버튼 바를 찾을 수 없습니다.');
+                console.log('PC 버튼 그룹을 찾을 수 없습니다.');
             }
+            
+            // PC용 로고 스타일 강제 적용
+            const logo = document.querySelector('.logo');
+            if (logo) {
+                logo.style.fontSize = '1.98rem'; // 1.5배 크기
+                logo.style.fontWeight = '600';
+                logo.style.color = '#1e40af';
+                logo.style.textAlign = 'center';
+                logo.style.width = '100%';
+                console.log('PC 로고 스타일 강제 적용 완료');
+            }
+            
+            // PC용 헤더 그리드 레이아웃 강제 적용
+            const header = document.querySelector('.header');
+            if (header) {
+                header.style.display = 'grid';
+                header.style.gridTemplateColumns = '1fr 1fr 1fr 1fr 1fr';
+                header.style.alignItems = 'center';
+                console.log('PC 헤더 그리드 레이아웃 강제 적용 완료');
+            }
+            
+            // PC용 헤더 섹션 그리드 위치 강제 적용
+            const headerLeft = document.querySelector('.header-left');
+            const headerCenter = document.querySelector('.header-center');
+            const headerRight = document.querySelector('.header-right');
+            
+            if (headerLeft) {
+                headerLeft.style.gridColumn = '1 / 3';
+                console.log('PC header-left 그리드 위치 설정 완료');
+            }
+            
+            if (headerCenter) {
+                headerCenter.style.gridColumn = '3';
+                console.log('PC header-center 그리드 위치 설정 완료');
+            }
+            
+            if (headerRight) {
+                headerRight.style.gridColumn = '4 / 6';
+                console.log('PC header-right 그리드 위치 설정 완료');
+            }
+            
+            if (mobileButtonBar) {
+                mobileButtonBar.style.display = 'none';
+                console.log('모바일용 버튼 바 숨김 처리 완료');
+            }
+        } else {
+            // 모바일에서는 모바일용 버튼 바 표시
+            const mobileButtonBar = document.querySelector('.top-button-bar.mobile-only');
+            const pcButtonGroup = document.querySelector('.pc-button-group');
+            
+                if (mobileButtonBar) {
+                    mobileButtonBar.style.display = 'flex';
+                    mobileButtonBar.style.position = 'fixed';
+                    mobileButtonBar.style.top = '0px';
+                    mobileButtonBar.style.right = '0px';
+                    mobileButtonBar.style.zIndex = '9999';
+                    console.log('모바일용 버튼 바 표시 설정 완료');
+                }
+                
+                // 모바일용 로고 스타일 강제 적용 - 좌측 정렬
+                const logo = document.querySelector('.logo');
+                if (logo) {
+                    logo.style.textAlign = 'left';
+                    logo.style.justifySelf = 'start';
+                    console.log('모바일 로고 좌측 정렬 강제 적용 완료');
+                }
+                
+                if (pcButtonGroup) {
+                    pcButtonGroup.style.display = 'none';
+                    console.log('PC용 버튼 그룹 숨김 처리 완료');
+                }
         }
         
         // 추가로 관리 패널만 완전히 숨기기
@@ -1167,6 +1246,80 @@ class PriceComparisonSite {
         window.addEventListener('resize', () => {
             this.updateCategoryCounts();
             this.forceHeaderToTop(); // 모바일에서 헤더 위치 재조정
+            
+            // PC/모바일 버튼 강제 표시
+            if (window.innerWidth > 768) {
+                const pcButtonGroup = document.querySelector('.pc-button-group');
+                const mobileButtonBar = document.querySelector('.top-button-bar.mobile-only');
+                
+                if (pcButtonGroup) {
+                    pcButtonGroup.style.display = 'flex';
+                    pcButtonGroup.style.gap = '4px';
+                    pcButtonGroup.style.alignItems = 'center';
+                    pcButtonGroup.style.marginLeft = 'auto'; // 오른쪽 끝으로 밀기
+                }
+                
+                // PC용 로고 스타일 강제 적용
+                const logo = document.querySelector('.logo');
+                if (logo) {
+                    logo.style.fontSize = '1.98rem'; // 1.5배 크기
+                    logo.style.fontWeight = '600';
+                    logo.style.color = '#1e40af';
+                    logo.style.textAlign = 'center';
+                    logo.style.width = '100%';
+                }
+                
+                // PC용 헤더 그리드 레이아웃 강제 적용
+                const header = document.querySelector('.header');
+                if (header) {
+                    header.style.display = 'grid';
+                    header.style.gridTemplateColumns = '1fr 1fr 1fr 1fr 1fr';
+                    header.style.alignItems = 'center';
+                }
+                
+                // PC용 헤더 섹션 그리드 위치 강제 적용
+                const headerLeft = document.querySelector('.header-left');
+                const headerCenter = document.querySelector('.header-center');
+                const headerRight = document.querySelector('.header-right');
+                
+                if (headerLeft) {
+                    headerLeft.style.gridColumn = '1 / 3';
+                }
+                
+                if (headerCenter) {
+                    headerCenter.style.gridColumn = '3';
+                }
+                
+                if (headerRight) {
+                    headerRight.style.gridColumn = '4 / 6';
+                }
+                
+                if (mobileButtonBar) {
+                    mobileButtonBar.style.display = 'none';
+                }
+            } else {
+                const mobileButtonBar = document.querySelector('.top-button-bar.mobile-only');
+                const pcButtonGroup = document.querySelector('.pc-button-group');
+                
+                if (mobileButtonBar) {
+                    mobileButtonBar.style.display = 'flex';
+                    mobileButtonBar.style.position = 'fixed';
+                    mobileButtonBar.style.top = '0px';
+                    mobileButtonBar.style.right = '0px';
+                    mobileButtonBar.style.zIndex = '9999';
+                }
+                
+                // 모바일용 로고 스타일 강제 적용 - 좌측 정렬
+                const logo = document.querySelector('.logo');
+                if (logo) {
+                    logo.style.textAlign = 'left';
+                    logo.style.justifySelf = 'start';
+                }
+                
+                if (pcButtonGroup) {
+                    pcButtonGroup.style.display = 'none';
+                }
+            }
         });
     }
 
@@ -1184,6 +1337,26 @@ class PriceComparisonSite {
             editBtn.addEventListener('click', () => {
                 if (adminAuth.requireAuth()) {
                     this.toggleNoticeEdit(true);
+                }
+            });
+        }
+
+        // 추가 버튼 (관리자만 표시)
+        const addBtn = document.getElementById('addNotice');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => {
+                if (adminAuth.requireAuth()) {
+                    this.addNewNotice();
+                }
+            });
+        }
+
+        // 삭제 버튼 (관리자만 표시)
+        const deleteBtn = document.getElementById('deleteNotice');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => {
+                if (adminAuth.requireAuth()) {
+                    this.deleteNotice();
                 }
             });
         }
@@ -1219,9 +1392,9 @@ class PriceComparisonSite {
         this.setupNumberCommentListeners();
     }
 
-    // 공지1~3 클릭 이벤트 설정
+    // 공지1~5 클릭 이벤트 설정
     setupNoticeItemClickListeners() {
-        const noticeItems = ['notice1Content', 'notice2Content', 'notice3Content'];
+        const noticeItems = ['notice1Content', 'notice2Content', 'notice3Content', 'notice4Content', 'notice5Content'];
         noticeItems.forEach((itemId, index) => {
             const element = document.getElementById(itemId);
             if (element) {
@@ -1250,16 +1423,137 @@ class PriceComparisonSite {
         }
     }
 
-    // 공지1~3 개별 편집
-    editNoticeItem(noticeNumber) {
-        const currentContent = this.getNoticeData()[`notice${noticeNumber}`] || '';
-        const newContent = prompt(`공지${noticeNumber}을 수정하세요:`, currentContent);
+    // 새로운 공지 추가
+    addNewNotice() {
+        const noticeData = this.getNoticeData();
+        const existingNotices = Object.keys(noticeData).filter(key => key.startsWith('notice'));
+        const nextNoticeNumber = existingNotices.length + 1;
         
-        if (newContent !== null) {
-            const noticeData = this.getNoticeData();
-            noticeData[`notice${noticeNumber}`] = newContent.trim();
+        const content = prompt(`공지${nextNoticeNumber}의 내용을 입력하세요:`, '');
+        
+        if (content !== null && content.trim() !== '') {
+            noticeData[`notice${nextNoticeNumber}`] = content.trim();
             this.saveNoticeData(noticeData);
             this.loadNotice();
+            
+            // HTML에 새로운 공지 항목 동적 추가
+            this.addNoticeToHTML(nextNoticeNumber, content.trim());
+            
+            alert(`공지${nextNoticeNumber}이 추가되었습니다.`);
+        }
+    }
+
+    // HTML에 새로운 공지 항목 동적 추가
+    addNoticeToHTML(noticeNumber, content) {
+        const noticeDisplay = document.getElementById('noticeDisplay');
+        const subNotices = noticeDisplay.querySelector('.sub-notices');
+        
+        if (subNotices) {
+            const newNoticeItem = document.createElement('div');
+            newNoticeItem.className = 'notice-item';
+            newNoticeItem.innerHTML = `
+                <span class="notice-label">공지${noticeNumber}:</span>
+                <span id="notice${noticeNumber}Content" class="notice-content-item">${content.replace(/\n/g, ' ').substring(0, 100)}${content.length > 100 ? '...' : ''}</span>
+            `;
+            
+            subNotices.appendChild(newNoticeItem);
+            
+            // 클릭 이벤트 추가
+            const contentElement = document.getElementById(`notice${noticeNumber}Content`);
+            if (contentElement) {
+                contentElement.addEventListener('click', () => {
+                    this.showNoticeDetail(noticeNumber);
+                });
+            }
+        }
+        
+        // 편집 폼에도 새로운 textarea 추가
+        this.addNoticeToEditForm(noticeNumber);
+    }
+
+    // 편집 폼에 새로운 textarea 추가
+    addNoticeToEditForm(noticeNumber) {
+        const noticeEdit = document.getElementById('noticeEdit');
+        const form = noticeEdit.querySelector('.notice-edit-form');
+        
+        if (form) {
+            const newFormGroup = document.createElement('div');
+            newFormGroup.className = 'form-group';
+            newFormGroup.innerHTML = `
+                <label for="notice${noticeNumber}Textarea">공지${noticeNumber}</label>
+                <textarea id="notice${noticeNumber}Textarea" rows="1" placeholder="공지${noticeNumber}을 입력하세요..."></textarea>
+            `;
+            
+            // 저장/취소 버튼 앞에 삽입
+            const actions = form.querySelector('.notice-actions');
+            if (actions) {
+                form.insertBefore(newFormGroup, actions);
+            }
+        }
+    }
+
+    // 공지 삭제
+    deleteNotice() {
+        const noticeData = this.getNoticeData();
+        const existingNotices = Object.keys(noticeData).filter(key => key.startsWith('notice'));
+        
+        if (existingNotices.length === 0) {
+            alert('삭제할 공지가 없습니다.');
+            return;
+        }
+        
+        // 공지 목록 생성
+        const noticeList = existingNotices.map(key => {
+            const number = key.replace('notice', '');
+            const content = noticeData[key] || '';
+            return `${number}. ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`;
+        }).join('\n');
+        
+        const noticeNumber = prompt(`삭제할 공지 번호를 입력하세요:\n\n${noticeList}`, '');
+        
+        if (noticeNumber !== null && noticeNumber.trim() !== '') {
+            const num = parseInt(noticeNumber.trim());
+            if (isNaN(num) || num < 1) {
+                alert('올바른 공지 번호를 입력해주세요.');
+                return;
+            }
+            
+            const noticeKey = `notice${num}`;
+            if (!noticeData[noticeKey]) {
+                alert(`공지${num}이 존재하지 않습니다.`);
+                return;
+            }
+            
+            if (confirm(`정말로 공지${num}을 삭제하시겠습니까?\n\n내용: ${noticeData[noticeKey].substring(0, 100)}${noticeData[noticeKey].length > 100 ? '...' : ''}`)) {
+                delete noticeData[noticeKey];
+                this.saveNoticeData(noticeData);
+                this.loadNotice();
+                
+                // HTML에서 해당 공지 항목 제거
+                this.removeNoticeFromHTML(num);
+                
+                alert(`공지${num}이 삭제되었습니다.`);
+            }
+        }
+    }
+
+    // HTML에서 공지 항목 제거
+    removeNoticeFromHTML(noticeNumber) {
+        const noticeElement = document.getElementById(`notice${noticeNumber}Content`);
+        if (noticeElement) {
+            const noticeItem = noticeElement.closest('.notice-item');
+            if (noticeItem) {
+                noticeItem.remove();
+            }
+        }
+        
+        // 편집 폼에서도 제거
+        const textarea = document.getElementById(`notice${noticeNumber}Textarea`);
+        if (textarea) {
+            const formGroup = textarea.closest('.form-group');
+            if (formGroup) {
+                formGroup.remove();
+            }
         }
     }
 
@@ -1576,16 +1870,43 @@ class PriceComparisonSite {
             mainNoticeContent.textContent = data.mainNotice || '대문글이 없습니다.';
         }
         
-        // 공지1~3 표시 (한 줄로 제한)
-        const notices = ['notice1', 'notice2', 'notice3'];
-        notices.forEach((notice, index) => {
-            const element = document.getElementById(`${notice}Content`);
-            if (element) {
-                const content = data[notice] || `${notice.charAt(0).toUpperCase() + notice.slice(1)}이 없습니다.`;
-                // 한 줄로 제한 (줄바꿈을 공백으로 변경)
-                element.textContent = content.replace(/\n/g, ' ').substring(0, 100);
-                if (content.length > 100) {
-                    element.textContent += '...';
+        // 공지사항 동적 로드 (존재하는 공지만 표시)
+        const noticeData = this.getNoticeData();
+        const existingNotices = Object.keys(noticeData).filter(key => key.startsWith('notice'));
+        
+        // 기존 공지 항목들 제거
+        const subNotices = document.querySelector('.sub-notices');
+        if (subNotices) {
+            subNotices.innerHTML = '';
+        }
+        
+        // 존재하는 공지사항들을 순서대로 표시
+        existingNotices.sort((a, b) => {
+            const numA = parseInt(a.replace('notice', ''));
+            const numB = parseInt(b.replace('notice', ''));
+            return numA - numB;
+        });
+        
+        existingNotices.forEach(noticeKey => {
+            const noticeNumber = noticeKey.replace('notice', '');
+            const content = noticeData[noticeKey] || '';
+            
+            if (subNotices) {
+                const noticeItem = document.createElement('div');
+                noticeItem.className = 'notice-item';
+                noticeItem.innerHTML = `
+                    <span class="notice-label">공지${noticeNumber}:</span>
+                    <span id="notice${noticeNumber}Content" class="notice-content-item">${content.replace(/\n/g, ' ').substring(0, 100)}${content.length > 100 ? '...' : ''}</span>
+                `;
+                
+                subNotices.appendChild(noticeItem);
+                
+                // 클릭 이벤트 추가
+                const contentElement = document.getElementById(`notice${noticeNumber}Content`);
+                if (contentElement) {
+                    contentElement.addEventListener('click', () => {
+                        this.showNoticeDetail(parseInt(noticeNumber));
+                    });
                 }
             }
         });
@@ -1598,16 +1919,20 @@ class PriceComparisonSite {
         }
 
         const mainNoticeTextarea = document.getElementById('mainNoticeTextarea');
-        const notice1Textarea = document.getElementById('notice1Textarea');
-        const notice2Textarea = document.getElementById('notice2Textarea');
-        const notice3Textarea = document.getElementById('notice3Textarea');
-
         const data = {
-            mainNotice: mainNoticeTextarea ? mainNoticeTextarea.value.trim() : '',
-            notice1: notice1Textarea ? notice1Textarea.value.trim() : '',
-            notice2: notice2Textarea ? notice2Textarea.value.trim() : '',
-            notice3: notice3Textarea ? notice3Textarea.value.trim() : ''
+            mainNotice: mainNoticeTextarea ? mainNoticeTextarea.value.trim() : ''
         };
+
+        // 모든 공지사항 textarea 찾기
+        const noticeData = this.getNoticeData();
+        const existingNotices = Object.keys(noticeData).filter(key => key.startsWith('notice'));
+        
+        existingNotices.forEach(noticeKey => {
+            const textarea = document.getElementById(`${noticeKey}Textarea`);
+            if (textarea) {
+                data[noticeKey] = textarea.value.trim();
+            }
+        });
 
         this.saveNoticeData(data);
         this.toggleNoticeEdit(false);
@@ -1787,29 +2112,69 @@ class PriceComparisonSite {
             // 기존 데이터를 폼에 로드
             const data = this.getNoticeData();
             const mainNoticeTextarea = document.getElementById('mainNoticeTextarea');
-            const notice1Textarea = document.getElementById('notice1Textarea');
-            const notice2Textarea = document.getElementById('notice2Textarea');
-            const notice3Textarea = document.getElementById('notice3Textarea');
             
             if (mainNoticeTextarea) mainNoticeTextarea.value = data.mainNotice || '';
-            if (notice1Textarea) notice1Textarea.value = data.notice1 || '';
-            if (notice2Textarea) notice2Textarea.value = data.notice2 || '';
-            if (notice3Textarea) notice3Textarea.value = data.notice3 || '';
+            
+            // 동적으로 편집 폼 생성
+            this.createEditForm(data);
         } else {
             display.classList.remove('hidden');
             edit.classList.add('hidden');
         }
     }
 
-    // 관리자 권한에 따른 수정 버튼 표시/숨김
+    // 편집 폼 동적 생성
+    createEditForm(data) {
+        const form = document.querySelector('.notice-edit-form');
+        if (!form) return;
+        
+        // 기존 공지사항 폼 그룹들 제거 (대문글 제외)
+        const existingGroups = form.querySelectorAll('.form-group:not(:first-child)');
+        existingGroups.forEach(group => group.remove());
+        
+        // 존재하는 공지사항들을 순서대로 폼에 추가
+        const existingNotices = Object.keys(data).filter(key => key.startsWith('notice'));
+        existingNotices.sort((a, b) => {
+            const numA = parseInt(a.replace('notice', ''));
+            const numB = parseInt(b.replace('notice', ''));
+            return numA - numB;
+        });
+        
+        existingNotices.forEach(noticeKey => {
+            const noticeNumber = noticeKey.replace('notice', '');
+            const content = data[noticeKey] || '';
+            
+            const formGroup = document.createElement('div');
+            formGroup.className = 'form-group';
+            formGroup.innerHTML = `
+                <label for="notice${noticeNumber}Textarea">공지${noticeNumber}</label>
+                <textarea id="notice${noticeNumber}Textarea" rows="1" placeholder="공지${noticeNumber}을 입력하세요...">${content}</textarea>
+            `;
+            
+            // 저장/취소 버튼 앞에 삽입
+            const actions = form.querySelector('.notice-actions');
+            if (actions) {
+                form.insertBefore(formGroup, actions);
+            }
+        });
+    }
+
+    // 관리자 권한에 따른 버튼 표시/숨김
     updateNoticeEditButton() {
         const editBtn = document.getElementById('editNotice');
-        if (!editBtn) return;
+        const addBtn = document.getElementById('addNotice');
+        const deleteBtn = document.getElementById('deleteNotice');
+        
+        if (!editBtn || !addBtn || !deleteBtn) return;
 
         if (adminAuth.isAuthenticated()) {
             editBtn.classList.remove('hidden');
+            addBtn.classList.remove('hidden');
+            deleteBtn.classList.remove('hidden');
         } else {
             editBtn.classList.add('hidden');
+            addBtn.classList.add('hidden');
+            deleteBtn.classList.add('hidden');
         }
     }
 
@@ -2128,17 +2493,86 @@ class PriceComparisonSite {
             
             console.log('Firebase 설정 완료');
             
-        // Firebase 초기화 후 PC 버튼 바 상태 재확인
-        if (window.innerWidth > 768) {
-            const topButtonBar = document.querySelector('.top-button-bar');
-            if (topButtonBar) {
-                console.log('Firebase 후 PC 버튼 바 상태:', topButtonBar.style.display, topButtonBar.classList);
-                // 강제로 표시
-                topButtonBar.style.display = 'flex';
+            // Firebase 초기화 후 PC/모바일 버튼 상태 재확인 및 강제 표시
+            if (window.innerWidth > 768) {
+                const pcButtonGroup = document.querySelector('.pc-button-group');
+                const mobileButtonBar = document.querySelector('.top-button-bar.mobile-only');
+                
+                if (pcButtonGroup) {
+                    console.log('Firebase 후 PC 버튼 그룹 상태:', pcButtonGroup.style.display, pcButtonGroup.classList);
+                    // PC용 버튼 그룹 강제 표시
+                    pcButtonGroup.style.display = 'flex';
+                    pcButtonGroup.style.gap = '4px';
+                    pcButtonGroup.style.alignItems = 'center';
+                    pcButtonGroup.style.marginLeft = 'auto'; // 오른쪽 끝으로 밀기
+                    console.log('Firebase 후 PC 버튼 그룹 강제 표시 설정 완료');
+                } else {
+                    console.log('Firebase 후 PC 버튼 그룹을 찾을 수 없습니다.');
+                }
+                
+                // Firebase 후 PC용 로고 스타일 강제 적용
+                const logo = document.querySelector('.logo');
+                if (logo) {
+                    logo.style.fontSize = '1.98rem'; // 1.5배 크기
+                    logo.style.fontWeight = '600';
+                    logo.style.color = '#1e40af';
+                    logo.style.textAlign = 'center';
+                    logo.style.width = '100%';
+                    console.log('Firebase 후 PC 로고 스타일 강제 적용 완료');
+                }
+                
+                // Firebase 후 PC용 헤더 그리드 레이아웃 강제 적용
+                const header = document.querySelector('.header');
+                if (header) {
+                    header.style.display = 'grid';
+                    header.style.gridTemplateColumns = '1fr 1fr 1fr 1fr 1fr';
+                    header.style.alignItems = 'center';
+                    console.log('Firebase 후 PC 헤더 그리드 레이아웃 강제 적용 완료');
+                }
+                
+                // Firebase 후 PC용 헤더 섹션 그리드 위치 강제 적용
+                const headerLeft = document.querySelector('.header-left');
+                const headerCenter = document.querySelector('.header-center');
+                const headerRight = document.querySelector('.header-right');
+                
+                if (headerLeft) {
+                    headerLeft.style.gridColumn = '1 / 3';
+                    console.log('Firebase 후 PC header-left 그리드 위치 설정 완료');
+                }
+                
+                if (headerCenter) {
+                    headerCenter.style.gridColumn = '3';
+                    console.log('Firebase 후 PC header-center 그리드 위치 설정 완료');
+                }
+                
+                if (headerRight) {
+                    headerRight.style.gridColumn = '4 / 6';
+                    console.log('Firebase 후 PC header-right 그리드 위치 설정 완료');
+                }
+                
+                if (mobileButtonBar) {
+                    mobileButtonBar.style.display = 'none';
+                    console.log('Firebase 후 모바일용 버튼 바 숨김 처리 완료');
+                }
             } else {
-                console.log('Firebase 후 PC 버튼 바를 찾을 수 없습니다.');
+                // 모바일에서는 모바일용 버튼 바 표시
+                const mobileButtonBar = document.querySelector('.top-button-bar.mobile-only');
+                const pcButtonGroup = document.querySelector('.pc-button-group');
+                
+                if (mobileButtonBar) {
+                    mobileButtonBar.style.display = 'flex';
+                    mobileButtonBar.style.position = 'fixed';
+                    mobileButtonBar.style.top = '0px';
+                    mobileButtonBar.style.right = '0px';
+                    mobileButtonBar.style.zIndex = '9999';
+                    console.log('Firebase 후 모바일용 버튼 바 표시 설정 완료');
+                }
+                
+                if (pcButtonGroup) {
+                    pcButtonGroup.style.display = 'none';
+                    console.log('Firebase 후 PC용 버튼 그룹 숨김 처리 완료');
+                }
             }
-        }
         
         // 상품 로딩 상태 확인
         console.log('현재 로드된 상품 개수:', this.products.length);

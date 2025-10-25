@@ -58,93 +58,125 @@ body {
     gap: 4px;
 }
 
-/* 최상단 버튼 바 스타일 */
-.top-button-bar {
+/* PC용 버튼 그룹 스타일 */
+.pc-button-group {
+    display: none; /* 기본적으로 숨김 */
+    margin-left: auto; /* 오른쪽 끝으로 밀기 */
+}
+
+.pc-button-group .header-btn {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    font-weight: 400;
+    height: auto;
+    margin: 0;
+    border-radius: 3px;
+    min-width: auto;
+    line-height: 1.2;
+    display: flex;
+    visibility: visible;
+}
+
+/* 모바일용 최상단 버튼 바 스타일 */
+.top-button-bar.mobile-only {
     display: none; /* 기본적으로 숨김 */
 }
 
-/* PC 버전 - 최상단 버튼 바 표시 */
-@media (min-width: 769px) {
-    .top-button-bar {
+/* PC 버전 - 헤더 안의 버튼들 표시 */
+@media screen and (min-width: 769px) {
+    .pc-button-group {
         display: flex !important;
-        position: fixed !important; /* absolute에서 fixed로 변경 */
-        top: 0 !important;
-        right: 0 !important;
-        width: auto !important;
-        padding: 4px 8px !important;
-        margin: 0 !important;
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
-        border-bottom-left-radius: 4px !important;
-        border: 1px solid #e2e8f0 !important;
-        z-index: 10000 !important; /* 더 높은 z-index */
-        justify-content: flex-end !important;
         gap: 4px !important;
-        height: auto !important;
-        visibility: visible !important;
+        align-items: center !important;
+        margin-left: auto !important; /* 오른쪽 끝으로 밀기 */
     }
     
-    .top-button-bar .header-btn {
-        padding: 4px 8px !important;
-        font-size: 0.7rem !important;
-        font-weight: 400 !important;
-        height: auto !important;
-        margin: 0 !important;
-        border-radius: 3px !important;
-        min-width: auto !important;
-        line-height: 1.2 !important;
-        display: flex !important;
-        visibility: visible !important;
+    .top-button-bar.mobile-only {
+        display: none !important; /* 모바일용 버튼 바 숨김 */
     }
     
-    /* 헤더에 상단 마진 추가하여 버튼 바와 겹치지 않게 */
+    /* 헤더 레이아웃 조정 - 3번째 상품 가운데 정렬 */
     .header {
-        margin-top: 40px !important; /* 버튼 바 높이만큼 마진 */
+        margin-top: 0 !important; /* 상단 마진 제거 */
         margin-bottom: 1px;
-        padding: 0px 2px;
-        gap: 1px;
+        padding: 4px 8px; /* 패딩 조정 */
+        gap: 8px;
         position: relative;
         min-height: auto;
+        display: grid !important;
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr !important; /* 5개 컬럼으로 상품과 동일 */
+        align-items: center !important;
+    }
+    
+    .header-left {
+        display: flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        grid-column: 1 / 3 !important; /* 1-2번째 상품 영역 */
+    }
+    
+    .header-center {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        grid-column: 3 !important; /* 3번째 상품 영역에 정확히 배치 */
+    }
+    
+    .header-right {
+        display: flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        justify-content: flex-end !important; /* 오른쪽 끝 정렬 */
+        grid-column: 4 / 6 !important; /* 4-5번째 상품 영역 */
+    }
+    
+    /* PC용 로고 스타일 - 크기 1.5배, 가운데 정렬 */
+    .logo {
+        font-size: 1.98rem !important; /* 1.32rem * 1.5 = 1.98rem */
+        font-weight: 600 !important;
+        color: #1e40af !important;
+        margin: 0 !important;
+        line-height: 1.2 !important;
+        text-align: center !important;
+        width: 100% !important;
     }
 }
 
 /* 모바일 버전 - 최상단 버튼 바만 고정 */
-@media (max-width: 768px) {
-    /* 전역 리셋 */
-    html, body {
-        margin: 0 !important;
-        padding: 0 !important;
-        position: relative;
-        top: 0;
+@media screen and (max-width: 768px) {
+    /* PC용 버튼 그룹 숨김 */
+    .pc-button-group {
+        display: none !important;
     }
     
-    /* 최상단 버튼 바 (최저가신고, 필독, 관리만) - 우측 최상단 */
-    .top-button-bar {
+    /* 모바일용 최상단 버튼 바 표시 */
+    .top-button-bar.mobile-only {
         display: flex !important;
         position: fixed !important;
         top: 0 !important;
         right: 0 !important;
         width: auto !important;
-        padding: 0px !important; /* 모든 패딩 제거 */
+        padding: 0px !important;
         margin: 0 !important;
         background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
         border-bottom-left-radius: 4px !important;
         border: 1px solid #e2e8f0 !important;
         z-index: 9999 !important;
         justify-content: flex-end !important;
-        gap: 1px !important; /* 아주 작은 간격 추가 */
+        gap: 1px !important;
         height: auto !important;
         max-width: calc(100vw - 20px) !important;
     }
     
-    .top-button-bar .header-btn {
-        padding: 0px !important; /* 모든 패딩 제거 */
-        font-size: 0.825rem; /* 글자 크기 유지 */
+    .top-button-bar.mobile-only .header-btn {
+        padding: 0px !important;
+        font-size: 0.825rem;
         font-weight: 400;
         height: auto !important;
         margin: 0 !important;
         border-radius: 0px !important;
         min-width: auto !important;
-        line-height: 0.6 !important; /* 라인 높이 극도로 축소 */
+        line-height: 0.6 !important;
     }
     
     /* 기존 헤더 (절대방어 쇼핑 로고) - 로고 위로 올리고 하단 여백 제거 */
@@ -157,19 +189,39 @@ body {
         border: 1px solid #e2e8f0 !important;
         height: auto !important;
         min-height: auto !important;
+        display: flex !important;
+        justify-content: flex-start !important; /* 좌측 정렬 */
+        align-items: center !important;
     }
     
-    .header-left,
-    .header-right {
-        gap: 0px;
+    .header-left {
+        display: flex !important;
+        justify-content: flex-start !important; /* 좌측 정렬 */
+        align-items: center !important;
+        gap: 0px !important;
         padding: 0px !important;
         margin: 0px !important;
         height: auto !important;
+        min-height: auto !important;
     }
     
     .header-center {
-        gap: 0px;
+        display: flex !important;
+        justify-content: flex-start !important; /* 좌측 정렬 */
+        align-items: center !important;
+        gap: 0px !important;
         padding: 0px 4px !important; /* 패딩 최소화 */
+        margin: 0px !important;
+        height: auto !important;
+        min-height: auto !important;
+    }
+    
+    .header-right {
+        display: flex !important;
+        justify-content: flex-end !important; /* 우측 정렬 */
+        align-items: center !important;
+        gap: 0px !important;
+        padding: 0px !important;
         margin: 0px !important;
         height: auto !important;
         min-height: auto !important;
@@ -181,6 +233,8 @@ body {
         margin: 0px !important;
         padding: 0px !important;
         line-height: 0.9 !important; /* 라인 높이 최소화 */
+        text-align: left !important; /* 좌측 정렬 */
+        justify-self: start !important; /* 그리드에서 좌측 시작 */
     }
     
     /* 컨테이너와 카테고리 바 정상 위치 */
@@ -302,24 +356,24 @@ body {
 }
 
 /* PC에서 필독 패널 위치 조정 */
-@media (min-width: 769px) {
+@media screen and (min-width: 769px) {
     .notice-panel {
-        position: fixed !important; /* absolute에서 fixed로 변경 */
-        top: 50px !important; /* 버튼 바 아래 */
+        position: absolute !important;
+        top: 100% !important; /* 헤더 바로 아래 */
         right: 0 !important;
         z-index: 9999 !important;
     }
     
     .header-dropdown {
-        position: fixed !important; /* absolute에서 fixed로 변경 */
-        top: 50px !important; /* 버튼 바 아래 */
+        position: absolute !important;
+        top: 100% !important; /* 헤더 바로 아래 */
         right: 0 !important;
         z-index: 9998 !important;
     }
     
     .admin-panel {
-        position: fixed !important; /* absolute에서 fixed로 변경 */
-        top: 50px !important; /* 버튼 바 아래 */
+        position: absolute !important;
+        top: 100% !important; /* 헤더 바로 아래 */
         right: 0 !important;
         z-index: 9997 !important;
     }
@@ -441,6 +495,12 @@ body {
     border-radius: 0 0 8px 8px;
 }
 
+.notice-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
 .notice-btn {
     padding: 6px 12px;
     border: none;
@@ -458,6 +518,24 @@ body {
 
 .edit-btn:hover {
     background: #2563eb;
+}
+
+.add-btn {
+    background: #10b981;
+    color: white;
+}
+
+.add-btn:hover {
+    background: #059669;
+}
+
+.delete-btn {
+    background: #ef4444;
+    color: white;
+}
+
+.delete-btn:hover {
+    background: #dc2626;
 }
 
 .save-btn {
@@ -2362,6 +2440,15 @@ body {
     padding: 0;
 }
 
+/* PC용 상품 그리드 - 5개 고정 */
+@media screen and (min-width: 769px) {
+    .product-list {
+        grid-template-columns: repeat(5, 1fr) !important; /* 5개 고정 */
+        gap: 6px !important;
+        max-width: 100% !important;
+    }
+}
+
 .product-item {
     background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     border: 1px solid #e2e8f0;
@@ -2554,6 +2641,8 @@ body {
     
     .logo {
         font-size: 1.4rem;
+        text-align: left !important; /* 좌측 정렬로 되돌리기 */
+        justify-self: start !important; /* 그리드에서 좌측 시작 */
     }
     
     .search-container {

@@ -192,8 +192,8 @@ const firebaseConfig = {
     </script>
 </head>
 <body>
-    <!-- 최상단 버튼 바 (최저가신고, 필독, 관리만) -->
-    <div class="top-button-bar">
+    <!-- 모바일용 최상단 버튼 바 (최저가신고, 필독, 관리만) -->
+    <div class="top-button-bar mobile-only">
         <button class="header-btn mini-btn" onclick="toggleSection('productFormDropdown')">
             📝 최저가 신고
         </button>
@@ -218,6 +218,19 @@ const firebaseConfig = {
             </div>
 
             <div class="header-right">
+                <!-- PC용 버튼들 (최저가신고, 필독, 관리) - 오른쪽 끝에 배치 -->
+                <div class="pc-button-group">
+                    <button class="header-btn mini-btn" onclick="toggleSection('productFormDropdown')">
+                        📝 최저가 신고
+                    </button>
+                    <button class="header-btn" onclick="toggleSection('noticePanel')">
+                        📢 필독
+                    </button>
+                    <button class="header-btn" id="adminBtn" onclick="toggleSection('adminPanel')">
+                        ⚙️ 관리
+                        <span id="adminNotification" class="admin-notification hidden">•</span>
+                    </button>
+                </div>
                 <div id="productFormDropdown" class="header-dropdown collapsed">
                     <form id="productForm" class="product-form">
                         <div class="form-group">
@@ -282,7 +295,11 @@ const firebaseConfig = {
                     <div class="notice-section">
                         <div class="notice-header">
                             <h4>📢 공지사항</h4>
-                            <button id="editNotice" class="notice-btn edit-btn hidden">✏️ 수정</button>
+                            <div class="notice-controls">
+                                <button id="editNotice" class="notice-btn edit-btn hidden">✏️ 수정</button>
+                                <button id="addNotice" class="notice-btn add-btn hidden">➕ 추가</button>
+                                <button id="deleteNotice" class="notice-btn delete-btn hidden">🗑️ 삭제</button>
+                            </div>
                         </div>
                         
                         <!-- 공지사항 표시 -->
@@ -303,6 +320,14 @@ const firebaseConfig = {
                                 <div class="notice-item">
                                     <span class="notice-label">공지3:</span>
                                     <span id="notice3Content" class="notice-content-item">공지3이 없습니다.</span>
+                                </div>
+                                <div class="notice-item">
+                                    <span class="notice-label">공지4:</span>
+                                    <span id="notice4Content" class="notice-content-item">공지4가 없습니다.</span>
+                                </div>
+                                <div class="notice-item">
+                                    <span class="notice-label">공지5:</span>
+                                    <span id="notice5Content" class="notice-content-item">공지5가 없습니다.</span>
                                 </div>
                             </div>
                         </div>
@@ -328,6 +353,16 @@ const firebaseConfig = {
                                 <div class="form-group">
                                     <label for="notice3Textarea">공지3</label>
                                     <textarea id="notice3Textarea" rows="1" placeholder="공지3을 입력하세요..."></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="notice4Textarea">공지4</label>
+                                    <textarea id="notice4Textarea" rows="1" placeholder="공지4를 입력하세요..."></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="notice5Textarea">공지5</label>
+                                    <textarea id="notice5Textarea" rows="1" placeholder="공지5를 입력하세요..."></textarea>
                                 </div>
                                 
                                 <div class="notice-actions">

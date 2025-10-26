@@ -380,32 +380,8 @@ class PriceComparisonSite {
                     console.log('모바일용 버튼 바 완전 숨김 처리 완료');
                 }
                 
-                // PC용 로고 스타일 강제 적용 - 로컬에서는 왼쪽 정렬
-                const logo = document.querySelector('.logo');
-                if (logo) {
-                    // 로컬 환경 감지
-                    const isLocal = window.location.hostname === 'localhost' || 
-                                   window.location.hostname === '127.0.0.1' ||
-                                   window.location.hostname === '';
-                    
-                    if (isLocal) {
-                        // 로컬에서는 왼쪽 정렬
-                        logo.style.textAlign = 'left';
-                        logo.style.justifySelf = 'start';
-                        logo.style.width = 'auto';
-                        logo.style.fontSize = '1.32rem';
-                        logo.style.color = '#1e40af'; /* 원래 파란색으로 복원 */
-                        console.log('로컬 환경: 로고 왼쪽 정렬 적용');
-                    } else {
-                        // 배포에서는 가운데 정렬
-                        logo.style.fontSize = '1.98rem';
-                        logo.style.fontWeight = '600';
-                        logo.style.color = '#1e40af'; /* 원래 파란색으로 복원 */
-                        logo.style.textAlign = 'center';
-                        logo.style.width = '100%';
-                        console.log('배포 환경: 로고 가운데 정렬 적용');
-                    }
-                }
+                // 로고 초기화 (PC 및 모바일 공통)
+                this.setupLogo();
                 
                 // PC용 헤더 레이아웃 강제 적용 - 로컬에서는 flex 레이아웃
                 const header = document.querySelector('.header');
@@ -498,13 +474,9 @@ class PriceComparisonSite {
                     console.log('PC용 버튼 그룹 완전 숨김 처리 완료');
                 }
                 
-                // 모바일용 로고 스타일 강제 적용 - 좌측 정렬
-                const logo = document.querySelector('.logo');
-                if (logo) {
-                    logo.style.textAlign = 'left';
-                    logo.style.justifySelf = 'start';
-                    console.log('모바일 로고 좌측 정렬 강제 적용 완료');
-                }
+                // 로고 초기화 (모바일)
+                this.setupLogo();
+                console.log('모바일 환경 초기화 완료');
             }
         
         // 추가로 관리 패널만 완전히 숨기기
@@ -519,6 +491,9 @@ class PriceComparisonSite {
                 adminPanel.classList.add('collapsed');
                 console.log('관리 패널만 완전히 숨겼습니다.');
             }
+            
+            // 로고 클릭 이벤트 최종 등록 (지연 후)
+            this.setupLogo();
         }, 100);
         
         // 테스트 이벤트 전송 (GA 연결 확인용)
@@ -1150,11 +1125,19 @@ class PriceComparisonSite {
         try {
         console.log(`가격 계산 시작 - 제품: ${product.name}`, {
             originalPrice: product.originalPrice,
+            finalPrice: product.finalPrice,
             deliveryFee: product.deliveryFee
         });
         
-            const originalPrice = parseInt(product.originalPrice) || 0;
-            const deliveryFee = parseInt(product.deliveryFee) || 0;
+        // finalPrice가 직접 저장되어 있으면 그것을 사용
+        if (product.finalPrice !== undefined && product.finalPrice !== null) {
+            console.log(`직접 저장된 finalPrice 사용 - 제품: ${product.name}, 최종가격: ${product.finalPrice}`);
+            return parseInt(product.finalPrice) || 0;
+        }
+        
+        // 기존 방식: originalPrice + deliveryFee
+        const originalPrice = parseInt(product.originalPrice) || 0;
+        const deliveryFee = parseInt(product.deliveryFee) || 0;
         const finalPrice = originalPrice + deliveryFee;
         
         console.log(`가격 계산 완료 - 제품: ${product.name}, 최종가격: ${finalPrice}`);
@@ -1204,13 +1187,13 @@ class PriceComparisonSite {
             let cssClass = '';
             
             if (diffMinutes < 1) {
-                timeText = '0m';
+                timeText = '0분';
                 cssClass = 'recent'; // 1분 미만 - 연두 형광
             } else if (diffMinutes < 60) {
-                timeText = `${diffMinutes}m`;
+                timeText = `${diffMinutes}분`;
                 cssClass = 'recent'; // 1시간 미만 - 연두 형광
             } else if (diffHours < 24) {
-                timeText = `${diffHours}h`;
+                timeText = `${diffHours}시`;
                 if (diffHours <= 3) {
                     cssClass = 'recent'; // 3시간 이내 - 연두 형광
                 } else if (diffHours <= 10) {
@@ -1219,7 +1202,7 @@ class PriceComparisonSite {
                     cssClass = 'old'; // 10시간 이상 - 빨강 형광
                 }
             } else if (diffDays < 7) {
-                timeText = `${diffDays}d`;
+                timeText = `${diffDays}일`;
                 cssClass = 'old'; // 1일 이상 - 빨강 형광
             } else {
                 timeText = updateTime.toLocaleDateString('ko-KR', {
@@ -1566,6 +1549,49 @@ class PriceComparisonSite {
     }
 
     // 필독 패널 이벤트 리스너 설정
+    setupLogo() {
+        const logo = document.querySelector('.logo');
+        if (!logo) {
+            console.log('로고를 찾을 수 없습니다.');
+            return;
+        }
+        
+        // 로고 클릭 이벤트 (한 번만 등록)
+        if (logo.getAttribute('data-click-handler') !== 'true') {
+            logo.setAttribute('data-click-handler', 'true');
+            console.log('로고 클릭 이벤트 등록됨');
+            
+            logo.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('로고 클릭됨!');
+                
+                // 모든 패널 닫기
+                const sections = ['productFormDropdown', 'noticePanel', 'adminPanel'];
+                sections.forEach(sectionId => {
+                    const section = document.getElementById(sectionId);
+                    if (section) {
+                        section.classList.add('collapsed');
+                        section.classList.add('hidden');
+                        section.style.display = 'none';
+                        section.style.visibility = 'hidden';
+                        console.log(`${sectionId} 패널 닫음`);
+                    }
+                });
+                
+                // 전체 카테고리로 필터 (상품리스트)
+                this.filterByCategory('전체');
+                
+                // 상단으로 스크롤
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                console.log('메인 화면으로 이동 완료');
+            });
+        } else {
+            console.log('로고 클릭 이벤트는 이미 등록되어 있습니다.');
+        }
+    }
+
     setupNoticePanelListeners() {
         // 중복 실행 방지
         if (this.noticeListenersSetup) {
@@ -1666,17 +1692,27 @@ class PriceComparisonSite {
     }
 
     // 새로운 공지 추가
-    addNewNotice() {
-        const noticeData = this.getNoticeData();
-        const existingNotices = Object.keys(noticeData).filter(key => key.startsWith('notice'));
-        const nextNoticeNumber = existingNotices.length + 1;
+    async addNewNotice() {
+        const noticeData = await this.getNoticeData();
+        
+        // 비어있지 않은 공지 찾기
+        const existingNotices = [];
+        for (let i = 1; i <= 10; i++) {
+            const key = `notice${i}`;
+            const value = noticeData[key];
+            if (value && value.trim() !== '' && value !== `공지${i}가 없습니다.`) {
+                existingNotices.push(i);
+            }
+        }
+        
+        const nextNoticeNumber = existingNotices.length === 0 ? 1 : Math.max(...existingNotices) + 1;
         
         const content = prompt(`공지${nextNoticeNumber}의 내용을 입력하세요:`, '');
         
         if (content !== null && content.trim() !== '') {
             noticeData[`notice${nextNoticeNumber}`] = content.trim();
-            this.saveNoticeData(noticeData);
-            this.loadNotice();
+            await this.saveNoticeData(noticeData);
+            await this.loadNotice();
             
             // HTML에 새로운 공지 항목 동적 추가
             this.addNoticeToHTML(nextNoticeNumber, content.trim());
@@ -1735,9 +1771,18 @@ class PriceComparisonSite {
     }
 
     // 공지 삭제
-    deleteNotice() {
-        const noticeData = this.getNoticeData();
-        const existingNotices = Object.keys(noticeData).filter(key => key.startsWith('notice'));
+    async deleteNotice() {
+        const noticeData = await this.getNoticeData();
+        
+        // 비어있지 않은 공지 찾기
+        const existingNotices = [];
+        for (let i = 1; i <= 10; i++) {
+            const key = `notice${i}`;
+            const value = noticeData[key];
+            if (value && value.trim() !== '' && value !== `공지${i}가 없습니다.`) {
+                existingNotices.push({ number: i, content: value });
+            }
+        }
         
         if (existingNotices.length === 0) {
             alert('삭제할 공지가 없습니다.');
@@ -1745,11 +1790,9 @@ class PriceComparisonSite {
         }
         
         // 공지 목록 생성
-        const noticeList = existingNotices.map(key => {
-            const number = key.replace('notice', '');
-            const content = noticeData[key] || '';
-            return `${number}. ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`;
-        }).join('\n');
+        const noticeList = existingNotices.map(notice => 
+            `${notice.number}. ${notice.content.substring(0, 50)}${notice.content.length > 50 ? '...' : ''}`
+        ).join('\n');
         
         const noticeNumber = prompt(`삭제할 공지 번호를 입력하세요:\n\n${noticeList}`, '');
         
@@ -1768,8 +1811,8 @@ class PriceComparisonSite {
             
             if (confirm(`정말로 공지${num}을 삭제하시겠습니까?\n\n내용: ${noticeData[noticeKey].substring(0, 100)}${noticeData[noticeKey].length > 100 ? '...' : ''}`)) {
                 delete noticeData[noticeKey];
-                this.saveNoticeData(noticeData);
-                this.loadNotice();
+                await this.saveNoticeData(noticeData);
+                await this.loadNotice();
                 
                 // HTML에서 해당 공지 항목 제거
                 this.removeNoticeFromHTML(num);
@@ -1885,7 +1928,7 @@ class PriceComparisonSite {
     }
 
     // 공지사항별 댓글 작성
-    submitNoticeComment() {
+    async submitNoticeComment() {
         if (this.isSubmittingComment) {
             return;
         }
@@ -1918,7 +1961,7 @@ class PriceComparisonSite {
             replies: []
         };
 
-        this.saveNoticeComment(comment);
+        await this.saveNoticeComment(comment);
         commentInput.value = '';
         this.loadNoticeComments();
         
@@ -1928,7 +1971,17 @@ class PriceComparisonSite {
     }
 
     // 공지사항별 댓글 저장
-    saveNoticeComment(comment) {
+    async saveNoticeComment(comment) {
+        try {
+            // Firebase에 저장
+            const commentsRef = window.firebaseCollection(window.firebaseDb, 'noticeComments');
+            await window.firebaseAddDoc(commentsRef, comment);
+            console.log('Firebase에 공지사항 댓글 저장 완료:', comment);
+        } catch (error) {
+            console.error('Firebase 공지사항 댓글 저장 실패:', error);
+        }
+        
+        // localStorage에도 저장 (백업)
         const comments = this.getNoticeComments();
         comments.push(comment);
         localStorage.setItem('noticeComments', JSON.stringify(comments));
@@ -2104,9 +2157,28 @@ class PriceComparisonSite {
     }
 
     // 공지사항 데이터 가져오기
-    getNoticeData() {
+    async getNoticeData() {
+        try {
+            // Firebase에서 먼저 시도
+            const noticesRef = window.firebaseCollection(window.firebaseDb, 'notices');
+            const doc = await window.firebaseGetDoc(window.firebaseDoc(noticesRef, 'main'));
+            
+            if (doc.exists()) {
+                const data = doc.data();
+                console.log('Firebase에서 필독 데이터 로드:', data);
+                return data;
+            }
+        } catch (error) {
+            console.log('Firebase 필독 데이터 없음, localStorage 사용:', error);
+        }
+        
+        // Firebase에 없으면 localStorage 사용 (하위 호환성)
         const data = localStorage.getItem('noticeData');
-        return data ? JSON.parse(data) : {
+        if (data) {
+            return JSON.parse(data);
+        }
+        
+        return {
             mainNotice: '',
             notice1: '',
             notice2: '',
@@ -2115,13 +2187,23 @@ class PriceComparisonSite {
     }
 
     // 공지사항 데이터 저장
-    saveNoticeData(data) {
+    async saveNoticeData(data) {
+        try {
+            // Firebase에 저장
+            const noticesRef = window.firebaseDoc(window.firebaseCollection(window.firebaseDb, 'notices'), 'main');
+            await window.firebaseSetDoc(noticesRef, data);
+            console.log('Firebase에 필독 데이터 저장 완료:', data);
+        } catch (error) {
+            console.error('Firebase 필독 데이터 저장 실패:', error);
+        }
+        
+        // localStorage에도 저장 (백업)
         localStorage.setItem('noticeData', JSON.stringify(data));
     }
 
     // 공지사항 로드
-    loadNotice() {
-        const data = this.getNoticeData();
+    async loadNotice() {
+        const data = await this.getNoticeData();
         
         // 대문글 표시
         const mainNoticeContent = document.getElementById('mainNoticeContent');
@@ -2129,50 +2211,42 @@ class PriceComparisonSite {
             mainNoticeContent.textContent = data.mainNotice || '대문글이 없습니다.';
         }
         
-        // 공지사항 동적 로드 (존재하는 공지만 표시)
-        const noticeData = this.getNoticeData();
-        const existingNotices = Object.keys(noticeData).filter(key => key.startsWith('notice'));
-        
         // 기존 공지 항목들 제거
         const subNotices = document.querySelector('.sub-notices');
         if (subNotices) {
             subNotices.innerHTML = '';
         }
         
-        // 존재하는 공지사항들을 순서대로 표시
-        existingNotices.sort((a, b) => {
-            const numA = parseInt(a.replace('notice', ''));
-            const numB = parseInt(b.replace('notice', ''));
-            return numA - numB;
-        });
-        
-        existingNotices.forEach(noticeKey => {
-            const noticeNumber = noticeKey.replace('notice', '');
-            const content = noticeData[noticeKey] || '';
+        // 비어있지 않은 공지만 표시
+        for (let i = 1; i <= 10; i++) {
+            const key = `notice${i}`;
+            const content = data[key];
             
-            if (subNotices) {
-                const noticeItem = document.createElement('div');
-                noticeItem.className = 'notice-item';
-                noticeItem.innerHTML = `
-                    <span class="notice-label">공지${noticeNumber}:</span>
-                    <span id="notice${noticeNumber}Content" class="notice-content-item">${content.replace(/\n/g, ' ').substring(0, 100)}${content.length > 100 ? '...' : ''}</span>
-                `;
-                
-                subNotices.appendChild(noticeItem);
-                
-                // 클릭 이벤트 추가
-                const contentElement = document.getElementById(`notice${noticeNumber}Content`);
-                if (contentElement) {
-                    contentElement.addEventListener('click', () => {
-                        this.showNoticeDetail(parseInt(noticeNumber));
-                    });
+            if (content && content.trim() !== '' && content !== `공지${i}가 없습니다.`) {
+                if (subNotices) {
+                    const noticeItem = document.createElement('div');
+                    noticeItem.className = 'notice-item';
+                    noticeItem.innerHTML = `
+                        <span class="notice-label">공지${i}:</span>
+                        <span id="notice${i}Content" class="notice-content-item">${content.replace(/\n/g, ' ').substring(0, 100)}${content.length > 100 ? '...' : ''}</span>
+                    `;
+                    
+                    subNotices.appendChild(noticeItem);
+                    
+                    // 클릭 이벤트 추가
+                    const contentElement = document.getElementById(`notice${i}Content`);
+                    if (contentElement) {
+                        contentElement.addEventListener('click', () => {
+                            this.showNoticeDetail(i);
+                        });
+                    }
                 }
             }
-        });
+        }
     }
 
     // 공지사항 저장
-    saveNotice() {
+    async saveNotice() {
         if (!adminAuth.requireAuth()) {
             return;
         }
@@ -2182,24 +2256,39 @@ class PriceComparisonSite {
             mainNotice: mainNoticeTextarea ? mainNoticeTextarea.value.trim() : ''
         };
 
-        // 모든 공지사항 textarea 찾기
-        const noticeData = this.getNoticeData();
-        const existingNotices = Object.keys(noticeData).filter(key => key.startsWith('notice'));
+        // 기존 공지사항 데이터 가져오기
+        const noticeData = await this.getNoticeData();
         
-        existingNotices.forEach(noticeKey => {
-            const textarea = document.getElementById(`${noticeKey}Textarea`);
-            if (textarea) {
-                data[noticeKey] = textarea.value.trim();
+        // 모든 공지사항 키를 가져와서 data에 추가
+        Object.keys(noticeData).forEach(key => {
+            if (key.startsWith('notice')) {
+                data[key] = noticeData[key];
             }
         });
+        
+        // 모든 공지사항 textarea 찾기 (편집 폼에 있는 모든 textarea)
+        const form = document.querySelector('.notice-edit-form');
+        if (form) {
+            const allTextareas = form.querySelectorAll('textarea');
+            allTextareas.forEach(textarea => {
+                const id = textarea.id;
+                if (id && id.endsWith('Textarea') && !id.startsWith('mainNoticeTextarea')) {
+                    const noticeKey = id.replace('Textarea', '');
+                    if (noticeKey && data[noticeKey] !== undefined) {
+                        data[noticeKey] = textarea.value.trim();
+                    }
+                }
+            });
+        }
 
-        this.saveNoticeData(data);
+        console.log('저장할 데이터:', data);
+        await this.saveNoticeData(data);
         this.toggleNoticeEdit(false);
-        this.loadNotice();
+        await this.loadNotice();
     }
 
     // 숫자별 댓글 작성 (선택된 번호에만 작성)
-    submitNumberComment() {
+    async submitNumberComment() {
         // 중복 실행 방지
         if (this.isSubmittingComment) {
             return;
@@ -2234,7 +2323,7 @@ class PriceComparisonSite {
             replies: []
         };
 
-        this.saveNumberComment(comment);
+        await this.saveNumberComment(comment);
         commentInput.value = '';
         this.loadNumberComments(); // 선택된 번호의 댓글만 다시 로드
         
@@ -2245,7 +2334,17 @@ class PriceComparisonSite {
     }
 
     // 숫자별 댓글 저장
-    saveNumberComment(comment) {
+    async saveNumberComment(comment) {
+        try {
+            // Firebase에 저장
+            const commentsRef = window.firebaseCollection(window.firebaseDb, 'numberComments');
+            await window.firebaseAddDoc(commentsRef, comment);
+            console.log('Firebase에 댓글 저장 완료:', comment);
+        } catch (error) {
+            console.error('Firebase 댓글 저장 실패:', error);
+        }
+        
+        // localStorage에도 저장 (백업)
         const comments = this.getNumberComments();
         comments.push(comment);
         localStorage.setItem('numberComments', JSON.stringify(comments));
@@ -2367,7 +2466,7 @@ class PriceComparisonSite {
     }
 
     // 공지사항 편집 모드 토글
-    toggleNoticeEdit(isEdit) {
+    async toggleNoticeEdit(isEdit) {
         const display = document.getElementById('noticeDisplay');
         const edit = document.getElementById('noticeEdit');
 
@@ -2376,7 +2475,7 @@ class PriceComparisonSite {
             edit.classList.remove('hidden');
             
             // 기존 데이터를 폼에 로드
-            const data = this.getNoticeData();
+            const data = await this.getNoticeData();
             const mainNoticeTextarea = document.getElementById('mainNoticeTextarea');
             
             if (mainNoticeTextarea) mainNoticeTextarea.value = data.mainNotice || '';
@@ -2785,6 +2884,7 @@ class PriceComparisonSite {
             
             await this.loadProductsFromFirebase();
             await this.loadPriceReportsFromFirebase(); // 가격 변경 신고 불러오기 추가
+            await this.loadNotice(); // 필독 데이터 로드
             this.setupRealtimeListener();
             
             console.log('Firebase 설정 완료');
@@ -2969,29 +3069,14 @@ class PriceComparisonSite {
     // Firebase 함수들 설정
     setupFirebaseFunctions() {
         try {
-            // Firebase 함수들이 이미 정의되어 있는지 확인
-            if (window.firebaseDeleteDoc && window.firebaseDoc && window.firebaseDb) {
+            // Firebase 함수들이 이미 정의되어 있는지 확인 (index.html에서 로드됨)
+            if (window.firebaseDb && window.firebaseCollection && window.firebaseDoc) {
                 console.log('Firebase 함수들이 이미 정의되어 있습니다.');
                 return;
             }
 
-            // Firebase 함수들을 전역으로 정의
-            if (window.firebase && window.firebase.firestore) {
-                window.firebaseDb = window.firebase.firestore();
-                window.firebaseCollection = window.firebase.firestore().collection.bind(window.firebase.firestore());
-                window.firebaseDoc = window.firebase.firestore().doc.bind(window.firebase.firestore());
-                window.firebaseGetDocs = window.firebase.firestore().getDocs.bind(window.firebase.firestore());
-                window.firebaseAddDoc = window.firebase.firestore().addDoc.bind(window.firebase.firestore());
-                window.firebaseUpdateDoc = window.firebase.firestore().updateDoc.bind(window.firebase.firestore());
-                window.firebaseDeleteDoc = window.firebase.firestore().deleteDoc.bind(window.firebase.firestore());
-                window.firebaseQuery = window.firebase.firestore().query.bind(window.firebase.firestore());
-                window.firebaseWhere = window.firebase.firestore().where.bind(window.firebase.firestore());
-                window.firebaseOnSnapshot = window.firebase.firestore().onSnapshot.bind(window.firebase.firestore());
-                
-                console.log('Firebase 함수들이 성공적으로 정의되었습니다.');
-            } else {
-                console.error('Firebase가 로드되지 않았습니다.');
-            }
+            // index.html에서 Firebase가 로드되지 않은 경우
+            console.warn('Firebase가 로드되지 않았습니다. index.html에서 로드되는 것을 기다립니다.');
         } catch (error) {
             console.error('Firebase 함수 설정 실패:', error);
         }
@@ -3222,6 +3307,54 @@ class PriceComparisonSite {
                     });
                 });
                 
+                // 필독 데이터 실시간 리스너
+                const noticesRef = db.collection('notices');
+                noticesRef.doc('main').onSnapshot((doc) => {
+                    console.log('필독 데이터 변경 감지');
+                    if (doc.exists()) {
+                        const data = doc.data();
+                        console.log('새 필독 데이터:', data);
+                        // 필독 데이터 UI 업데이트
+                        this.loadNotice();
+                    }
+                });
+                
+                // 숫자별 댓글 실시간 리스너
+                const numberCommentsRef = db.collection('numberComments');
+                numberCommentsRef.onSnapshot((snapshot) => {
+                    console.log('숫자별 댓글 변경 감지:', snapshot.docChanges().length, '개 변경');
+                    const allComments = [];
+                    snapshot.forEach((doc) => {
+                        allComments.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    // localStorage 업데이트
+                    localStorage.setItem('numberComments', JSON.stringify(allComments));
+                    
+                    // UI 업데이트
+                    if (this.loadNumberComments) {
+                        this.loadNumberComments();
+                    }
+                });
+                
+                // 공지사항별 댓글 실시간 리스너
+                const noticeCommentsRef = db.collection('noticeComments');
+                noticeCommentsRef.onSnapshot((snapshot) => {
+                    console.log('공지사항 댓글 변경 감지:', snapshot.docChanges().length, '개 변경');
+                    const allComments = [];
+                    snapshot.forEach((doc) => {
+                        allComments.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    // localStorage 업데이트
+                    localStorage.setItem('noticeComments', JSON.stringify(allComments));
+                    
+                    // 현재 열려있는 공지사항이면 UI 업데이트
+                    if (this.currentNoticeNumber !== undefined && this.loadNoticeComments) {
+                        this.loadNoticeComments();
+                    }
+                });
+                
         console.log('실시간 리스너가 설정되었습니다.');
             } else {
                 console.warn('Firebase가 로드되지 않아 실시간 리스너를 설정할 수 없습니다.');
@@ -3420,12 +3553,17 @@ class PriceComparisonSite {
         const adminPanel = document.querySelector('.admin-panel');
         if (adminPanel && adminPanel.style.display !== 'none') {
             // 현재 어떤 관리자 뷰가 열려있는지 확인하고 새로고침
-            const pendingList = document.getElementById('pendingProductsList');
-            if (pendingList && pendingList.innerHTML.includes('승인 대기')) {
+            const currentAdminView = sessionStorage.getItem('currentAdminView');
+            console.log('현재 관리자 뷰:', currentAdminView);
+            
+            if (currentAdminView === 'pending') {
+                console.log('승인 대기 뷰 감지 - 로드 중');
                 this.loadPendingProducts();
-            } else if (pendingList && pendingList.innerHTML.includes('전체 제품')) {
+            } else if (currentAdminView === 'all') {
+                console.log('전체 제품 관리 뷰 감지 - 로드 중');
                 this.loadAllProducts();
-            } else if (pendingList && pendingList.innerHTML.includes('가격 변경 신고')) {
+            } else if (currentAdminView === 'reports') {
+                console.log('가격 변경 신고 뷰 감지 - 로드 중');
                 this.loadPriceReports();
             }
         }
@@ -3526,8 +3664,25 @@ class PriceComparisonSite {
                                 <input type="text" id="editProductName" value="${product.name}" placeholder="제품명을 입력하세요">
                             </div>
                             <div class="form-group">
-                                <label for="editProductPrice">가격 (원)</label>
-                                <input type="number" id="editProductPrice" value="${product.originalPrice}" placeholder="가격을 입력하세요">
+                                <label for="editProductPrice">기존등록가격 <span style="color: #2563eb;">(파랑)</span></label>
+                                <input type="number" id="editProductPrice" value="${product.originalPrice}" placeholder="기존 가격을 입력하세요">
+                                <small style="display: block; margin-top: 5px; color: #2563eb;">
+                                    파란색 가격에 직접 반영됩니다
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="editProductFinalPrice">최종가격 <span style="color: #dc2626;">(빨강)</span></label>
+                                <input type="number" id="editProductFinalPrice" value="${product.finalPrice || this.calculateFinalPrice(product)}" placeholder="최종 가격을 입력하세요">
+                                <small style="display: block; margin-top: 5px; color: #dc2626;">
+                                    빨간색 가격에 직접 반영됩니다
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="editProductDeliveryFee">배송비 (참고용)</label>
+                                <input type="number" id="editProductDeliveryFee" value="${product.deliveryFee || 0}" placeholder="배송비를 입력하세요">
+                                <small style="display: block; margin-top: 5px; color: #6b7280;">
+                                    참고용으로만 표시됩니다 (계산에 사용되지 않음)
+                                </small>
                             </div>
                             <div class="form-group">
                                 <label for="editProductLink">제품 링크</label>
@@ -3621,13 +3776,25 @@ class PriceComparisonSite {
     // 제품 업데이트
     async updateProduct(productId) {
         try {
+            const originalPrice = parseInt(document.getElementById('editProductPrice').value) || 0;
+            const finalPrice = parseInt(document.getElementById('editProductFinalPrice').value) || 0;
+            const deliveryFee = parseInt(document.getElementById('editProductDeliveryFee').value) || 0;
+            
+            // 사용자의 요구사항:
+            // 1. 기존가(originalPrice)를 수정하면 파란색 가격에 반영 - 그대로 저장
+            // 2. 최종가(finalPrice)를 수정하면 빨간색 가격에 반영 - 그대로 저장
+            // 3. 배송비는 참고용으로만 저장 (계산에 사용하지 않음)
+            
             const formData = {
                 name: document.getElementById('editProductName').value.trim() || '제품명 미입력',
-                originalPrice: parseInt(document.getElementById('editProductPrice').value) || 0,
+                originalPrice: originalPrice,
+                finalPrice: finalPrice,
+                deliveryFee: deliveryFee,
                 link: document.getElementById('editProductLink').value.trim() || '링크 미입력',
                 store: document.getElementById('editProductStore').value.trim() || '미선택',
                 category: document.getElementById('editProductCategory').value || '기타',
-                status: document.getElementById('editProductStatus').value
+                status: document.getElementById('editProductStatus').value,
+                lastUpdated: new Date().toISOString()
             };
 
             console.log('제품 수정 데이터:', formData);
@@ -3643,10 +3810,16 @@ class PriceComparisonSite {
             const localProductIndex = this.products.findIndex(p => p.id === productId);
             if (localProductIndex !== -1) {
                 const oldProduct = { ...this.products[localProductIndex] };
-                this.products[localProductIndex] = {
-                    ...this.products[localProductIndex],
-                    ...formData
-                };
+                // originalPrice, finalPrice, deliveryFee 모두 업데이트
+                this.products[localProductIndex].name = formData.name;
+                this.products[localProductIndex].originalPrice = formData.originalPrice;
+                this.products[localProductIndex].finalPrice = formData.finalPrice;
+                this.products[localProductIndex].deliveryFee = formData.deliveryFee;
+                this.products[localProductIndex].link = formData.link;
+                this.products[localProductIndex].store = formData.store;
+                this.products[localProductIndex].category = formData.category;
+                this.products[localProductIndex].status = formData.status;
+                this.products[localProductIndex].lastUpdated = formData.lastUpdated;
                 console.log('로컬 제품 데이터 업데이트 완료:');
                 console.log('이전 데이터:', oldProduct);
                 console.log('새 데이터:', this.products[localProductIndex]);
@@ -4550,13 +4723,10 @@ class PriceComparisonSite {
                 // Firebase 확인 실패해도 로컬 데이터가 있으면 진행
             }
             
-            // 최종 가격을 신고 가격으로 조정하기 위해 deliveryFee 업데이트
-            const currentOriginalPrice = localProduct.originalPrice;
-            const newDeliveryFee = parseInt(newPrice) - currentOriginalPrice;
-            
+            // finalPrice를 직접 업데이트
             const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
             const updateData = {
-                deliveryFee: newDeliveryFee,
+                finalPrice: parseInt(newPrice),
                 lastUpdated: new Date().toISOString()
             };
             
@@ -4568,7 +4738,7 @@ class PriceComparisonSite {
             
             await window.firebaseUpdateDoc(productRef, updateData);
             
-            console.log('제품 가격 업데이트 완료 - deliveryFee:', newDeliveryFee);
+            console.log('제품 가격 업데이트 완료 - finalPrice:', newPrice);
             
             // 신고 상태 업데이트
             await window.firebaseUpdateDoc(reportRef, {
@@ -4580,18 +4750,20 @@ class PriceComparisonSite {
             alert('가격 변경이 승인되었습니다.');
             
             // 로컬 제품 데이터도 업데이트
-            localProduct.deliveryFee = newDeliveryFee;
+            localProduct.finalPrice = parseInt(newPrice);
             localProduct.lastUpdated = new Date().toISOString();
             if (newLink) {
                 localProduct.link = newLink;
             }
+            
+            // UI 강제 업데이트
+            this.forceUIUpdate();
             
             // UI 새로고침 - 리스트가 펼쳐져 있을 때만
             const reportsList = document.getElementById('priceReportsList');
             if (reportsList && reportsList.innerHTML.trim() !== '') {
                 this.loadPriceReports();
             }
-            this.displayAllProducts();
             
             // 알림 업데이트
             this.updateAdminNotification();
@@ -5008,8 +5180,52 @@ function toggleSection(sectionId) {
         const isCollapsed = section.classList.contains('collapsed');
         
         if (isCollapsed) {
+            // 다른 모든 팝업들 닫기
+            const otherSections = ['productFormDropdown', 'noticePanel', 'adminPanel'];
+            otherSections.forEach(otherId => {
+                if (otherId !== sectionId) {
+                    const otherSection = document.getElementById(otherId);
+                    if (otherSection && !otherSection.classList.contains('collapsed')) {
+                        otherSection.classList.add('collapsed');
+                        
+                        // 다른 팝업 닫기 로직
+                        if (otherId === 'adminPanel') {
+                            otherSection.style.display = 'none';
+                            otherSection.style.visibility = 'hidden';
+                            otherSection.style.maxHeight = '0';
+                            otherSection.style.padding = '0';
+                            otherSection.style.overflow = 'hidden';
+                        } else if (otherId === 'noticePanel') {
+                            otherSection.style.display = 'none';
+                            otherSection.style.visibility = 'hidden';
+                            otherSection.style.maxHeight = '0';
+                            otherSection.style.padding = '0';
+                            otherSection.style.overflow = 'hidden';
+                            console.log('필독 패널을 닫았습니다.');
+                        } else if (otherId === 'productFormDropdown') {
+                            otherSection.style.display = 'none';
+                            otherSection.style.visibility = 'hidden';
+                            otherSection.style.maxHeight = '0';
+                            otherSection.style.padding = '0';
+                            otherSection.style.overflow = 'hidden';
+                            console.log('최저가 신고 팝업을 닫았습니다.');
+                        }
+                    }
+                }
+            });
+            
             // 패널을 열기
             section.classList.remove('collapsed');
+            
+            // z-index를 최대값으로 설정 (나중에 열린 패널이 앞에 나오도록)
+            let maxZIndex = 10000;
+            document.querySelectorAll('[id="productFormDropdown"], [id="noticePanel"], [id="adminPanel"]').forEach(p => {
+                const z = parseInt(p.style.zIndex) || parseInt(window.getComputedStyle(p).zIndex) || 0;
+                if (z > maxZIndex) maxZIndex = z;
+            });
+            section.style.zIndex = (maxZIndex + 10).toString();
+            console.log(`z-index 설정: ${sectionId} = ${section.style.zIndex}`);
+            
             if (sectionId === 'adminPanel') {
                 section.style.display = 'block';
                 section.style.visibility = 'visible';
@@ -5024,6 +5240,14 @@ function toggleSection(sectionId) {
                 section.style.padding = '20px';
                 section.style.overflow = 'auto';
                 console.log('필독 패널을 열었습니다. 화면 크기:', window.innerWidth);
+            } else if (sectionId === 'productFormDropdown') {
+                // 최저가 신고 팝업 열기
+                section.style.display = 'block';
+                section.style.visibility = 'visible';
+                section.style.maxHeight = window.innerWidth <= 768 ? '70vh' : '600px';
+                section.style.padding = '20px';
+                section.style.overflow = 'auto';
+                console.log('최저가 신고 팝업을 열었습니다. 화면 크기:', window.innerWidth);
             }
         } else {
             // 패널을 닫기
@@ -5042,6 +5266,14 @@ function toggleSection(sectionId) {
                 section.style.padding = '0';
                 section.style.overflow = 'hidden';
                 console.log('필독 패널을 닫았습니다.');
+            } else if (sectionId === 'productFormDropdown') {
+                // 최저가 신고 팝업 닫기
+                section.style.display = 'none';
+                section.style.visibility = 'hidden';
+                section.style.maxHeight = '0';
+                section.style.padding = '0';
+                section.style.overflow = 'hidden';
+                console.log('최저가 신고 팝업을 닫았습니다.');
             }
         }
         
@@ -5059,6 +5291,26 @@ function toggleSection(sectionId) {
         //         window.priceComparisonSite.loadPendingProducts();
         //     }
         // }
+    }
+}
+
+function goToHome() {
+    // 모든 패널 닫기
+    if (window.priceComparisonSite) {
+        // 모든 열려있는 패널 닫기
+        const sections = ['productFormDropdown', 'noticePanel', 'adminPanel'];
+        sections.forEach(sectionId => {
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.classList.add('hidden');
+            }
+        });
+        
+        // 상품리스트 화면으로 복귀 (전체 카테고리로 필터)
+        window.priceComparisonSite.filterByCategory('전체');
+        
+        // 상단으로 스크롤
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 }
 
@@ -5224,7 +5476,7 @@ PriceComparisonSite.prototype.editComment = function(commentId) {
     }
 };
 
-PriceComparisonSite.prototype.saveCommentEdit = function(commentId) {
+PriceComparisonSite.prototype.saveCommentEdit = async function(commentId) {
     const commentElement = document.querySelector(`[data-id="${commentId}"]`);
     if (!commentElement) return;
 
@@ -5235,6 +5487,24 @@ PriceComparisonSite.prototype.saveCommentEdit = function(commentId) {
     if (!newContent) {
         alert('댓글 내용을 입력해주세요.');
         return;
+    }
+
+    try {
+        // Firebase에서 댓글 찾기 및 업데이트
+        if (window.firebaseDb && window.firebaseGetDocs && window.firebaseUpdateDoc && window.firebaseDoc && window.firebaseCollection) {
+            const commentsRef = window.firebaseCollection(window.firebaseDb, 'numberComments');
+            const querySnapshot = await window.firebaseGetDocs(commentsRef);
+            
+            querySnapshot.forEach(async (doc) => {
+                if (doc.id === commentId || doc.data().id === commentId) {
+                    const commentRef = window.firebaseDoc(commentsRef, doc.id);
+                    await window.firebaseUpdateDoc(commentRef, { content: newContent });
+                    console.log('Firebase 숫자별 댓글 수정 완료:', commentId);
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Firebase 숫자별 댓글 수정 실패:', error);
     }
 
     const comments = this.getNumberComments();
@@ -5389,7 +5659,7 @@ PriceComparisonSite.prototype.editNoticeComment = function(commentId) {
     }
 };
 
-PriceComparisonSite.prototype.saveNoticeCommentEdit = function(commentId) {
+PriceComparisonSite.prototype.saveNoticeCommentEdit = async function(commentId) {
     const commentElement = document.querySelector(`[data-id="${commentId}"]`);
     if (!commentElement) return;
 
@@ -5400,6 +5670,24 @@ PriceComparisonSite.prototype.saveNoticeCommentEdit = function(commentId) {
     if (!newContent) {
         alert('댓글 내용을 입력해주세요.');
         return;
+    }
+
+    try {
+        // Firebase에서 댓글 찾기 및 업데이트
+        if (window.firebaseDb && window.firebaseGetDocs && window.firebaseUpdateDoc && window.firebaseDoc && window.firebaseCollection) {
+            const commentsRef = window.firebaseCollection(window.firebaseDb, 'noticeComments');
+            const querySnapshot = await window.firebaseGetDocs(commentsRef);
+            
+            querySnapshot.forEach(async (doc) => {
+                if (doc.id === commentId || doc.data().id === commentId) {
+                    const commentRef = window.firebaseDoc(commentsRef, doc.id);
+                    await window.firebaseUpdateDoc(commentRef, { content: newContent });
+                    console.log('Firebase 댓글 수정 완료:', commentId);
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Firebase 댓글 수정 실패:', error);
     }
 
     const comments = this.getNoticeComments();

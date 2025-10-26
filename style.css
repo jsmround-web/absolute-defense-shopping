@@ -539,10 +539,10 @@ body {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
-    padding: 12px;
+    padding: 2px 2px 4px 2px;
     min-height: 80px;
     font-size: 0.85rem;
-    line-height: 1.5;
+    line-height: 1.4;
     white-space: pre-wrap;
 }
 
@@ -896,17 +896,24 @@ body {
 }
 
 .main-notice {
-    margin-bottom: 16px;
-    padding: 12px;
+    margin: 0 0 0 0;
+    padding: 0 0 0 0;
     background: white;
-    border-radius: 6px;
-    border-left: 4px solid #3b82f6;
+    border: none;
 }
 
 .main-notice h5 {
-    margin: 0 0 8px 0;
+    margin: 0 0 0 0;
     color: #1f2937;
-    font-size: 1rem;
+    font-size: 0.9rem;
+    line-height: 1.2;
+    padding: 0;
+}
+
+#mainNoticeContent {
+    margin: 0;
+    padding: 0;
+    line-height: 1.4;
 }
 
 .sub-notices {
@@ -1408,10 +1415,7 @@ body {
 }
 
 /* 최저가신고와 필독칸은 정상 동작 */
-#productFormDropdown,
-#noticePanel {
-    /* 기본 스타일 유지 */
-}
+/* 기본 스타일은 .header-dropdown에서 처리됨 */
 
 .header-dropdown:not(.collapsed) {
     max-height: 600px;
@@ -1498,6 +1502,13 @@ body {
         margin: 0;
         line-height: 1.2;
         margin-top: 8px; /* 버튼과 겹치지 않도록 상단 마진 추가 */
+        cursor: pointer;
+        transition: color 0.2s;
+        pointer-events: auto !important;
+    }
+    
+    .logo:hover {
+        color: #3b82f6;
     }
 
 .search-container {
@@ -2660,9 +2671,9 @@ body {
 
 .out-of-stock-btn {
     font-size: 0.7rem;
-    color: #7c3aed;
-    background: linear-gradient(135deg, #ede9fe, #ddd6fe);
-    border: 1px solid #c4b5fd;
+    color: #000000;
+    background: transparent;
+    border: 1px solid #9ca3af;
     padding: 2px 4px;
     border-radius: 4px;
     cursor: pointer;
@@ -2674,8 +2685,8 @@ body {
 }
 
 .out-of-stock-btn:hover {
-    background: linear-gradient(135deg, #ddd6fe, #c4b5fd);
-    border-color: #7c3aed;
+    background: #f3f4f6;
+    border-color: #6b7280;
     transform: translateY(-1px);
 }
 
@@ -3365,10 +3376,7 @@ body {
     }
     
     /* 최저가신고와 필독칸은 정상 동작 (모바일) */
-    #productFormDropdown,
-    #noticePanel {
-        /* 기본 스타일 유지 */
-    }
+    /* 기본 스타일은 .header-dropdown에서 처리됨 */
     
     .admin-btn {
         flex: 1;

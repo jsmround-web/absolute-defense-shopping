@@ -156,7 +156,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getFirestore, collection, addDoc, getDocs, onSnapshot, orderBy, query, doc, updateDoc, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, getDocs, getDoc, onSnapshot, orderBy, query, doc, updateDoc, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         
         // Firebase 설정 (실제 프로젝트 설정으로 변경하세요)
         // 1. Firebase Console (https://console.firebase.google.com)에서 프로젝트 생성
@@ -183,6 +183,7 @@ const firebaseConfig = {
         window.firebaseCollection = collection;
         window.firebaseAddDoc = addDoc;
         window.firebaseGetDocs = getDocs;
+        window.firebaseGetDoc = getDoc;
         window.firebaseOnSnapshot = onSnapshot;
         window.firebaseOrderBy = orderBy;
         window.firebaseQuery = query;
@@ -253,7 +254,7 @@ const firebaseConfig = {
                             <select id="productStore" name="productStore">
                                 <option value="">미선택</option>
                                 <option value="쿠팡">쿠팡</option>
-                                <option value="네이버쇼핑">네이버쇼핑</option>
+                                <option value="네이버">네이버</option>
                                 <option value="11번가">11번가</option>
                                 <option value="G마켓">G마켓</option>
                                 <option value="옥션">옥션</option>
@@ -457,6 +458,8 @@ const firebaseConfig = {
                             <button id="adminLogout" class="admin-btn logout-btn">🚪 로그아웃</button>
                         </div>
                         <div id="pendingProductsList" class="pending-products-list"></div>
+                        <div id="allProductsList" class="pending-products-list"></div>
+                        <div id="priceReportsList" class="pending-products-list"></div>
                     </div>
                 </div>
             </div>

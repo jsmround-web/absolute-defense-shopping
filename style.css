@@ -84,6 +84,35 @@ body {
 
 /* PC 버전 - 헤더 안의 버튼들 표시 */
 @media screen and (min-width: 769px) {
+    /* 관리자 패널 내부 제품 카드 너비 제한 */
+    .all-products, .pending-products, .price-reports {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    /* 상품 카드 너비 제한 */
+    .all-product-item, .pending-product-item, .price-report-item {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* 공지사항 제목 줄바꿈 방지 */
+    .notice-header h4 {
+        white-space: nowrap;
+        word-break: keep-all;
+    }
+    
+    /* 공지사항 버튼 최소화 및 아이콘과 텍스트 같은 줄에 표시 */
+    .notice-btn {
+        padding: 4px 8px;
+        font-size: 0.7rem;
+        min-width: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+    
     .pc-button-group {
         display: flex !important;
         gap: 4px !important;
@@ -397,11 +426,28 @@ body {
         z-index: 9999 !important;
     }
     
+    /* PC 버전에서 관리자 패널만 오른쪽 정렬 */
+    header #adminPanel.header-dropdown {
+        position: absolute !important;
+        top: 100% !important;
+        right: 0 !important;
+        left: auto !important;
+        max-width: 500px !important;
+        width: 500px !important;
+    }
+    
     .header-dropdown {
         position: absolute !important;
         top: 100% !important; /* 헤더 바로 아래 */
         right: 0 !important;
         z-index: 9998 !important;
+    }
+    
+    #adminPanel .admin-panel {
+        position: relative !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
     
     .admin-panel {
@@ -542,6 +588,10 @@ body {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
 }
 
 .edit-btn {
@@ -1351,7 +1401,7 @@ body {
 
 #adminPanel:not(.collapsed) {
     display: block !important;
-    max-height: 600px !important;
+    max-height: 95vh !important;
     padding: 20px !important;
     overflow-y: auto !important;
     visibility: visible !important;
@@ -2220,6 +2270,29 @@ body {
     border-radius: 12px;
     padding: 15px;
     position: relative;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.price-report-item .report-info {
+    width: 100%;
+    overflow: hidden;
+}
+
+.price-report-item .report-info p {
+    margin: 4px 0;
+    word-break: break-word;
+}
+
+.price-report-item .report-info strong {
+    display: inline-block;
+    min-width: 80px;
+}
+
+.price-report-item .admin-controls {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e2e8f0;
 }
 
 .price-report-item::before {
@@ -2245,53 +2318,69 @@ body {
     font-weight: 600;
 }
 
-/* 승인 대기 제품 가격 강조 - 가격 수치 빨간색, 최종가격 수치 파란색 */
+/* 승인 대기 제품 가격 강조 - 기존가격 파란색, 신고가격 빨간색 */
 .pending-product-item .product-info .price-label {
     color: #333;
     font-weight: 600;
 }
 
 .pending-product-item .product-info .price-value {
-    color: #dc2626;
-    font-weight: 700;
-}
-
-.pending-product-item .product-info .final-price-value {
     color: #2563eb;
     font-weight: 700;
 }
 
-/* 전체 제품 가격 강조 - 가격 수치 빨간색, 최종가격 수치 파란색 */
+.pending-product-item .product-info .final-price-value {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+/* 전체 제품 가격 강조 - 기존가격 파란색, 신고가격 빨간색 */
 .all-product-item .product-info .price-label {
     color: #333;
     font-weight: 600;
 }
 
 .all-product-item .product-info .price-value {
-    color: #dc2626;
-    font-weight: 700;
-}
-
-.all-product-item .product-info .final-price-value {
     color: #2563eb;
     font-weight: 700;
 }
 
-/* 가격 변경 신고 가격 강조 - 기존 가격 수치만 빨간색 */
+.all-product-item .product-info .final-price-value {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+/* 가격 변경 신고 가격 강조 - 기존 가격은 파란색, 신고 가격은 빨간색 */
 .price-report-item .report-info .old-price-label {
     color: #333;
     font-weight: 600;
 }
 
 .price-report-item .report-info .old-price-value {
+    color: #2563eb;
+    font-weight: 700;
+}
+
+/* 신고 가격 빨간색 강조 */
+.price-report-item .report-info .reported-price {
     color: #dc2626;
     font-weight: 700;
 }
 
-/* 신고 가격 파란색 강조 */
-.price-report-item .report-info .reported-price {
+/* 신고 링크 스타일 */
+.report-link {
     color: #2563eb;
-    font-weight: 700;
+    text-decoration: none;
+    display: inline-block;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.report-link:hover {
+    text-decoration: underline;
 }
 
 .no-reports {
@@ -2556,20 +2645,72 @@ body {
     color: #0369a1;
     font-size: 0.7rem;
     font-weight: 600;
-    padding: 2px 6px;
+    padding: 2px 4px;
     background: linear-gradient(135deg, #e0f2fe, #bae6fd);
     border-radius: 4px;
     display: inline-block;
     flex-shrink: 0;
+    margin: 0;
+}
+
+.out-of-stock-wrapper {
+    position: relative;
+    display: inline-flex;
+}
+
+.out-of-stock-btn {
+    font-size: 0.7rem;
+    color: #7c3aed;
+    background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+    border: 1px solid #c4b5fd;
+    padding: 2px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    font-weight: 600;
+    position: relative;
+    margin: 0;
+}
+
+.out-of-stock-btn:hover {
+    background: linear-gradient(135deg, #ddd6fe, #c4b5fd);
+    border-color: #7c3aed;
+    transform: translateY(-1px);
+}
+
+.out-of-stock-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #7c3aed;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
+    border: 2px solid white;
 }
 
 .product-price {
-    flex: 1;
-    text-align: right;
-    margin-right: 6px;
     font-size: 0.95rem;
     font-weight: 700;
     color: #dc2626;
+    margin-left: auto;
+}
+
+.product-original-price {
+    text-align: right;
+    margin-right: 0;
+    margin-left: auto;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #2563eb;
 }
 
 .product-volume {
@@ -2613,6 +2754,14 @@ body {
     font-weight: 700;
     color: #dc2626;
     flex-shrink: 0;
+}
+
+.product-current-price {
+    display: flex;
+    justify-content: flex-start;
+    padding: 2px 0;
+    padding-left: 0;
+    margin-left: 0;
 }
 
 /* 업데이트 시간 표시 제거 - 공간 절약 */
@@ -2966,8 +3115,8 @@ body {
     .row-top {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 4px;
+        justify-content: flex-start;
+        gap: 2px;
     }
     
     .row-bottom {
@@ -2989,8 +3138,8 @@ body {
     .update-time {
         font-size: 0.65rem;
         color: #000000;
-        padding: 2px 6px;
-        border-radius: 4px;
+        padding: 1px 3px;
+        border-radius: 3px;
         font-weight: 600;
         text-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
         box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
@@ -3067,14 +3216,31 @@ body {
         color: #dc2626;
     }
     
+    .product-original-price {
+        text-align: right;
+        margin-right: 0;
+        margin-left: auto;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #2563eb;
+    }
+    
+    .product-current-price {
+        display: flex;
+        justify-content: flex-start;
+        padding: 2px 0;
+        margin-left: 0;
+    }
+    
     .product-category {
         font-size: 0.75rem;
-        padding: 2px 6px;
+        padding: 2px 4px;
         background: linear-gradient(135deg, #e0f2fe, #bae6fd);
         border-radius: 4px;
         color: #0369a1;
         font-weight: 600;
         flex-shrink: 0;
+        margin: 0;
     }
     
     .product-store {
@@ -3157,7 +3323,7 @@ body {
     }
     
     .admin-panel:not(.collapsed) {
-        max-height: 70vh !important;
+        max-height: 80vh !important;
         padding: 20px !important;
         overflow-y: auto !important;
     }
@@ -3170,7 +3336,7 @@ body {
     
     /* adminPanel 컨테이너의 collapsed 상태 */
     #adminPanel:not(.collapsed) {
-        max-height: 70vh !important;
+        max-height: 80vh !important;
         padding: 20px !important;
         overflow-y: auto !important;
     }
@@ -3192,7 +3358,7 @@ body {
     
     #adminPanel:not(.collapsed) {
         display: block !important;
-        max-height: 70vh !important;
+        max-height: 80vh !important;
         padding: 20px !important;
         overflow-y: auto !important;
         visibility: visible !important;
@@ -3366,7 +3532,8 @@ body {
     
     .product-category {
         font-size: 0.65rem;
-        padding: 1px 5px;
+        padding: 1px 3px;
+        margin: 0;
     }
 }
 
@@ -3400,8 +3567,8 @@ body {
 .row-top {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 4px;
+    justify-content: flex-start;
+    gap: 2px;
 }
 
 .row-bottom {
@@ -3423,8 +3590,8 @@ body {
 .update-time {
     font-size: 0.7rem;
     color: #000000;
-    padding: 3px 8px;
-    border-radius: 5px;
+    padding: 1px 4px;
+    border-radius: 3px;
     font-weight: 600;
     text-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
     box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
@@ -3465,7 +3632,7 @@ body {
     font-size: 0.7rem;
     color: #0369a1;
     background: linear-gradient(135deg, #e0f2fe, #bae6fd);
-    padding: 2px 6px;
+    padding: 2px 4px;
     border-radius: 4px;
     flex-shrink: 0;
     font-weight: 600;
@@ -3718,4 +3885,126 @@ body {
         height: 16px;
         font-size: 10px;
     }
+}
+
+/* 가격 변동 모달 스타일 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+}
+
+.modal-content-small {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header-small {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    padding: 16px 20px;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header-small h3 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.close-btn-small {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn-small:hover {
+    opacity: 0.7;
+}
+
+.modal-body-small {
+    padding: 20px;
+}
+
+.modal-body-small .form-group {
+    margin-bottom: 16px;
+}
+
+.modal-body-small .form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.9rem;
+}
+
+.modal-body-small input {
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: border-color 0.2s ease;
+}
+
+.modal-body-small input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.modal-actions-small {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.submit-btn-small, .cancel-btn-small {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.submit-btn-small {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+}
+
+.submit-btn-small:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    transform: translateY(-1px);
+}
+
+.cancel-btn-small {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.cancel-btn-small:hover {
+    background: #d1d5db;
 }

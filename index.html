@@ -267,11 +267,11 @@ const firebaseConfig = {
                             <label for="productCategory">카테고리 (선택사항)</label>
                             <select id="productCategory" name="productCategory">
                                 <option value="">카테고리 선택 안함</option>
+                                <option value="특가">초특가</option>
                                 <option value="식품">식품</option>
                                 <option value="생활">생활</option>
                                 <option value="가전">가전</option>
                                 <option value="유아">유아</option>
-                                <option value="특가">특가</option>
                                 <option value="기타">기타</option>
                             </select>
                         </div>
@@ -468,6 +468,10 @@ const firebaseConfig = {
                 <span class="category-name">전체</span>
                 <span class="category-count" id="totalCount">0</span>
             </div>
+            <div class="category-item" onclick="filterByCategory('특가')">
+                <span class="category-name">초특가</span>
+                <span class="category-count" id="specialCount">0</span>
+            </div>
             <div class="category-item" onclick="filterByCategory('식품')">
                 <span class="category-name">식품</span>
                 <span class="category-count" id="foodCount">0</span>
@@ -483,10 +487,6 @@ const firebaseConfig = {
             <div class="category-item" onclick="filterByCategory('유아')">
                 <span class="category-name">유아</span>
                 <span class="category-count" id="babyCount">0</span>
-            </div>
-            <div class="category-item" onclick="filterByCategory('특가')">
-                <span class="category-name">특가</span>
-                <span class="category-count" id="specialCount">0</span>
             </div>
             <div class="category-item" onclick="filterByCategory('기타')">
                 <span class="category-name">기타</span>

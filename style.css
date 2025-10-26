@@ -60,7 +60,7 @@ body {
 
 /* PC용 버튼 그룹 스타일 */
 .pc-button-group {
-    display: none; /* 기본적으로 숨김 */
+    display: none !important; /* 기본적으로 숨김 */
     margin-left: auto; /* 오른쪽 끝으로 밀기 */
 }
 
@@ -79,7 +79,7 @@ body {
 
 /* 모바일용 최상단 버튼 바 스타일 */
 .top-button-bar.mobile-only {
-    display: none; /* 기본적으로 숨김 */
+    display: none !important; /* 기본적으로 숨김 */
 }
 
 /* PC 버전 - 헤더 안의 버튼들 표시 */
@@ -93,6 +93,37 @@ body {
     
     .top-button-bar.mobile-only {
         display: none !important; /* 모바일용 버튼 바 숨김 */
+        visibility: hidden !important;
+        opacity: 0 !important;
+    }
+    
+    /* 로컬 환경에서 로고를 왼쪽 끝으로 이동 */
+    .logo {
+        text-align: left !important;
+        justify-self: start !important;
+        width: auto !important;
+        font-size: 1.32rem !important; /* 원래 크기로 복원 */
+    }
+    
+    .header-center {
+        justify-content: flex-start !important;
+        align-items: center !important;
+    }
+    
+    .header {
+        display: flex !important;
+        grid-template-columns: none !important;
+        align-items: center !important;
+    }
+    
+    .header-left {
+        grid-column: unset !important;
+        flex: 1 !important;
+    }
+    
+    .header-right {
+        grid-column: unset !important;
+        flex: 0 0 auto !important;
     }
     
     /* 헤더 레이아웃 조정 - 3번째 상품 가운데 정렬 */
@@ -134,7 +165,7 @@ body {
     .logo {
         font-size: 1.98rem !important; /* 1.32rem * 1.5 = 1.98rem */
         font-weight: 600 !important;
-        color: #1e40af !important;
+        color: #1e40af !important; /* 원래 파란색으로 복원 */
         margin: 0 !important;
         line-height: 1.2 !important;
         text-align: center !important;
@@ -147,6 +178,8 @@ body {
     /* PC용 버튼 그룹 숨김 */
     .pc-button-group {
         display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
     }
     
     /* 모바일용 최상단 버튼 바 표시 */
@@ -1411,7 +1444,7 @@ body {
     .logo {
         font-size: 1.32rem;
         font-weight: 600;
-        color: #1e40af;
+        color: #1e40af; /* 원래 파란색으로 복원 */
         margin: 0;
         line-height: 1.2;
         margin-top: 8px; /* 버튼과 겹치지 않도록 상단 마진 추가 */
@@ -2584,9 +2617,39 @@ body {
 
 /* 업데이트 시간 표시 제거 - 공간 절약 */
 
+/* 제품 버튼 컨테이너 */
+.product-buttons {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+/* 갱신 버튼 스타일 */
+.refresh-product-btn {
+    padding: 2px 5px;
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed); /* 보라색 계열 */
+    color: white;
+    border: none;
+    border-radius: 3px;
+    font-weight: 500;
+    font-size: 0.6rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1px;
+    text-align: center;
+    min-width: 30px;
+    height: 20px;
+    line-height: 1;
+}
+
+.refresh-product-btn:hover {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9); /* 더 진한 보라색 호버 */
+    transform: translateY(-1px);
+}
+
 .price-report-btn {
     padding: 2px 5px;
-    background: linear-gradient(135deg, #f59e0b, #f97316);
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8); /* 파란색 계열 */
     color: white;
     border: none;
     border-radius: 3px;
@@ -2599,7 +2662,7 @@ body {
 }
 
 .price-report-btn:hover {
-    background: linear-gradient(135deg, #d97706, #ea580c);
+    background: linear-gradient(135deg, #1d4ed8, #1e40af); /* 파란색 호버 */
     transform: translateY(-1px);
 }
 
@@ -2643,6 +2706,20 @@ body {
         font-size: 1.4rem;
         text-align: left !important; /* 좌측 정렬로 되돌리기 */
         justify-self: start !important; /* 그리드에서 좌측 시작 */
+        margin-left: 0 !important; /* 왼쪽 끝으로 이동 */
+        padding-left: 0 !important; /* 왼쪽 패딩 제거 */
+        position: relative !important;
+        left: 0 !important;
+        transform: none !important;
+        float: left !important; /* 플로트로 강제 좌측 배치 */
+        width: auto !important; /* 너비 자동 조정 */
+        max-width: none !important; /* 최대 너비 제한 해제 */
+        display: inline-block !important; /* 인라인 블록으로 변경 */
+        vertical-align: top !important; /* 상단 정렬 */
+        clear: both !important; /* 플로트 클리어 */
+        margin-right: auto !important; /* 오른쪽 마진 자동 */
+        margin-top: 0 !important; /* 상단 마진 제거 */
+        margin-bottom: 0 !important; /* 하단 마진 제거 */
     }
     
     .search-container {
@@ -2970,7 +3047,8 @@ body {
     }
     
     .product-link-btn,
-    .price-report-btn {
+    .price-report-btn,
+    .refresh-product-btn {
         padding: 2px 4px;
         font-size: 0.6rem;
         min-height: 20px;
@@ -3261,7 +3339,8 @@ body {
     }
     
     .product-link-btn,
-    .price-report-btn {
+    .price-report-btn,
+    .refresh-product-btn {
         padding: 1px 3px;
         font-size: 0.55rem;
         min-width: 28px;
@@ -3428,7 +3507,7 @@ body {
 
 .price-report-btn {
     padding: 3px 6px;
-    background: linear-gradient(135deg, #f59e0b, #f97316);
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8); /* 파란색 계열 */
     color: white;
     border: none;
     border-radius: 3px;
@@ -3437,7 +3516,7 @@ body {
     cursor: pointer;
     transition: all 0.2s ease;
     text-align: center;
-    box-shadow: 0 1px 2px rgba(245, 158, 11, 0.2);
+    box-shadow: 0 1px 2px rgba(59, 130, 246, 0.2);
     min-width: 38px;
     white-space: nowrap;
     min-height: 24px;
@@ -3445,9 +3524,9 @@ body {
 }
 
 .price-report-btn:hover {
-    background: linear-gradient(135deg, #d97706, #ea580c);
+    background: linear-gradient(135deg, #1d4ed8, #1e40af); /* 파란색 호버 */
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
 /* 업데이트 시간 표시 제거 - 모바일 최적화 */

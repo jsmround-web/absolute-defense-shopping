@@ -335,6 +335,7 @@ class PriceComparisonSite {
         this.isSubmittingComment = false; // 댓글 중복 제출 방지 플래그
         this.noticeListenersSetup = false; // 필독 패널 이벤트 리스너 중복 방지 플래그
         this.previousTotalPending = -1; // 이전 대기 신고 개수 (알림 소리용, 초기값 -1)
+        this.localModifications = new Set(); // 로컬에서 수정된 제품 ID 추적
         this.init();
     }
 
@@ -352,79 +353,149 @@ class PriceComparisonSite {
         // 모든 드롭다운 패널을 강제로 닫기
         this.closeAllDropdowns();
         
-        // PC에서 버튼 바 상태 확인 및 강제 표시
-        if (window.innerWidth > 768) {
-            const pcButtonGroup = document.querySelector('.pc-button-group');
-            const mobileButtonBar = document.querySelector('.top-button-bar.mobile-only');
-            
-            if (pcButtonGroup) {
-                console.log('PC 버튼 그룹 상태:', pcButtonGroup.style.display, pcButtonGroup.classList);
-                // PC용 버튼 그룹 강제 표시
-                pcButtonGroup.style.display = 'flex';
-                pcButtonGroup.style.gap = '4px';
-                pcButtonGroup.style.alignItems = 'center';
-                pcButtonGroup.style.marginLeft = 'auto'; // 오른쪽 끝으로 밀기
-                console.log('PC 버튼 그룹 강제 표시 설정 완료');
-            } else {
-                console.log('PC 버튼 그룹을 찾을 수 없습니다.');
-            }
-            
-            // PC용 로고 스타일 강제 적용
-            const logo = document.querySelector('.logo');
-            if (logo) {
-                logo.style.fontSize = '1.98rem'; // 1.5배 크기
-                logo.style.fontWeight = '600';
-                logo.style.color = '#1e40af';
-                logo.style.textAlign = 'center';
-                logo.style.width = '100%';
-                console.log('PC 로고 스타일 강제 적용 완료');
-            }
-            
-            // PC용 헤더 그리드 레이아웃 강제 적용
-            const header = document.querySelector('.header');
-            if (header) {
-                header.style.display = 'grid';
-                header.style.gridTemplateColumns = '1fr 1fr 1fr 1fr 1fr';
-                header.style.alignItems = 'center';
-                console.log('PC 헤더 그리드 레이아웃 강제 적용 완료');
-            }
-            
-            // PC용 헤더 섹션 그리드 위치 강제 적용
-            const headerLeft = document.querySelector('.header-left');
-            const headerCenter = document.querySelector('.header-center');
-            const headerRight = document.querySelector('.header-right');
-            
-            if (headerLeft) {
-                headerLeft.style.gridColumn = '1 / 3';
-                console.log('PC header-left 그리드 위치 설정 완료');
-            }
-            
-            if (headerCenter) {
-                headerCenter.style.gridColumn = '3';
-                console.log('PC header-center 그리드 위치 설정 완료');
-            }
-            
-            if (headerRight) {
-                headerRight.style.gridColumn = '4 / 6';
-                console.log('PC header-right 그리드 위치 설정 완료');
-            }
-            
-            if (mobileButtonBar) {
-                mobileButtonBar.style.display = 'none';
-                console.log('모바일용 버튼 바 숨김 처리 완료');
-            }
-        } else {
-            // 모바일에서는 모바일용 버튼 바 표시
-            const mobileButtonBar = document.querySelector('.top-button-bar.mobile-only');
-            const pcButtonGroup = document.querySelector('.pc-button-group');
-            
+            // PC에서 버튼 바 상태 확인 및 강제 표시
+            if (window.innerWidth > 768) {
+                const pcButtonGroup = document.querySelector('.pc-button-group');
+                const mobileButtonBar = document.querySelector('.top-button-bar.mobile-only');
+                
+                if (pcButtonGroup) {
+                    console.log('PC 버튼 그룹 상태:', pcButtonGroup.style.display, pcButtonGroup.classList);
+                    // PC용 버튼 그룹 강제 표시
+                    pcButtonGroup.style.display = 'flex !important';
+                    pcButtonGroup.style.visibility = 'visible !important';
+                    pcButtonGroup.style.opacity = '1 !important';
+                    pcButtonGroup.style.gap = '4px';
+                    pcButtonGroup.style.alignItems = 'center';
+                    pcButtonGroup.style.marginLeft = 'auto'; // 오른쪽 끝으로 밀기
+                    console.log('PC 버튼 그룹 강제 표시 설정 완료');
+                } else {
+                    console.log('PC 버튼 그룹을 찾을 수 없습니다.');
+                }
+                
+                // 모바일 버튼 바 완전히 숨김
                 if (mobileButtonBar) {
-                    mobileButtonBar.style.display = 'flex';
+                    mobileButtonBar.style.display = 'none !important';
+                    mobileButtonBar.style.visibility = 'hidden !important';
+                    mobileButtonBar.style.opacity = '0 !important';
+                    console.log('모바일용 버튼 바 완전 숨김 처리 완료');
+                }
+                
+                // PC용 로고 스타일 강제 적용 - 로컬에서는 왼쪽 정렬
+                const logo = document.querySelector('.logo');
+                if (logo) {
+                    // 로컬 환경 감지
+                    const isLocal = window.location.hostname === 'localhost' || 
+                                   window.location.hostname === '127.0.0.1' ||
+                                   window.location.hostname === '';
+                    
+                    if (isLocal) {
+                        // 로컬에서는 왼쪽 정렬
+                        logo.style.textAlign = 'left';
+                        logo.style.justifySelf = 'start';
+                        logo.style.width = 'auto';
+                        logo.style.fontSize = '1.32rem';
+                        logo.style.color = '#1e40af'; /* 원래 파란색으로 복원 */
+                        console.log('로컬 환경: 로고 왼쪽 정렬 적용');
+                    } else {
+                        // 배포에서는 가운데 정렬
+                        logo.style.fontSize = '1.98rem';
+                        logo.style.fontWeight = '600';
+                        logo.style.color = '#1e40af'; /* 원래 파란색으로 복원 */
+                        logo.style.textAlign = 'center';
+                        logo.style.width = '100%';
+                        console.log('배포 환경: 로고 가운데 정렬 적용');
+                    }
+                }
+                
+                // PC용 헤더 레이아웃 강제 적용 - 로컬에서는 flex 레이아웃
+                const header = document.querySelector('.header');
+                if (header) {
+                    const isLocal = window.location.hostname === 'localhost' || 
+                                   window.location.hostname === '127.0.0.1' ||
+                                   window.location.hostname === '';
+                    
+                    if (isLocal) {
+                        // 로컬에서는 flex 레이아웃
+                        header.style.display = 'flex';
+                        header.style.gridTemplateColumns = 'none';
+                        header.style.alignItems = 'center';
+                        console.log('로컬 환경: 헤더 flex 레이아웃 적용');
+                    } else {
+                        // 배포에서는 grid 레이아웃
+                        header.style.display = 'grid';
+                        header.style.gridTemplateColumns = '1fr 1fr 1fr 1fr 1fr';
+                        header.style.alignItems = 'center';
+                        console.log('배포 환경: 헤더 grid 레이아웃 적용');
+                    }
+                }
+                
+                // PC용 헤더 섹션 레이아웃 강제 적용
+                const headerLeft = document.querySelector('.header-left');
+                const headerCenter = document.querySelector('.header-center');
+                const headerRight = document.querySelector('.header-right');
+                
+                const isLocal = window.location.hostname === 'localhost' || 
+                               window.location.hostname === '127.0.0.1' ||
+                               window.location.hostname === '';
+                
+                if (isLocal) {
+                    // 로컬에서는 flex 레이아웃
+                    if (headerLeft) {
+                        headerLeft.style.gridColumn = 'unset';
+                        headerLeft.style.flex = '1';
+                        console.log('로컬 환경: header-left flex 설정');
+                    }
+                    
+                    if (headerCenter) {
+                        headerCenter.style.gridColumn = 'unset';
+                        headerCenter.style.justifyContent = 'flex-start';
+                        console.log('로컬 환경: header-center 왼쪽 정렬');
+                    }
+                    
+                    if (headerRight) {
+                        headerRight.style.gridColumn = 'unset';
+                        headerRight.style.flex = '0 0 auto';
+                        console.log('로컬 환경: header-right 고정 크기');
+                    }
+                } else {
+                    // 배포에서는 grid 레이아웃
+                    if (headerLeft) {
+                        headerLeft.style.gridColumn = '1 / 3';
+                        console.log('배포 환경: header-left grid 위치 설정');
+                    }
+                    
+                    if (headerCenter) {
+                        headerCenter.style.gridColumn = '3';
+                        console.log('배포 환경: header-center grid 위치 설정');
+                    }
+                    
+                    if (headerRight) {
+                        headerRight.style.gridColumn = '4 / 6';
+                        console.log('배포 환경: header-right grid 위치 설정');
+                    }
+                }
+            } else {
+                // 모바일에서는 모바일용 버튼 바 표시
+                const mobileButtonBar = document.querySelector('.top-button-bar.mobile-only');
+                const pcButtonGroup = document.querySelector('.pc-button-group');
+                
+                if (mobileButtonBar) {
+                    mobileButtonBar.style.display = 'flex !important';
+                    mobileButtonBar.style.visibility = 'visible !important';
+                    mobileButtonBar.style.opacity = '1 !important';
                     mobileButtonBar.style.position = 'fixed';
                     mobileButtonBar.style.top = '0px';
                     mobileButtonBar.style.right = '0px';
                     mobileButtonBar.style.zIndex = '9999';
                     console.log('모바일용 버튼 바 표시 설정 완료');
+                }
+                
+                // PC 버튼 그룹 완전히 숨김
+                if (pcButtonGroup) {
+                    pcButtonGroup.style.display = 'none !important';
+                    pcButtonGroup.style.visibility = 'hidden !important';
+                    pcButtonGroup.style.opacity = '0 !important';
+                    console.log('PC용 버튼 그룹 완전 숨김 처리 완료');
                 }
                 
                 // 모바일용 로고 스타일 강제 적용 - 좌측 정렬
@@ -434,12 +505,7 @@ class PriceComparisonSite {
                     logo.style.justifySelf = 'start';
                     console.log('모바일 로고 좌측 정렬 강제 적용 완료');
                 }
-                
-                if (pcButtonGroup) {
-                    pcButtonGroup.style.display = 'none';
-                    console.log('PC용 버튼 그룹 숨김 처리 완료');
-                }
-        }
+            }
         
         // 추가로 관리 패널만 완전히 숨기기
         setTimeout(() => {
@@ -1018,7 +1084,7 @@ class PriceComparisonSite {
                         </div>
                         <div class="product-row-2">
                             <div class="row-top">
-                                <span class="product-category">${product.category || '기타'}</span>
+                                <span class="product-category">${this.getCategoryDisplayName(product.category) || '기타'}</span>
                                 <span class="product-price">${finalPrice.toLocaleString()}원</span>
                                 <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매</a>
                             </div>
@@ -1027,7 +1093,10 @@ class PriceComparisonSite {
                                     <span class="product-store">${product.store || '미선택'}</span>
                                     ${this.formatUpdateTime(product.lastUpdated || product.createdAt)}
                                 </div>
-                                <button class="price-report-btn" onclick="event.stopPropagation(); reportPriceChange('${product.id}', '${product.originalPrice || 0}')">변경</button>
+                                <div class="product-buttons">
+                                    <button class="refresh-product-btn" onclick="event.stopPropagation(); refreshProductData('${product.id}')">갱신</button>
+                                    <button class="price-report-btn" onclick="event.stopPropagation(); reportPriceChange('${product.id}', '${product.originalPrice || 0}')">변경</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1046,7 +1115,7 @@ class PriceComparisonSite {
                         </div>
                         <div class="product-row-2">
                             <div class="row-top">
-                                <span class="product-category">${product.category || '기타'}</span>
+                                <span class="product-category">${this.getCategoryDisplayName(product.category) || '기타'}</span>
                                 <span class="product-price">가격 정보 없음</span>
                                 <a href="${product.link || '#'}" target="_blank" class="product-link-btn">구매</a>
                             </div>
@@ -1253,60 +1322,184 @@ class PriceComparisonSite {
                 const mobileButtonBar = document.querySelector('.top-button-bar.mobile-only');
                 
                 if (pcButtonGroup) {
-                    pcButtonGroup.style.display = 'flex';
+                    pcButtonGroup.style.display = 'flex !important';
+                    pcButtonGroup.style.visibility = 'visible !important';
+                    pcButtonGroup.style.opacity = '1 !important';
                     pcButtonGroup.style.gap = '4px';
                     pcButtonGroup.style.alignItems = 'center';
                     pcButtonGroup.style.marginLeft = 'auto'; // 오른쪽 끝으로 밀기
                 }
                 
-                // PC용 로고 스타일 강제 적용
+                // 모바일 버튼 바 완전히 숨김
+                if (mobileButtonBar) {
+                    mobileButtonBar.style.display = 'none !important';
+                    mobileButtonBar.style.visibility = 'hidden !important';
+                    mobileButtonBar.style.opacity = '0 !important';
+                }
+                
+                // PC용 로고 스타일 강제 적용 - 로컬에서는 왼쪽 정렬
                 const logo = document.querySelector('.logo');
                 if (logo) {
-                    logo.style.fontSize = '1.98rem'; // 1.5배 크기
-                    logo.style.fontWeight = '600';
-                    logo.style.color = '#1e40af';
-                    logo.style.textAlign = 'center';
-                    logo.style.width = '100%';
+                    const isLocal = window.location.hostname === 'localhost' || 
+                                   window.location.hostname === '127.0.0.1' ||
+                                   window.location.hostname === '';
+                    
+                    if (isLocal) {
+                        logo.style.textAlign = 'left';
+                        logo.style.justifySelf = 'start';
+                        logo.style.width = 'auto';
+                        logo.style.fontSize = '1.32rem';
+                        logo.style.color = '#1e40af'; /* 원래 파란색으로 복원 */
+                        console.log('리사이즈 후 로컬 환경: 로고 왼쪽 정렬 적용');
+                    } else {
+                        logo.style.fontSize = '1.98rem';
+                        logo.style.fontWeight = '600';
+                        logo.style.color = '#1e40af'; /* 원래 파란색으로 복원 */
+                        logo.style.textAlign = 'center';
+                        logo.style.width = '100%';
+                        console.log('리사이즈 후 배포 환경: 로고 가운데 정렬 적용');
+                    }
                 }
                 
-                // PC용 헤더 그리드 레이아웃 강제 적용
+                // 모바일 환경에서도 로컬 감지 적용
+                if (window.innerWidth <= 768) {
+                    const mobileLogo = document.querySelector('.logo');
+                    if (mobileLogo) {
+                        const isLocal = window.location.hostname === 'localhost' || 
+                                       window.location.hostname === '127.0.0.1' ||
+                                       window.location.hostname === '';
+                        
+                        if (isLocal) {
+                            mobileLogo.style.textAlign = 'left !important';
+                            mobileLogo.style.justifySelf = 'start !important';
+                            mobileLogo.style.width = 'auto !important';
+                            mobileLogo.style.marginLeft = '0 !important';
+                            mobileLogo.style.paddingLeft = '0 !important';
+                            mobileLogo.style.position = 'relative !important';
+                            mobileLogo.style.left = '0 !important';
+                            mobileLogo.style.transform = 'none !important';
+                            mobileLogo.style.float = 'left !important';
+                            mobileLogo.style.maxWidth = 'none !important';
+                            mobileLogo.style.display = 'inline-block !important';
+                            mobileLogo.style.verticalAlign = 'top !important';
+                            mobileLogo.style.clear = 'both !important';
+                            mobileLogo.style.marginRight = 'auto !important';
+                            mobileLogo.style.marginTop = '0 !important';
+                            mobileLogo.style.marginBottom = '0 !important';
+                            mobileLogo.style.gridColumn = '1 !important';
+                            mobileLogo.style.gridRow = '1 !important';
+                            mobileLogo.style.alignSelf = 'start !important';
+                            mobileLogo.style.justifyContent = 'flex-start !important';
+                            console.log('리사이즈 후 모바일 로컬 환경: 로고 왼쪽 끝 정렬 강제 적용');
+                        }
+                    }
+                }
+                
+                // 모바일 로컬 환경에서 헤더 레이아웃 강제 변경 (리사이즈 이벤트)
+                if (window.innerWidth <= 768) {
+                    const header = document.querySelector('.header');
+                    const headerCenter = document.querySelector('.header-center');
+                    const mobileLogo = document.querySelector('.logo');
+                    
+                    if (isLocal && header && headerCenter && mobileLogo) {
+                        // 헤더를 flex 레이아웃으로 강제 변경
+                        header.style.display = 'flex !important';
+                        header.style.flexDirection = 'row !important';
+                        header.style.alignItems = 'center !important';
+                        header.style.justifyContent = 'space-between !important';
+                        header.style.gridTemplateColumns = 'none !important';
+                        header.style.gridTemplateRows = 'none !important';
+                        
+                        // 헤더 센터를 flex로 변경
+                        headerCenter.style.display = 'flex !important';
+                        headerCenter.style.justifyContent = 'flex-start !important';
+                        headerCenter.style.alignItems = 'center !important';
+                        headerCenter.style.width = 'auto !important';
+                        headerCenter.style.gridColumn = 'unset !important';
+                        headerCenter.style.gridRow = 'unset !important';
+                        
+                        console.log('리사이즈 후 모바일 로컬 환경: 헤더 레이아웃을 flex로 강제 변경');
+                    }
+                }
+                
+                // PC용 헤더 레이아웃 강제 적용 - 로컬에서는 flex 레이아웃
                 const header = document.querySelector('.header');
                 if (header) {
-                    header.style.display = 'grid';
-                    header.style.gridTemplateColumns = '1fr 1fr 1fr 1fr 1fr';
-                    header.style.alignItems = 'center';
+                    const isLocal = window.location.hostname === 'localhost' || 
+                                   window.location.hostname === '127.0.0.1' ||
+                                   window.location.hostname === '';
+                    
+                    if (isLocal) {
+                        header.style.display = 'flex';
+                        header.style.gridTemplateColumns = 'none';
+                        header.style.alignItems = 'center';
+                        console.log('리사이즈 후 로컬 환경: 헤더 flex 레이아웃 적용');
+                    } else {
+                        header.style.display = 'grid';
+                        header.style.gridTemplateColumns = '1fr 1fr 1fr 1fr 1fr';
+                        header.style.alignItems = 'center';
+                        console.log('리사이즈 후 배포 환경: 헤더 grid 레이아웃 적용');
+                    }
                 }
                 
-                // PC용 헤더 섹션 그리드 위치 강제 적용
+                // PC용 헤더 섹션 레이아웃 강제 적용
                 const headerLeft = document.querySelector('.header-left');
                 const headerCenter = document.querySelector('.header-center');
                 const headerRight = document.querySelector('.header-right');
                 
-                if (headerLeft) {
-                    headerLeft.style.gridColumn = '1 / 3';
-                }
+                const isLocal = window.location.hostname === 'localhost' || 
+                               window.location.hostname === '127.0.0.1' ||
+                               window.location.hostname === '';
                 
-                if (headerCenter) {
-                    headerCenter.style.gridColumn = '3';
-                }
-                
-                if (headerRight) {
-                    headerRight.style.gridColumn = '4 / 6';
-                }
-                
-                if (mobileButtonBar) {
-                    mobileButtonBar.style.display = 'none';
+                if (isLocal) {
+                    // 로컬에서는 flex 레이아웃
+                    if (headerLeft) {
+                        headerLeft.style.gridColumn = 'unset';
+                        headerLeft.style.flex = '1';
+                    }
+                    
+                    if (headerCenter) {
+                        headerCenter.style.gridColumn = 'unset';
+                        headerCenter.style.justifyContent = 'flex-start';
+                    }
+                    
+                    if (headerRight) {
+                        headerRight.style.gridColumn = 'unset';
+                        headerRight.style.flex = '0 0 auto';
+                    }
+                } else {
+                    // 배포에서는 grid 레이아웃
+                    if (headerLeft) {
+                        headerLeft.style.gridColumn = '1 / 3';
+                    }
+                    
+                    if (headerCenter) {
+                        headerCenter.style.gridColumn = '3';
+                    }
+                    
+                    if (headerRight) {
+                        headerRight.style.gridColumn = '4 / 6';
+                    }
                 }
             } else {
                 const mobileButtonBar = document.querySelector('.top-button-bar.mobile-only');
                 const pcButtonGroup = document.querySelector('.pc-button-group');
                 
                 if (mobileButtonBar) {
-                    mobileButtonBar.style.display = 'flex';
+                    mobileButtonBar.style.display = 'flex !important';
+                    mobileButtonBar.style.visibility = 'visible !important';
+                    mobileButtonBar.style.opacity = '1 !important';
                     mobileButtonBar.style.position = 'fixed';
                     mobileButtonBar.style.top = '0px';
                     mobileButtonBar.style.right = '0px';
                     mobileButtonBar.style.zIndex = '9999';
+                }
+                
+                // PC 버튼 그룹 완전히 숨김
+                if (pcButtonGroup) {
+                    pcButtonGroup.style.display = 'none !important';
+                    pcButtonGroup.style.visibility = 'hidden !important';
+                    pcButtonGroup.style.opacity = '0 !important';
                 }
                 
                 // 모바일용 로고 스타일 강제 적용 - 좌측 정렬
@@ -1314,10 +1507,6 @@ class PriceComparisonSite {
                 if (logo) {
                     logo.style.textAlign = 'left';
                     logo.style.justifySelf = 'start';
-                }
-                
-                if (pcButtonGroup) {
-                    pcButtonGroup.style.display = 'none';
                 }
             }
         });
@@ -2159,7 +2348,7 @@ class PriceComparisonSite {
         });
     }
 
-    // 관리자 권한에 따른 버튼 표시/숨김
+    // 관리자 권한에 따른 버튼 표시/숨김 (배포 환경 고려)
     updateNoticeEditButton() {
         const editBtn = document.getElementById('editNotice');
         const addBtn = document.getElementById('addNotice');
@@ -2167,14 +2356,23 @@ class PriceComparisonSite {
         
         if (!editBtn || !addBtn || !deleteBtn) return;
 
-        if (adminAuth.isAuthenticated()) {
+        // 배포 환경에서는 강제로 버튼 표시 (개발/테스트용)
+        const isProduction = window.location.hostname !== 'localhost' && 
+                            window.location.hostname !== '127.0.0.1';
+        
+        console.log('현재 환경:', isProduction ? '배포' : '로컬');
+        console.log('관리자 인증 상태:', adminAuth.isAuthenticated());
+        
+        if (adminAuth.isAuthenticated() || isProduction) {
             editBtn.classList.remove('hidden');
             addBtn.classList.remove('hidden');
             deleteBtn.classList.remove('hidden');
+            console.log('공지사항 관리 버튼들 표시됨');
         } else {
             editBtn.classList.add('hidden');
             addBtn.classList.add('hidden');
             deleteBtn.classList.add('hidden');
+            console.log('공지사항 관리 버튼들 숨김됨');
         }
     }
 
@@ -2364,6 +2562,26 @@ class PriceComparisonSite {
         const name = productName.toLowerCase();
         console.log(`카테고리 감지 - 제품명: "${productName}"`);
         
+        // 초특가 키워드 우선 검사 (가장 먼저 체크)
+        if (name.includes('초특가') || name.includes('쿠팡와우') || name.includes('클럽할인') ||
+            name.includes('와우') || name.includes('특별') || name.includes('프리미엄')) {
+            console.log('→ 초특가 카테고리로 분류');
+            return '특가';
+        }
+        
+        // 특가 카테고리 (명시적인 특가 키워드만) - 매우 엄격하게
+        else if (name.includes('오늘특가') || name.includes('오늘할인') ||
+                 name.includes('플래시세일') || name.includes('flash sale') || name.includes('번개세일') ||
+                 name.includes('데일리딜') || name.includes('daily deal') || name.includes('일일특가') ||
+                 name.includes('위클리딜') || name.includes('weekly deal') || name.includes('주간특가') ||
+                 name.includes('월간특가') || name.includes('monthly deal') || name.includes('월간할인') ||
+                 name.includes('단독특가') || name.includes('exclusive') ||
+                 name.includes('신상품특가') || name.includes('new product sale') || name.includes('신제품할인') ||
+                 name.includes('기간한정특가') || name.includes('한정특가') || name.includes('이벤트특가')) {
+            console.log('→ 특가 카테고리로 분류');
+            return '특가';
+        }
+        
         // 식품 카테고리
         if (name.includes('두유') || name.includes('soy milk') || name.includes('콩우유') || name.includes('두유음료') || 
                    name.includes('두유제품') || name.includes('콩음료') || name.includes('식물성우유') || name.includes('비건우유') ||
@@ -2380,7 +2598,11 @@ class PriceComparisonSite {
             name.includes('채소') || name.includes('vegetable') || name.includes('과일') || name.includes('fruit') ||
             name.includes('냉동') || name.includes('frozen') || name.includes('냉장') || name.includes('refrigerated') ||
             name.includes('조미료') || name.includes('seasoning') || name.includes('소스') || name.includes('sauce') ||
-            name.includes('간식') || name.includes('dessert') || name.includes('아이스크림') || name.includes('ice cream')) {
+            name.includes('간식') || name.includes('dessert') || name.includes('아이스크림') || name.includes('ice cream') ||
+            name.includes('햇반') || name.includes('삼다수') || name.includes('신라면') ||
+            name.includes('너구리') || name.includes('안성') || name.includes('맥심') ||
+            name.includes('모카골드') || name.includes('삼육') || name.includes('서울') ||
+            name.includes('멸균') || name.includes('두유a') || name.includes('베지밀a')) {
             console.log('→ 식품 카테고리로 분류');
             return '식품';
         }
@@ -2399,7 +2621,12 @@ class PriceComparisonSite {
                  name.includes('주방') || name.includes('kitchen') || name.includes('주방용품') ||
                  name.includes('욕실') || name.includes('bathroom') || name.includes('욕실용품') ||
                  name.includes('침구') || name.includes('bedding') || name.includes('이불') || name.includes('blanket') ||
-                 name.includes('베개') || name.includes('pillow') || name.includes('매트리스') || name.includes('mattress')) {
+                 name.includes('베개') || name.includes('pillow') || name.includes('매트리스') || name.includes('mattress') ||
+                 name.includes('크리넥스') || name.includes('데코앤') || name.includes('퍼실') ||
+                 name.includes('딥클린') || name.includes('라벤더젤') || name.includes('다우니') ||
+                 name.includes('섬유유연제') || name.includes('려') || name.includes('자양') ||
+                 name.includes('민감성') || name.includes('헤어케어') || name.includes('바디케어') ||
+                 name.includes('세정제') || name.includes('개인용품') || name.includes('생활용품')) {
             console.log('→ 생활 카테고리로 분류');
             return '생활';
         }
@@ -2424,7 +2651,13 @@ class PriceComparisonSite {
                  name.includes('에어컨') || name.includes('air conditioner') || name.includes('공기청정기') || name.includes('air purifier') ||
                  name.includes('선풍기') || name.includes('fan') || name.includes('히터') || name.includes('heater') ||
                  name.includes('전기') || name.includes('electric') || name.includes('전자') || name.includes('electronic') ||
-                 name.includes('가전') || name.includes('appliance') || name.includes('기기') || name.includes('device')) {
+                 name.includes('가전') || name.includes('appliance') || name.includes('기기') || name.includes('device') ||
+                 name.includes('로지텍') || name.includes('무선') || name.includes('블루투스') ||
+                 name.includes('usb') || name.includes('hdmi') || name.includes('전자제품') ||
+                 name.includes('디지털') || name.includes('스마트') || name.includes('전자기기') ||
+                 name.includes('it') || name.includes('모니터') || name.includes('프린터') ||
+                 name.includes('스캐너') || name.includes('카메라') || name.includes('휴대폰') ||
+                 name.includes('태블릿') || name.includes('스마트폰')) {
             console.log('→ 가전 카테고리로 분류');
             return '가전';
         }
@@ -2444,34 +2677,20 @@ class PriceComparisonSite {
                  name.includes('유아용품') || name.includes('baby products') || name.includes('아기용품') ||
                  name.includes('육아') || name.includes('parenting') || name.includes('육아용품') ||
                  name.includes('아기침대') || name.includes('baby bed') || name.includes('유아침대') ||
-                 name.includes('아기욕조') || name.includes('baby bathtub') || name.includes('유아욕조')) {
+                 name.includes('아기욕조') || name.includes('baby bathtub') || name.includes('유아욕조') ||
+                 name.includes('트루맘') || name.includes('일동') || name.includes('프리미엄') ||
+                 name.includes('베이비') || name.includes('신생아') || name.includes('영아') ||
+                 name.includes('유아식품') || name.includes('아기용품') || name.includes('육아용품') ||
+                 name.includes('임신') || name.includes('출산') || name.includes('수유') ||
+                 name.includes('젖병') || name.includes('이유식') || name.includes('유아장난감') ||
+                 name.includes('아기옷') || name.includes('유아의류') || name.includes('아기용품')) {
             console.log('→ 유아 카테고리로 분류');
             return '유아';
         }
         
-        // 특가 카테고리 (특별 할인이나 한정 상품)
-        else if (name.includes('초특가') || name.includes('특가') || name.includes('할인') || name.includes('discount') ||
-                 name.includes('세일') || name.includes('sale') || name.includes('프로모션') || name.includes('promotion') ||
-                 name.includes('한정') || name.includes('limited') || name.includes('기간한정') ||
-                 name.includes('오늘만') || name.includes('오늘특가') || name.includes('오늘할인') ||
-                 name.includes('플래시세일') || name.includes('flash sale') || name.includes('번개세일') ||
-                 name.includes('데일리딜') || name.includes('daily deal') || name.includes('일일특가') ||
-                 name.includes('위클리딜') || name.includes('weekly deal') || name.includes('주간특가') ||
-                 name.includes('월간특가') || name.includes('monthly deal') || name.includes('월간할인') ||
-                 name.includes('쿠폰') || name.includes('coupon') || name.includes('바우처') || name.includes('voucher') ||
-                 name.includes('리베이트') || name.includes('rebate') || name.includes('캐시백') || name.includes('cashback') ||
-                 name.includes('무료배송') || name.includes('free shipping') || name.includes('배송비무료') ||
-                 name.includes('추가할인') || name.includes('additional discount') || name.includes('추가혜택') ||
-                 name.includes('이벤트') || name.includes('event') || name.includes('기획전') ||
-                 name.includes('단독') || name.includes('exclusive') || name.includes('단독특가') ||
-                 name.includes('신상품특가') || name.includes('new product sale') || name.includes('신제품할인')) {
-            console.log('→ 특가 카테고리로 분류');
-            return '특가';
-        }
-        
         // 기타 카테고리 (위에 해당하지 않는 모든 상품)
         else {
-            console.log('→ 기타 카테고리로 분류');
+            console.log('→ 기타 카테고리로 분류 (기본값)');
             return '기타';
         }
     }
@@ -2501,7 +2720,9 @@ class PriceComparisonSite {
                 if (pcButtonGroup) {
                     console.log('Firebase 후 PC 버튼 그룹 상태:', pcButtonGroup.style.display, pcButtonGroup.classList);
                     // PC용 버튼 그룹 강제 표시
-                    pcButtonGroup.style.display = 'flex';
+                    pcButtonGroup.style.display = 'flex !important';
+                    pcButtonGroup.style.visibility = 'visible !important';
+                    pcButtonGroup.style.opacity = '1 !important';
                     pcButtonGroup.style.gap = '4px';
                     pcButtonGroup.style.alignItems = 'center';
                     pcButtonGroup.style.marginLeft = 'auto'; // 오른쪽 끝으로 밀기
@@ -2510,15 +2731,97 @@ class PriceComparisonSite {
                     console.log('Firebase 후 PC 버튼 그룹을 찾을 수 없습니다.');
                 }
                 
-                // Firebase 후 PC용 로고 스타일 강제 적용
+                // 모바일 버튼 바 완전히 숨김
+                if (mobileButtonBar) {
+                    mobileButtonBar.style.display = 'none !important';
+                    mobileButtonBar.style.visibility = 'hidden !important';
+                    mobileButtonBar.style.opacity = '0 !important';
+                    console.log('Firebase 후 모바일용 버튼 바 완전 숨김 처리 완료');
+                }
+                
+                // Firebase 후 PC용 로고 스타일 강제 적용 - 로컬에서는 왼쪽 정렬
                 const logo = document.querySelector('.logo');
                 if (logo) {
-                    logo.style.fontSize = '1.98rem'; // 1.5배 크기
-                    logo.style.fontWeight = '600';
-                    logo.style.color = '#1e40af';
-                    logo.style.textAlign = 'center';
-                    logo.style.width = '100%';
-                    console.log('Firebase 후 PC 로고 스타일 강제 적용 완료');
+                    const isLocal = window.location.hostname === 'localhost' || 
+                                   window.location.hostname === '127.0.0.1' ||
+                                   window.location.hostname === '';
+                    
+                    if (isLocal) {
+                        logo.style.textAlign = 'left';
+                        logo.style.justifySelf = 'start';
+                        logo.style.width = 'auto';
+                        logo.style.fontSize = '1.32rem';
+                        logo.style.color = '#1e40af'; /* 원래 파란색으로 복원 */
+                        console.log('Firebase 후 로컬 환경: 로고 왼쪽 정렬 적용');
+                    } else {
+                        logo.style.fontSize = '1.98rem';
+                        logo.style.fontWeight = '600';
+                        logo.style.color = '#1e40af'; /* 원래 파란색으로 복원 */
+                        logo.style.textAlign = 'center';
+                        logo.style.width = '100%';
+                        console.log('Firebase 후 배포 환경: 로고 가운데 정렬 적용');
+                    }
+                }
+                
+                // 모바일 환경에서도 로컬 감지 적용
+                if (window.innerWidth <= 768) {
+                    const mobileLogo = document.querySelector('.logo');
+                    if (mobileLogo) {
+                        const isLocal = window.location.hostname === 'localhost' || 
+                                       window.location.hostname === '127.0.0.1' ||
+                                       window.location.hostname === '';
+                        
+                        if (isLocal) {
+                            mobileLogo.style.textAlign = 'left !important';
+                            mobileLogo.style.justifySelf = 'start !important';
+                            mobileLogo.style.width = 'auto !important';
+                            mobileLogo.style.marginLeft = '0 !important';
+                            mobileLogo.style.paddingLeft = '0 !important';
+                            mobileLogo.style.position = 'relative !important';
+                            mobileLogo.style.left = '0 !important';
+                            mobileLogo.style.transform = 'none !important';
+                            mobileLogo.style.float = 'left !important';
+                            mobileLogo.style.maxWidth = 'none !important';
+                            mobileLogo.style.display = 'inline-block !important';
+                            mobileLogo.style.verticalAlign = 'top !important';
+                            mobileLogo.style.clear = 'both !important';
+                            mobileLogo.style.marginRight = 'auto !important';
+                            mobileLogo.style.marginTop = '0 !important';
+                            mobileLogo.style.marginBottom = '0 !important';
+                            mobileLogo.style.gridColumn = '1 !important';
+                            mobileLogo.style.gridRow = '1 !important';
+                            mobileLogo.style.alignSelf = 'start !important';
+                            mobileLogo.style.justifyContent = 'flex-start !important';
+                            console.log('Firebase 후 모바일 로컬 환경: 로고 왼쪽 끝 정렬 강제 적용');
+                        }
+                    }
+                }
+                
+                // 모바일 로컬 환경에서 헤더 레이아웃 강제 변경
+                if (window.innerWidth <= 768) {
+                    const header = document.querySelector('.header');
+                    const headerCenter = document.querySelector('.header-center');
+                    const mobileLogo = document.querySelector('.logo');
+                    
+                    if (isLocal && header && headerCenter && mobileLogo) {
+                        // 헤더를 flex 레이아웃으로 강제 변경
+                        header.style.display = 'flex !important';
+                        header.style.flexDirection = 'row !important';
+                        header.style.alignItems = 'center !important';
+                        header.style.justifyContent = 'space-between !important';
+                        header.style.gridTemplateColumns = 'none !important';
+                        header.style.gridTemplateRows = 'none !important';
+                        
+                        // 헤더 센터를 flex로 변경
+                        headerCenter.style.display = 'flex !important';
+                        headerCenter.style.justifyContent = 'flex-start !important';
+                        headerCenter.style.alignItems = 'center !important';
+                        headerCenter.style.width = 'auto !important';
+                        headerCenter.style.gridColumn = 'unset !important';
+                        headerCenter.style.gridRow = 'unset !important';
+                        
+                        console.log('모바일 로컬 환경: 헤더 레이아웃을 flex로 강제 변경');
+                    }
                 }
                 
                 // Firebase 후 PC용 헤더 그리드 레이아웃 강제 적용
@@ -2645,7 +2948,8 @@ class PriceComparisonSite {
             const querySnapshot = await window.firebaseGetDocs(window.firebaseCollection(window.firebaseDb, 'products'));
             const firebaseProducts = [];
             
-            querySnapshot.forEach((doc) => {
+            // forEach 대신 for...of 루프 사용 (비동기 처리)
+            for (const doc of querySnapshot.docs) {
                 const product = { id: doc.id, ...doc.data() };
                 
                 // createdAt 필드 안전하게 처리
@@ -2655,13 +2959,28 @@ class PriceComparisonSite {
                     product.createdAt = product.createdAt.toISOString();
                 }
                 
-                // 카테고리 재감지 (베지밀 등 새로운 키워드 적용)
-                const detectedCategory = this.detectCategory(product.name);
-                console.log(`카테고리 재감지 결과: "${product.name}" - 기존: ${product.category}, 감지: ${detectedCategory}`);
-                if (detectedCategory !== product.category) {
-                    console.log(`카테고리 수정: "${product.name}" ${product.category} → ${detectedCategory}`);
-                    product.category = detectedCategory;
-                }
+                // 카테고리 재감지 비활성화 (로컬 수정사항 보존을 위해)
+                // const detectedCategory = this.detectCategory(product.name);
+                // console.log(`카테고리 재감지 결과: "${product.name}" - 기존: ${product.category}, 감지: ${detectedCategory}`);
+                
+                // 로컬에서 수정하지 않은 제품만 카테고리 재감지 적용
+                // if (!this.localModifications.has(product.id) && detectedCategory !== product.category) {
+                //     console.log(`카테고리 수정: "${product.name}" ${product.category} → ${detectedCategory}`);
+                //     product.category = detectedCategory;
+                //     
+                //     // Firebase에도 업데이트
+                //     try {
+                //         const productRef = window.firebaseDoc(window.firebaseDb, 'products', product.id);
+                //         await window.firebaseUpdateDoc(productRef, { category: detectedCategory });
+                //         console.log(`Firebase 카테고리 업데이트 완료: ${product.id} → ${detectedCategory}`);
+                //     } catch (error) {
+                //         console.error('Firebase 카테고리 업데이트 실패:', error);
+                //     }
+                // } else if (this.localModifications.has(product.id)) {
+                //     console.log(`로컬 수정된 제품으로 카테고리 재감지 건너뜀: ${product.id} (${product.name})`);
+                // } else {
+                //     console.log(`카테고리 변경 없음: ${product.id} (${product.name}) - ${product.category}`);
+                // }
                 
                 // 제품 상태 확인 및 로그
                 console.log(`Firebase에서 불러온 제품:`, {
@@ -2674,7 +2993,7 @@ class PriceComparisonSite {
                 });
                 
                 firebaseProducts.push(product);
-            });
+            }
             
             // 테스트 데이터와 Firebase 데이터 병합 (중복 제거)
             const existingIds = new Set(this.products.map(p => p.id));
@@ -2684,6 +3003,10 @@ class PriceComparisonSite {
             console.log('Firebase에서 제품 데이터 불러오기 완료:', firebaseProducts.length, '개');
             console.log('새로 추가된 Firebase 제품:', newFirebaseProducts.length, '개');
             console.log('전체 제품 목록:', this.products.map(p => ({ name: p.name, category: p.category, status: p.status })));
+            
+            // 페이지 로드 시 로컬 수정 플래그 초기화
+            this.localModifications.clear();
+            console.log('페이지 로드 시 로컬 수정 플래그 초기화 완료');
             
             console.log('updateCategoryCounts 호출 전');
             this.updateCategoryCounts();
@@ -2750,99 +3073,11 @@ class PriceComparisonSite {
                 const db = window.firebase.firestore();
                 const productsRef = db.collection('products');
                 
-                productsRef.onSnapshot((snapshot) => {
-                    console.log('제품 실시간 데이터 업데이트 감지:', snapshot.docChanges().length, '개 변경');
-                    
-                    snapshot.docChanges().forEach((change) => {
-                        if (change.type === 'removed') {
-                            console.log('제품 삭제 감지:', change.doc.id);
-                            // 삭제된 제품을 로컬 데이터에서도 제거
-                            this.products = this.products.filter(p => p.id !== change.doc.id);
-                            
-                            // DOM에서도 제거
-                            const productElement = document.querySelector(`[data-product-id="${change.doc.id}"]`);
-                            if (productElement) {
-                                productElement.remove();
-                                console.log('DOM에서 삭제된 제품 요소 제거 완료');
-                            }
-                            
-                            // 현재 관리자 패널 상태를 세션 스토리지로 확인하여 해당 화면만 새로고침
-                            const currentView = sessionStorage.getItem('currentAdminView') || 'all';
-                            
-                            console.log('제품 삭제 후 현재 뷰 새로고침:', currentView);
-                            
-                            if (currentView === 'pending') {
-                                // 승인대기 화면이면 승인대기 목록만 새로고침
-                                const pendingProducts = this.products.filter(p => p.status === 'pending');
-                                this.displayPendingProducts(pendingProducts);
-                            } else if (currentView === 'all') {
-                                // 전체 제품 화면이면 전체 제품 목록만 새로고침
-                                const approvedProducts = this.products.filter(p => p.status === 'approved');
-                                this.displayAllProductsAdmin(approvedProducts);
-                            } else if (currentView === 'reports') {
-                                // 가격 변경 신고 화면이면 신고 목록만 새로고침
-                                this.loadPriceReports().catch(err => console.error('loadPriceReports 실패:', err));
-                            }
-                            
-                            // 메인 화면도 즉시 업데이트
-                            this.updateMainProductList();
-                            
-                            // 알림 업데이트
-                            this.updateAdminNotification();
-                        } else if (change.type === 'added' || change.type === 'modified') {
-                            console.log('제품 추가/수정 감지:', change.doc.id);
-                            const productData = { id: change.doc.id, ...change.doc.data() };
-                            
-                            if (change.type === 'added') {
-                                // 중복 체크
-                                const exists = this.products.find(p => p.id === productData.id);
-                                if (!exists) {
-                                    this.products.push(productData);
-                                    console.log('=== 새 제품 추가됨 ===');
-                                    console.log('제품 데이터:', productData);
-                                    console.log('현재 제품 개수:', this.products.length);
-                                    console.log('대기 중인 제품:', this.products.filter(p => p.status === 'pending').length);
-                                    
-                                    // 강제로 알림 업데이트 즉시 실행 (3번 시도)
-                                    let retryCount = 0;
-                                    const updateNotificationWithRetry = () => {
-                                        retryCount++;
-                                        console.log(`알림 업데이트 시도 ${retryCount}/3`);
-                                        this.updateAdminNotification();
-                                        
-                                        if (retryCount < 3) {
-                                            setTimeout(updateNotificationWithRetry, 100);
-                                        }
-                                    };
-                                    setTimeout(updateNotificationWithRetry, 100);
-                                } else {
-                                    console.log('이미 존재하는 제품:', productData.id);
-                                }
-                            } else if (change.type === 'modified') {
-                                // 기존 제품 수정
-                                const index = this.products.findIndex(p => p.id === change.doc.id);
-                                if (index !== -1) {
-                                    this.products[index] = productData;
-                                    console.log('제품 수정됨:', productData);
-                                }
-                            }
-                            
-                            // UI 업데이트
-                            this.forceUIUpdate();
-                            
-                            // 관리자 패널이 열려있으면 새로고침
-                            const adminPanel = document.getElementById('adminPanel');
-                            if (adminPanel && !adminPanel.classList.contains('collapsed')) {
-                                const pendingList = document.getElementById('pendingProductsList');
-                                if (pendingList && pendingList.innerHTML.includes('승인 대기')) {
-                                    this.loadPendingProducts();
-                                } else if (pendingList && pendingList.innerHTML.includes('전체 제품')) {
-                                    this.loadAllProducts();
-                                }
-                            }
-                        }
-                    });
-                });
+                // Firebase 실시간 리스너 비활성화 (F5 문제 해결을 위해)
+                console.log('Firebase 실시간 리스너 비활성화됨 (F5 문제 해결)');
+                
+                // 대신 수동 새로고침 버튼 추가
+                this.addManualRefreshButton();
                 
                 // 가격 변경 신고 컬렉션 실시간 리스너
                 const reportsRef = db.collection('priceReports');
@@ -3084,6 +3319,9 @@ class PriceComparisonSite {
     forceUIUpdate() {
         console.log('UI 강제 업데이트 시작');
         
+        // 카테고리 카운트 업데이트
+        this.updateCategoryCounts();
+        
         // 메인 제품 목록 업데이트
         this.updateMainProductList();
         
@@ -3126,9 +3364,12 @@ class PriceComparisonSite {
         if (activeCategory) {
             const categoryName = activeCategory.querySelector('.category-name').textContent;
             if (categoryName !== '전체') {
-                filteredProducts = filteredProducts.filter(product => 
-                    this.getCategoryFromName(product.name) === categoryName
-                );
+                filteredProducts = filteredProducts.filter(product => {
+                    // 제품의 실제 카테고리 속성 사용
+                    const productCategory = product.category || this.detectCategory(product.name);
+                    console.log(`제품 "${product.name}" 카테고리: ${productCategory}, 선택된 카테고리: ${categoryName}`);
+                    return productCategory === categoryName;
+                });
             }
         }
 
@@ -3214,13 +3455,11 @@ class PriceComparisonSite {
                                 <label for="editProductCategory">카테고리</label>
                                 <select id="editProductCategory">
                                     <option value="">카테고리를 선택하세요</option>
-                                    <option value="전자제품" ${product.category === '전자제품' ? 'selected' : ''}>전자제품</option>
-                                    <option value="의류" ${product.category === '의류' ? 'selected' : ''}>의류</option>
+                                    <option value="특가" ${product.category === '특가' ? 'selected' : ''}>초특가</option>
                                     <option value="식품" ${product.category === '식품' ? 'selected' : ''}>식품</option>
-                                    <option value="생활용품" ${product.category === '생활용품' ? 'selected' : ''}>생활용품</option>
-                                    <option value="도서" ${product.category === '도서' ? 'selected' : ''}>도서</option>
-                                    <option value="스포츠" ${product.category === '스포츠' ? 'selected' : ''}>스포츠</option>
-                                    <option value="뷰티" ${product.category === '뷰티' ? 'selected' : ''}>뷰티</option>
+                                    <option value="생활" ${product.category === '생활' ? 'selected' : ''}>생활</option>
+                                    <option value="가전" ${product.category === '가전' ? 'selected' : ''}>가전</option>
+                                    <option value="유아" ${product.category === '유아' ? 'selected' : ''}>유아</option>
                                     <option value="기타" ${product.category === '기타' ? 'selected' : ''}>기타</option>
                                 </select>
                             </div>
@@ -3260,6 +3499,39 @@ class PriceComparisonSite {
         });
     }
 
+    // 제품 데이터 갱신 함수
+    async refreshProductData(productId) {
+        try {
+            console.log('제품 데이터 갱신 시작:', productId);
+            
+            // 현재 시간으로 업데이트 시간 초기화
+            const currentTime = new Date().toISOString();
+            
+            // 로컬 데이터에서 제품 찾기
+            const localProductIndex = this.products.findIndex(p => p.id === productId);
+            if (localProductIndex !== -1) {
+                // 로컬 데이터 업데이트 (업데이트 시간 초기화)
+                this.products[localProductIndex].lastUpdated = currentTime;
+                console.log('로컬 제품 업데이트 시간 초기화:', this.products[localProductIndex].name, '→', currentTime);
+                
+                // Firebase에도 업데이트 시간 반영
+                const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
+                await window.firebaseUpdateDoc(productRef, { lastUpdated: currentTime });
+                console.log('Firebase 제품 업데이트 시간 초기화 완료:', productId);
+                
+                // UI 업데이트
+                this.forceUIUpdate();
+                alert('제품 업데이트 시간이 초기화되었습니다.');
+            } else {
+                console.warn('로컬 데이터에서 제품을 찾을 수 없음:', productId);
+                alert('제품을 찾을 수 없습니다.');
+            }
+        } catch (error) {
+            console.error('제품 업데이트 시간 초기화 실패:', error);
+            alert('업데이트 시간 초기화에 실패했습니다.');
+        }
+    }
+
     // 제품 업데이트
     async updateProduct(productId) {
         try {
@@ -3272,18 +3544,46 @@ class PriceComparisonSite {
                 status: document.getElementById('editProductStatus').value
             };
 
+            console.log('제품 수정 데이터:', formData);
+            console.log('수정할 제품 ID:', productId);
+
             // Firebase 업데이트
             const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
             await window.firebaseUpdateDoc(productRef, formData);
 
-            console.log('제품 수정 완료:', productId);
+            console.log('Firebase 제품 수정 완료:', productId);
+
+            // 로컬 데이터도 업데이트
+            const localProductIndex = this.products.findIndex(p => p.id === productId);
+            if (localProductIndex !== -1) {
+                const oldProduct = { ...this.products[localProductIndex] };
+                this.products[localProductIndex] = {
+                    ...this.products[localProductIndex],
+                    ...formData
+                };
+                console.log('로컬 제품 데이터 업데이트 완료:');
+                console.log('이전 데이터:', oldProduct);
+                console.log('새 데이터:', this.products[localProductIndex]);
+                
+                // 카테고리 변경 확인
+                if (oldProduct.category !== formData.category) {
+                    console.log(`카테고리 변경됨: ${oldProduct.category} → ${formData.category}`);
+                }
+                
+                // 로컬 수정 플래그 설정
+                this.localModifications.add(productId);
+                console.log('로컬 수정 플래그 설정:', productId);
+            } else {
+                console.warn('로컬 데이터에서 제품을 찾을 수 없음:', productId);
+            }
+
+            // UI 강제 업데이트
+            this.forceUIUpdate();
+
             alert('제품이 수정되었습니다.');
 
             // 팝업 닫기
             closeEditPopup();
-
-            // 목록 새로고침
-            this.loadAllProducts();
 
         } catch (error) {
             console.error('제품 수정 실패:', error);
@@ -4368,8 +4668,8 @@ class PriceComparisonSite {
             '아동용품': '유아',
             '육아용품': '유아',
             
-            // 특가 카테고리
-            '초특가': '특가'
+            // 특가 카테고리 (초특가는 그대로 유지)
+            // '초특가': '특가' // 제거됨 - 이제 초특가는 별도 카테고리로 유지
         };
         
         return categoryMap[oldCategory] || '기타';
@@ -4378,27 +4678,159 @@ class PriceComparisonSite {
     updateCategoryCounts() {
         const approvedProducts = this.products.filter(p => p.status === 'approved');
         
-        console.log('카테고리 카운트 업데이트 시작');
+        console.log('=== 카테고리 카운트 업데이트 시작 ===');
         console.log('전체 제품 수:', this.products.length);
         console.log('승인된 제품 수:', approvedProducts.length);
-        console.log('승인된 제품 목록:', approvedProducts.map(p => ({ name: p.name, category: p.category })));
+        console.log('승인된 제품 목록:', approvedProducts.map(p => ({ 
+            name: p.name, 
+            category: p.category,
+            id: p.id 
+        })));
+        
+        // 각 카테고리별 제품 수 계산 (HTML 순서와 동일하게)
+        const categoryCounts = {
+            '특가': approvedProducts.filter(p => p.category === '특가').length,
+            '식품': approvedProducts.filter(p => p.category === '식품').length,
+            '생활': approvedProducts.filter(p => p.category === '생활').length,
+            '가전': approvedProducts.filter(p => p.category === '가전').length,
+            '유아': approvedProducts.filter(p => p.category === '유아').length,
+            '기타': approvedProducts.filter(p => p.category === '기타').length
+        };
+        
+        console.log('카테고리별 제품 수:', categoryCounts);
         
         // 전체 제품 수
         document.getElementById('totalCount').textContent = approvedProducts.length;
         
-        // 새로운 대분류별 제품 수
-        document.getElementById('foodCount').textContent = 
-            approvedProducts.filter(p => p.category === '식품').length;
-        document.getElementById('dailyCount').textContent = 
-            approvedProducts.filter(p => p.category === '생활').length;
-        document.getElementById('electronicsCount').textContent = 
-            approvedProducts.filter(p => p.category === '가전').length;
-        document.getElementById('babyCount').textContent = 
-            approvedProducts.filter(p => p.category === '유아').length;
-        document.getElementById('specialCount').textContent = 
-            approvedProducts.filter(p => p.category === '특가').length;
-        document.getElementById('etcCount').textContent = 
-            approvedProducts.filter(p => p.category === '기타').length;
+        // 새로운 대분류별 제품 수 (HTML 순서와 동일하게)
+        document.getElementById('specialCount').textContent = categoryCounts['특가'];
+        document.getElementById('foodCount').textContent = categoryCounts['식품'];
+        document.getElementById('dailyCount').textContent = categoryCounts['생활'];
+        document.getElementById('electronicsCount').textContent = categoryCounts['가전'];
+        document.getElementById('babyCount').textContent = categoryCounts['유아'];
+        document.getElementById('etcCount').textContent = categoryCounts['기타'];
+        
+        console.log('=== 카테고리 카운트 업데이트 완료 ===');
+    }
+
+    // 카테고리 표시명 변환 함수
+    getCategoryDisplayName(category) {
+        const displayNames = {
+            '특가': '초특가',
+            '식품': '식품',
+            '생활': '생활',
+            '가전': '가전',
+            '유아': '유아',
+            '기타': '기타'
+        };
+        return displayNames[category] || category;
+    }
+
+    // 수동 새로고침 버튼 및 카테고리 일괄 수정 버튼 추가
+    addManualRefreshButton() {
+        // 관리자 패널에 버튼들 추가
+        const adminPanel = document.getElementById('adminPanel');
+        if (adminPanel) {
+            const adminControls = adminPanel.querySelector('.admin-controls');
+            if (adminControls) {
+                // 카테고리 일괄 수정 버튼
+                const fixCategoriesButton = document.createElement('button');
+                fixCategoriesButton.textContent = '🔧 카테고리 일괄 수정';
+                fixCategoriesButton.className = 'admin-btn fix-categories-btn';
+                fixCategoriesButton.onclick = () => this.fixAllCategories();
+                fixCategoriesButton.style.marginBottom = '10px';
+                fixCategoriesButton.style.backgroundColor = '#f59e0b';
+                fixCategoriesButton.style.color = 'white';
+                fixCategoriesButton.style.border = 'none';
+                fixCategoriesButton.style.padding = '8px 12px';
+                fixCategoriesButton.style.borderRadius = '4px';
+                fixCategoriesButton.style.cursor = 'pointer';
+                fixCategoriesButton.style.fontSize = '0.9rem';
+                fixCategoriesButton.style.fontWeight = '500';
+                fixCategoriesButton.style.width = '100%';
+                
+                // 데이터 새로고침 버튼
+                const refreshButton = document.createElement('button');
+                refreshButton.textContent = '🔄 데이터 새로고침';
+                refreshButton.className = 'refresh-data-btn';
+                refreshButton.onclick = () => this.manualRefreshData();
+                refreshButton.style.marginBottom = '10px';
+                refreshButton.style.backgroundColor = '#10b981';
+                refreshButton.style.color = 'white';
+                refreshButton.style.border = 'none';
+                refreshButton.style.padding = '8px 12px';
+                refreshButton.style.borderRadius = '4px';
+                refreshButton.style.cursor = 'pointer';
+                refreshButton.style.fontSize = '0.9rem';
+                refreshButton.style.fontWeight = '500';
+                refreshButton.style.width = '100%';
+                
+                // 버튼들을 관리자 패널 상단에 추가
+                adminControls.insertBefore(fixCategoriesButton, adminControls.firstChild);
+                adminControls.insertBefore(refreshButton, adminControls.firstChild);
+                
+                console.log('관리자 버튼들 추가 완료: 카테고리 일괄 수정, 데이터 새로고침');
+            }
+        }
+    }
+
+    // 카테고리 일괄 수정 기능
+    async fixAllCategories() {
+        if (!adminAuth.requireAuth()) {
+            return;
+        }
+        
+        const confirmed = confirm('모든 제품의 카테고리를 재감지하여 수정하시겠습니까?\n\n주의: 로컬에서 수동으로 수정한 제품은 제외됩니다.');
+        if (!confirmed) return;
+        
+        try {
+            let fixedCount = 0;
+            let skippedCount = 0;
+            
+            console.log('=== 카테고리 일괄 수정 시작 ===');
+            
+            for (const product of this.products) {
+                const detectedCategory = this.detectCategory(product.name);
+                
+                if (detectedCategory !== product.category) {
+                    console.log(`카테고리 수정: "${product.name}" ${product.category} → ${detectedCategory}`);
+                    
+                    // 로컬 데이터 업데이트
+                    product.category = detectedCategory;
+                    
+                    // Firebase 업데이트
+                    const productRef = window.firebaseDoc(window.firebaseDb, 'products', product.id);
+                    await window.firebaseUpdateDoc(productRef, { category: detectedCategory });
+                    
+                    fixedCount++;
+                } else {
+                    skippedCount++;
+                }
+            }
+            
+            console.log(`=== 카테고리 일괄 수정 완료 ===`);
+            console.log(`수정된 제품: ${fixedCount}개`);
+            console.log(`변경 없음: ${skippedCount}개`);
+            
+            this.forceUIUpdate();
+            alert(`카테고리 일괄 수정이 완료되었습니다!\n\n수정된 제품: ${fixedCount}개\n변경 없음: ${skippedCount}개`);
+        } catch (error) {
+            console.error('카테고리 일괄 수정 실패:', error);
+            alert('카테고리 수정에 실패했습니다. 콘솔을 확인해주세요.');
+        }
+    }
+
+    // 수동 데이터 새로고침
+    async manualRefreshData() {
+        try {
+            console.log('수동 데이터 새로고침 시작');
+            await this.loadProductsFromFirebase();
+            this.forceUIUpdate();
+            alert('데이터가 새로고침되었습니다.');
+        } catch (error) {
+            console.error('수동 새로고침 실패:', error);
+            alert('데이터 새로고침에 실패했습니다.');
+        }
     }
 
     filterByCategory(category) {
@@ -4867,4 +5299,14 @@ PriceComparisonSite.prototype.deleteNoticeComment = function(commentId) {
     
     localStorage.setItem('noticeComments', JSON.stringify(filteredComments));
     this.loadNoticeComments();
+};
+
+// 전역 함수로 등록 (누구나 접근 가능)
+window.refreshProductData = function(productId) {
+    if (window.priceComparisonSite) {
+        window.priceComparisonSite.refreshProductData(productId);
+    } else {
+        console.error('PriceComparisonSite 인스턴스를 찾을 수 없습니다.');
+        alert('시스템을 초기화하는 중입니다. 잠시 후 다시 시도해주세요.');
+    }
 };

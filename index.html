@@ -157,6 +157,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getFirestore, collection, addDoc, getDocs, getDoc, onSnapshot, orderBy, query, doc, updateDoc, where, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
         
         // Firebase 설정 (실제 프로젝트 설정으로 변경하세요)
         // 1. Firebase Console (https://console.firebase.google.com)에서 프로젝트 생성
@@ -175,11 +176,16 @@ const firebaseConfig = {
         // Firebase 초기화
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const storage = getStorage(app);
         
         // 전역 변수로 설정
         window.firebaseApp = app;
         window.firestoreDB = db;
         window.firebaseDb = db; // 호환성을 위한 별칭
+        window.firebaseStorage = () => storage;
+        window.firebaseStorageRef = ref;
+        window.firebaseUploadBytes = uploadBytes;
+        window.firebaseGetDownloadURL = getDownloadURL;
         window.firebaseCollection = collection;
         window.firebaseAddDoc = addDoc;
         window.firebaseGetDocs = getDocs;
@@ -216,7 +222,7 @@ const firebaseConfig = {
             </div>
 
             <div class="header-center">
-                <h1 class="logo">절대방어 쇼핑</h1>
+                <h1 class="logo" onclick="goToHome()" style="cursor: pointer;">절대방어 쇼핑</h1>
             </div>
 
             <div class="header-right">
@@ -234,6 +240,12 @@ const firebaseConfig = {
                     </button>
                 </div>
                 <div id="productFormDropdown" class="header-dropdown collapsed">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600;">최저가 신고</h3>
+                        <button onclick="showMyPriceReports()" style="padding: 6px 12px; font-size: 0.85rem; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            ✏️ 최저가 신고 수정
+                        </button>
+                    </div>
                     <form id="productForm" class="product-form">
                         <div class="form-group">
                             <label for="productName">제품명</label>
@@ -276,6 +288,18 @@ const firebaseConfig = {
                                 <option value="유아">유아</option>
                                 <option value="기타">기타</option>
                             </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="productImage">상품 이미지 (선택사항, 여러장 가능)</label>
+                            <input type="file" id="productImage" name="productImage" accept="image/*" multiple onchange="handleImageSelection()">
+                            <small style="color: #6b7280; font-size: 0.8rem;">JPG, PNG 형식, 최대 5MB (Ctrl/Cmd 키로 여러장 선택)</small>
+                            <div id="imagePreviewContainer" style="display: none; margin-top: 12px;"></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="productDescription">게시글 작성 (선택사항)</label>
+                            <textarea id="productDescription" name="productDescription" rows="4" placeholder="상품에 대한 상세 설명이나 후기를 작성해주세요..."></textarea>
                         </div>
                         
                         <button type="submit" class="submit-btn">제품 등록</button>
@@ -456,7 +480,39 @@ const firebaseConfig = {
                                 변경신고
                                 <span id="priceReportsBadge" class="admin-badge hidden">0</span>
                             </button>
+                            <button id="loadOutOfStockSettings" class="admin-btn">품절설정</button>
                             <button id="adminLogout" class="admin-btn logout-btn">🚪 로그아웃</button>
+                        </div>
+                        
+                        <div id="outOfStockSettings" class="pending-products-list" style="display: none;">
+                            <div class="settings-section">
+                                <h3>품절 단계 설정</h3>
+                                <p style="font-size: 0.85rem; color: #6b7280; margin-bottom: 20px;">
+                                    품절 신고 횟수에 따라 카테고리에 색상 X선이 표시됩니다.
+                                </p>
+                                
+                                <div class="form-group" style="margin-bottom: 20px;">
+                                    <label>1단계 (초록색):</label>
+                                    <input type="number" id="outOfStockStage1" min="1" value="1" style="width: 100px; padding: 8px; margin-left: 10px;">
+                                    <span style="color: #10b981; margin-left: 10px;">✓ 품절 1회 이상</span>
+                                </div>
+                                
+                                <div class="form-group" style="margin-bottom: 20px;">
+                                    <label>2단계 (노란색):</label>
+                                    <input type="number" id="outOfStockStage2" min="2" value="5" style="width: 100px; padding: 8px; margin-left: 10px;">
+                                    <span style="color: #f59e0b; margin-left: 10px;">⚠ 품절 5회 이상</span>
+                                </div>
+                                
+                                <div class="form-group" style="margin-bottom: 20px;">
+                                    <label>3단계 (빨강색):</label>
+                                    <input type="number" id="outOfStockStage3" min="3" value="10" style="width: 100px; padding: 8px; margin-left: 10px;">
+                                    <span style="color: #ef4444; margin-left: 10px;">✗ 품절 10회 이상</span>
+                                </div>
+                                
+                                <button id="saveOutOfStockSettings" class="admin-btn" style="width: 100%; margin-top: 20px;">
+                                    💾 설정 저장
+                                </button>
+                            </div>
                         </div>
                         <div id="pendingProductsList" class="pending-products-list"></div>
                         <div id="allProductsList" class="pending-products-list"></div>
@@ -472,7 +528,7 @@ const firebaseConfig = {
                 <span class="category-name">전체</span>
                 <span class="category-count" id="totalCount">0</span>
             </div>
-            <div class="category-item" onclick="filterByCategory('특가')">
+            <div class="category-item" data-category="특가" onclick="filterByCategory('특가')">
                 <span class="category-name">초특가</span>
                 <span class="category-count" id="specialCount">0</span>
             </div>
@@ -515,6 +571,44 @@ const firebaseConfig = {
                 <p>검색 결과가 없습니다. 다른 키워드로 검색해보세요.</p>
             </div>
         </main>
+    </div>
+
+    <!-- 상품 상세보기 모달 -->
+    <div id="productDetailDropdown" class="header-dropdown collapsed">
+        <div class="product-detail-content">
+            <!-- 헤더 -->
+            <div class="detail-header">
+                <!-- 빈 헤더 -->
+            </div>
+            
+            <!-- 본문 -->
+            <div class="product-detail-body">
+                <div id="productDetailInfo" class="detail-info">
+                    <!-- 상품 정보가 여기에 표시됩니다 -->
+                </div>
+                
+                <div id="productDetailPosts" class="posts-section">
+                    <!-- 게시글들이 여기에 표시됩니다 -->
+                </div>
+                
+                <div class="comment-actions-section">
+                    <div class="detail-actions">
+                        <button onclick="handleRecommendClick()" id="recommendBtn" class="detail-action-btn recommend-btn">
+                            추천 <span id="recommendCount">0</span>
+                        </button>
+                        <button onclick="handleOutOfStockClick()" id="outOfStockDetailBtn" class="detail-action-btn out-of-stock-btn">
+                            품절 <span id="outOfStockCount">0</span>
+                        </button>
+                        <a id="purchaseDetailBtn" href="#" target="_blank" class="detail-action-btn purchase-btn">구매</a>
+                    </div>
+                </div>
+                
+                <div class="comment-form-section">
+                    <textarea id="productDetailComment" rows="3" placeholder="댓글을 작성하세요..."></textarea>
+                    <button onclick="submitProductDetailComment()">댓글 작성</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- 삭제 확인 팝업 -->

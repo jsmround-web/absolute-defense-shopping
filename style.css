@@ -2883,6 +2883,13 @@ body {
     margin: 0 !important;
     background: transparent;
     border: none;
+    position: sticky;
+    top: 0;
+    z-index: 10001;
+    background: white !important;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 8px 16px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .detail-header .detail-actions {
@@ -2986,6 +2993,16 @@ body {
     overflow-y: auto;
     flex: 1;
     margin: 0 !important;
+    -webkit-overflow-scrolling: touch; /* iOS 부드러운 스크롤 */
+}
+
+/* 상세보기 헤더 로고 스타일 */
+.detail-logo {
+    font-size: 1.2rem !important;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+    padding: 0;
 }
 
 .product-info-section {

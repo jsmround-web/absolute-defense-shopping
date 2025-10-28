@@ -407,23 +407,6 @@ const firebaseConfig = {
                             <span id="commentCount" class="comment-count">0개</span>
                         </div>
                         
-                        <!-- 숫자 선택 및 댓글 작성 -->
-                        <div class="number-comment-form">
-                            <div class="form-group">
-                                <label for="commentNumber">번호 선택</label>
-                                <div class="number-selector" id="numberSelector">
-                                    <!-- 숫자 버튼들이 동적으로 생성됩니다 -->
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="commentInput">댓글 작성</label>
-                                <textarea id="commentInput" rows="3" placeholder="선택한 번호에 댓글을 작성하세요..."></textarea>
-                            </div>
-                            
-                            <button id="submitComment" class="comment-btn submit-btn">댓글 작성</button>
-                        </div>
-                        
                         <!-- 숫자별 댓글 목록 -->
                         <div id="commentsList" class="comments-list">
                             <!-- 숫자별 댓글들이 여기에 동적으로 추가됩니다 -->
@@ -534,23 +517,23 @@ const firebaseConfig = {
                 <span class="category-count" id="specialCount">0</span>
             </div>
             <div class="category-item" onclick="filterByCategory('식품')">
-                <span class="category-name">식품</span>
+                <span class="category-name"><span style="font-size: 0.7em; vertical-align: middle;">🍚</span> 식품</span>
                 <span class="category-count" id="foodCount">0</span>
             </div>
             <div class="category-item" onclick="filterByCategory('생활')">
-                <span class="category-name">생활</span>
+                <span class="category-name"><span style="font-size: 0.7em; vertical-align: middle;">🏠</span> 생활</span>
                 <span class="category-count" id="dailyCount">0</span>
             </div>
             <div class="category-item" onclick="filterByCategory('가전')">
-                <span class="category-name">가전</span>
+                <span class="category-name"><span style="font-size: 0.7em; vertical-align: middle;">🌀</span> 가전</span>
                 <span class="category-count" id="electronicsCount">0</span>
             </div>
             <div class="category-item" onclick="filterByCategory('유아')">
-                <span class="category-name">유아</span>
+                <span class="category-name"><span style="font-size: 0.7em; vertical-align: middle;">🍼</span> 유아</span>
                 <span class="category-count" id="babyCount">0</span>
             </div>
             <div class="category-item" onclick="filterByCategory('기타')">
-                <span class="category-name">기타</span>
+                <span class="category-name"><span style="font-size: 0.7em; vertical-align: middle;">🎸</span> 기타</span>
                 <span class="category-count" id="etcCount">0</span>
             </div>
         </div>
@@ -579,7 +562,7 @@ const firebaseConfig = {
         <div class="product-detail-content">
             <!-- 헤더 -->
             <div class="detail-header">
-                <!-- 빈 헤더 -->
+                <h1 class="detail-logo" onclick="goToHome()" style="cursor: pointer; font-size: 1.2rem; margin: 0; padding: 0;">절대방어 쇼핑</h1>
             </div>
             
             <!-- 본문 -->

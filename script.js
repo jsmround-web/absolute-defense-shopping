@@ -59,6 +59,13 @@ class AdminAuth {
     // 관리자 인증
     authenticate() {
         const password = prompt('관리자 비밀번호를 입력하세요:');
+        
+        // 취소 버튼을 누른 경우 (null 반환) 또는 빈 문자열
+        if (password === null || password === '') {
+            console.log('관리자 인증 취소');
+            return false;
+        }
+        
         if (password === this.adminPassword) {
             this.authenticated = true;
             const now = Date.now();
@@ -341,6 +348,7 @@ class PriceComparisonSite {
             stage2: 5,  // 노란색
             stage3: 10   // 빨강색
         };
+        this.currentProductDescription = ''; // 현재 상품 설명 (중복 체크용)
         this.init();
     }
 
@@ -357,6 +365,18 @@ class PriceComparisonSite {
         
         // 모든 드롭다운 패널을 강제로 닫기
         this.closeAllDropdowns();
+        
+        // 브라우저 뒤로가기 버튼 처리 (상세보기 닫기)
+        window.addEventListener('popstate', (event) => {
+            const dropdown = document.getElementById('productDetailDropdown');
+            if (dropdown && !dropdown.classList.contains('collapsed')) {
+                // 상세보기가 열려있으면 닫기
+                window.closeProductDetailModal();
+                // 이벤트 기본 동작 방지 (뒤로가기 취소)
+                event.preventDefault();
+                history.pushState(null, '', window.location.href);
+            }
+        });
         
             // PC에서 버튼 바 상태 확인 및 강제 표시
             if (window.innerWidth > 768) {
@@ -1176,7 +1196,7 @@ class PriceComparisonSite {
                         </div>
                         <div class="product-row-2">
                             <div class="row-top">
-                                <span class="product-category">${this.getCategoryDisplayName(product.category) || '기타'}</span>
+                                <span class="product-category">${this.getCategoryDisplayForProduct(product.category) || '기타'}</span>
                                 <span class="product-original-price">
                                     ${discountRateHtml}
                                     ${(product.originalPrice || 0).toLocaleString()}원
@@ -1225,7 +1245,7 @@ class PriceComparisonSite {
                         </div>
                         <div class="product-row-2">
                             <div class="row-top">
-                                <span class="product-category">${this.getCategoryDisplayName(product.category) || '기타'}</span>
+                                <span class="product-category">${this.getCategoryDisplayForProduct(product.category) || '기타'}</span>
                                 <span class="product-original-price">
                                     ${discountRateHtml}
                                     가격 정보 없음
@@ -1760,9 +1780,10 @@ class PriceComparisonSite {
         }
         this.noticeListenersSetup = true;
         
-        // 수정 버튼 (관리자만 표시)
+        // 수정 버튼 (관리자만 표시) - 중복 리스너 방지
         const editBtn = document.getElementById('editNotice');
-        if (editBtn) {
+        if (editBtn && !editBtn.hasAttribute('data-edit-listener-added')) {
+            editBtn.setAttribute('data-edit-listener-added', 'true');
             editBtn.addEventListener('click', () => {
                 if (adminAuth.requireAuth()) {
                     this.toggleNoticeEdit(true);
@@ -1899,13 +1920,13 @@ class PriceComparisonSite {
             await this.loadNotice();
             
             // 중복 알림 방지 - 플래그 해제 후 알림
-            setTimeout(() => {
-                this.isAddingNotice = false;
+        setTimeout(() => {
+            this.isAddingNotice = false;
                 // loadNotice가 완료된 후 알림 표시
                 setTimeout(() => {
                     alert(`공지${nextNoticeNumber}이 추가되었습니다.`);
                 }, 100);
-            }, 500);
+        }, 500);
         } else {
             // 취소한 경우 플래그만 해제
             setTimeout(() => {
@@ -2155,20 +2176,20 @@ class PriceComparisonSite {
         }
 
         try {
-            const comment = {
-                noticeNumber: this.currentNoticeNumber,
+        const comment = {
+            noticeNumber: this.currentNoticeNumber,
                 content: content,
                 userId: this.getUserId(),
                 createdAt: new Date().toISOString(),
                 deleted: false,
-                replies: []
-            };
+            replies: []
+        };
 
             const postsRef = window.firebaseCollection(window.firebaseDb, 'noticePosts');
             await window.firebaseAddDoc(postsRef, comment);
             
             console.log('공지사항 댓글 작성 완료:', comment);
-            commentInput.value = '';
+        commentInput.value = '';
             
             await this.loadNoticeComments();
         } catch (error) {
@@ -2187,7 +2208,7 @@ class PriceComparisonSite {
         
         const commentsList = document.getElementById('noticeCommentsList');
         const commentCount = document.getElementById('noticeCommentCount');
-        
+
         if (!commentsList) return;
 
         try {
@@ -2209,17 +2230,17 @@ class PriceComparisonSite {
             
             // 시간순 정렬 (최신순)
             comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            
-            // 댓글 개수 업데이트
-            if (commentCount) {
+
+        // 댓글 개수 업데이트
+        if (commentCount) {
                 commentCount.textContent = `${comments.length}개`;
-            }
-            
+        }
+
             if (comments.length === 0) {
                 commentsList.innerHTML = '<p style="text-align: center; color: #6b7280; font-size: 0.8rem;">아직 댓글이 없습니다.</p>';
-                return;
-            }
-            
+            return;
+        }
+
             // 댓글 표시
             commentsList.innerHTML = '';
             const currentUserId = this.getUserId();
@@ -2231,7 +2252,12 @@ class PriceComparisonSite {
                 commentElement.style.cssText = 'margin-bottom: 12px; padding: 12px; background: #f8fafc; border-radius: 8px;';
                 
                 const date = new Date(comment.createdAt);
-                const formattedDate = `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')}`;
+                const year = (date.getFullYear() % 100).toString().padStart(2, '0');
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const day = date.getDate().toString().padStart(2, '0');
+                const hours = date.getHours().toString().padStart(2, '0');
+                const minutes = date.getMinutes().toString().padStart(2, '0');
+                const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}`;
                 
                 commentElement.innerHTML = `
                     <div class="post-header" style="margin-bottom: 8px;">
@@ -2253,7 +2279,7 @@ class PriceComparisonSite {
             });
         } catch (error) {
             console.error('공지사항 댓글 로드 실패:', error);
-            if (commentsList) {
+        if (commentsList) {
                 commentsList.innerHTML = '<p style="text-align: center; color: #ef4444; font-size: 0.8rem;">댓글을 불러오는데 실패했습니다.</p>';
             }
         }
@@ -2309,6 +2335,9 @@ class PriceComparisonSite {
 
     // 숫자별 댓글 시스템 이벤트 리스너 설정
     async setupNumberCommentListeners() {
+        // 번호 선택 기능이 제거되었으므로 함수 비활성화
+        return;
+        
         // 기존 이벤트 리스너 제거 (중복 방지)
         const submitBtn = document.getElementById('submitComment');
         const commentInput = document.getElementById('commentInput');
@@ -2349,6 +2378,9 @@ class PriceComparisonSite {
 
     // 숫자 선택기 생성
     async createNumberSelector() {
+        // 번호 선택 기능이 제거되었으므로 함수 비활성화
+        return;
+        
         const numberSelector = document.getElementById('numberSelector');
         if (!numberSelector) return;
 
@@ -5831,7 +5863,22 @@ class PriceComparisonSite {
     }
 
     // 카테고리 표시명 변환 함수
+    // 카테고리 이모티콘 가져오기 (작은 크기 - 카테고리 바용)
+    getCategoryIcon(category) {
+        const icons = {
+            '특가': '',
+            '식품': '🍚',
+            '생활': '🏠',
+            '가전': '🌀',
+            '유아': '🍼',
+            '기타': '🎸'
+        };
+        return icons[category] || '';
+    }
+
+    // 카테고리 표시명 변환 함수 (카테고리 바용 - 작은 이모티콘)
     getCategoryDisplayName(category) {
+        const icon = this.getCategoryIcon(category);
         const displayNames = {
             '특가': '초특가',
             '식품': '식품',
@@ -5840,7 +5887,23 @@ class PriceComparisonSite {
             '유아': '유아',
             '기타': '기타'
         };
-        return displayNames[category] || category;
+        const name = displayNames[category] || category;
+        return icon ? `<span style="font-size: 0.7em; vertical-align: middle;">${icon}</span> ${name}` : name;
+    }
+
+    // 상품 리스트용 카테고리 표시 (조금 더 큰 이모티콘)
+    getCategoryDisplayForProduct(category) {
+        const icon = this.getCategoryIcon(category);
+        const displayNames = {
+            '특가': '초특가',
+            '식품': '식품',
+            '생활': '생활',
+            '가전': '가전',
+            '유아': '유아',
+            '기타': '기타'
+        };
+        const name = displayNames[category] || category;
+        return icon ? `<span style="font-size: 0.85em; vertical-align: middle;">${icon}</span> ${name}` : name;
     }
 
     // 수동 새로고침 버튼 및 카테고리 일괄 수정 버튼 추가
@@ -6036,6 +6099,7 @@ function toggleSection(sectionId) {
             
             // 패널을 열기
             section.classList.remove('collapsed');
+            section.classList.remove('hidden'); // hidden 클래스 제거
             
             // z-index를 최대값으로 설정 (나중에 열린 패널이 앞에 나오도록)
             let maxZIndex = 10000;
@@ -6152,7 +6216,14 @@ function goToHome() {
             const section = document.getElementById(sectionId);
             if (section) {
                 section.classList.add('collapsed');
-                section.classList.add('hidden');
+                // hidden 클래스는 제거 (CSS에서 제어하지 않도록)
+                section.classList.remove('hidden');
+                // display, visibility, maxHeight 등 스타일 초기화
+                section.style.display = '';
+                section.style.visibility = '';
+                section.style.maxHeight = '';
+                section.style.padding = '';
+                section.style.overflow = '';
             }
         });
         
@@ -6841,6 +6912,10 @@ window.showProductDetail = async function(productId) {
         
         if (productDoc.exists()) {
             const product = { id: productDoc.id, ...productDoc.data() };
+            // 현재 상품 설명 저장 (중복 체크용)
+            if (window.priceComparisonSite) {
+                window.priceComparisonSite.currentProductDescription = product.description || '';
+            }
             console.log('상품 데이터:', product);
             
             // 드롭다운 표시
@@ -6849,6 +6924,10 @@ window.showProductDetail = async function(productId) {
                 dropdown.classList.remove('collapsed');
                 // ESC 핸들러 저장
                 dropdown.escapeHandler = escapeHandler;
+                // 브라우저 히스토리에 상태 추가 (뒤로가기 버튼 처리용)
+                history.pushState({ productDetail: true }, '', window.location.href);
+                // 배경 스크롤 방지
+                document.body.style.overflow = 'hidden';
             }
             
             // 상품 정보 표시 (간소화)
@@ -6857,15 +6936,21 @@ window.showProductDetail = async function(productId) {
                 // 상품명을 첫 줄에 표시
                 const nameHtml = `<div class="product-detail-name" style="font-size: 1.3rem; font-weight: 700; margin-bottom: 16px; color: #111827;">${product.name || '제품명 없음'}</div>`;
                 
-                let imageHtml = '';
-                if (product.imageUrl) {
-                    imageHtml = `<div class="product-detail-image"><img src="${product.imageUrl}" alt="${product.name}"></div>`;
+                // 모든 이미지 표시 (imageUrls 배열 또는 imageUrl)
+                let imagesHtml = '';
+                if (product.imageUrls && Array.isArray(product.imageUrls) && product.imageUrls.length > 0) {
+                    imagesHtml = product.imageUrls.map(imgUrl => 
+                        `<div class="product-detail-image" style="margin-bottom: 16px;"><img src="${imgUrl}" alt="${product.name}" style="max-width: 100%; border-radius: 8px;"></div>`
+                    ).join('');
+                } else if (product.imageUrl) {
+                    imagesHtml = `<div class="product-detail-image" style="margin-bottom: 16px;"><img src="${product.imageUrl}" alt="${product.name}" style="max-width: 100%; border-radius: 8px;"></div>`;
                 }
+                
                 let descHtml = '';
                 if (product.description && product.description.trim()) {
-                    descHtml = `<div class="product-description"><p>${product.description}</p></div>`;
+                    descHtml = `<div class="product-description" style="margin-top: 16px;"><p>${product.description.replace(/\n/g, '<br>')}</p></div>`;
                 }
-                infoSection.innerHTML = nameHtml + imageHtml + descHtml;
+                infoSection.innerHTML = nameHtml + imagesHtml + descHtml;
             }
             
             // 추천/품절 카운트 표시
@@ -6908,6 +6993,14 @@ window.closeProductDetailModal = function() {
         }
     }
     window.currentProductId = null;
+    
+    // 배경 스크롤 복원
+    document.body.style.overflow = '';
+    
+    // 히스토리 상태 관리
+    if (history.state && history.state.productDetail) {
+        history.back();
+    }
     
     // 시작 화면으로 복귀
     if (window.priceComparisonSite) {
@@ -7061,9 +7154,11 @@ async function loadProductDetailPosts(productId) {
         
         const posts = []; // 게시글 (이미지가 있거나 긴 내용)
         const comments = []; // 댓글
+        const seenIds = new Set(); // 중복 방지를 위한 ID 추적
         
         querySnapshot.forEach((doc) => {
             const data = doc.data();
+            
             // 삭제되지 않은 것만 표시
             if (!data.deleted) {
                 // 답글(parentId가 있는 것)은 제외
@@ -7071,14 +7166,23 @@ async function loadProductDetailPosts(productId) {
                     return; // 답글은 부모 댓글의 replies 배열에서 로드하므로 여기서는 제외
                 }
                 
+                // 중복 방지: 이미 본 ID인 경우 스킵
+                if (seenIds.has(doc.id)) {
+                    console.log('중복 댓글 감지, 스킵:', doc.id);
+                    return;
+                }
+                seenIds.add(doc.id);
+                
                 // 게시글과 댓글 구분
                 const hasImages = (data.imageUrls && data.imageUrls.length > 0) || data.imageUrl;
                 const isLongContent = data.content && data.content.length > 100;
+                // 상품 설명과 동일한 내용인 경우 제외 (중복 방지)
+                const isDuplicateContent = data.content && window.priceComparisonSite?.currentProductDescription === data.content.trim();
                 
-                // 게시글로 판단: 이미지가 있거나 내용이 긴 경우
-                if (hasImages || isLongContent) {
-                    posts.push({ id: doc.id, ...data });
-                } else {
+                // 게시글로 판단: 이미지가 있거나 내용이 긴 경우 (단, 중복 내용 제외)
+                if ((hasImages || isLongContent) && !isDuplicateContent) {
+                posts.push({ id: doc.id, ...data });
+                } else if (!isDuplicateContent) {
                     comments.push({ id: doc.id, ...data });
                 }
             }
@@ -7096,9 +7200,14 @@ async function loadProductDetailPosts(productId) {
             postElement.dataset.postId = post.id;
             postElement.dataset.postType = 'post';
             
-            // 날짜 포맷
+            // 날짜 포맷 (YY-MM-DD HH:MM 형식)
             const date = new Date(post.createdAt);
-            const formattedDate = `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')}`;
+            const year = (date.getFullYear() % 100).toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}`;
             
             // 이미지 표시 (여러 장 가능)
             let imagesHtml = '';
@@ -7163,8 +7272,14 @@ async function loadProductDetailPosts(productId) {
                 commentElement.className = 'product-post';
                 commentElement.dataset.postId = comment.id;
                 
+                // 날짜 포맷 (YY-MM-DD HH:MM 형식)
                 const date = new Date(comment.createdAt);
-                const formattedDate = `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')}`;
+                const year = (date.getFullYear() % 100).toString().padStart(2, '0');
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const day = date.getDate().toString().padStart(2, '0');
+                const hours = date.getHours().toString().padStart(2, '0');
+                const minutes = date.getMinutes().toString().padStart(2, '0');
+                const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}`;
                 
                 commentElement.innerHTML = `
                     <div class="post-header">
@@ -7563,17 +7678,27 @@ window.deleteProductPost = async function(postId) {
 };
 
 // 상품 상세보기 댓글 작성
+let isSubmittingProductComment = false; // 중복 제출 방지 플래그
 async function submitProductDetailComment() {
+    // 중복 제출 방지
+    if (isSubmittingProductComment) {
+        console.log('댓글 작성 중... 중복 제출 방지');
+        return;
+    }
+    
+    isSubmittingProductComment = true;
+    
     const commentInput = document.getElementById('productDetailComment');
     const content = commentInput?.value.trim();
     
     if (!content) {
-        alert('댓글 내용을 입력해주세요.');
+        isSubmittingProductComment = false;
         return;
     }
     
     if (!window.currentProductId) {
         alert('상품 정보가 없습니다.');
+        isSubmittingProductComment = false;
         return;
     }
     
@@ -7594,11 +7719,18 @@ async function submitProductDetailComment() {
         console.log('댓글 작성 완료:', comment);
         commentInput.value = '';
         
-        // 게시글 목록 새로고침
+        // 게시글 목록 즉시 새로고침
+        if (window.currentProductId && typeof loadProductDetailPosts === 'function') {
         await loadProductDetailPosts(window.currentProductId);
+        }
     } catch (error) {
         console.error('댓글 작성 실패:', error);
         alert('댓글 작성에 실패했습니다.');
+    } finally {
+        // 플래그 해제 (약간의 지연으로 실시간 리스너와의 충돌 방지)
+        setTimeout(() => {
+            isSubmittingProductComment = false;
+        }, 1000);
     }
 }
 
@@ -7711,8 +7843,14 @@ async function loadReplies(parentCommentId, replyIds) {
                 const reply = { id: replyDoc.id, ...replyDoc.data() };
                 
                 if (!reply.deleted && reply.parentId === parentCommentId) {
+                    // 날짜 포맷 (YY-MM-DD HH:MM 형식)
                     const date = new Date(reply.createdAt);
-                    const formattedDate = `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')}`;
+                    const year = (date.getFullYear() % 100).toString().padStart(2, '0');
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const hours = date.getHours().toString().padStart(2, '0');
+                    const minutes = date.getMinutes().toString().padStart(2, '0');
+                    const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}`;
                     
                     const replyElement = document.createElement('div');
                     replyElement.className = 'product-post';

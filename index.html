@@ -7,6 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>절대방어 쇼핑</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>">
     
     <!-- Google Analytics 동적 로드 (CORB 오류 해결) -->
     <script>
@@ -591,7 +592,7 @@ const firebaseConfig = {
                     <!-- 게시글들이 여기에 표시됩니다 -->
                 </div>
                 
-                <div class="comment-actions-section">
+                <div id="commentActionsSection" class="comment-actions-section" style="display: none;">
                     <div class="detail-actions">
                         <button onclick="handleRecommendClick()" id="recommendBtn" class="detail-action-btn recommend-btn">
                             추천 <span id="recommendCount">0</span>
@@ -603,7 +604,7 @@ const firebaseConfig = {
                     </div>
                 </div>
                 
-                <div class="comment-form-section">
+                <div id="commentFormSection" class="comment-form-section" style="margin-top: 20px;">
                     <textarea id="productDetailComment" rows="3" placeholder="댓글을 작성하세요..."></textarea>
                     <button onclick="submitProductDetailComment()">댓글 작성</button>
                 </div>

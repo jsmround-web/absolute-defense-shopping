@@ -164,6 +164,7 @@ class AdminAuth {
 
 // 전역 관리자 인증 객체
 const adminAuth = new AdminAuth();
+window.adminAuth = adminAuth; // 전역 접근을 위해 window에 할당
 
 // Google Analytics 추적 시스템
 class GoogleAnalyticsTracker {
@@ -348,6 +349,7 @@ class PriceComparisonSite {
             stage2: 5,  // 노란색
             stage3: 10   // 빨강색
         };
+        this.outOfStockAutoReport = 5; // 관리자 설정: 품절신고 자동 생성 기준값
         this.currentProductDescription = ''; // 현재 상품 설명 (중복 체크용)
         this.init();
     }
@@ -362,6 +364,9 @@ class PriceComparisonSite {
         
         // 모바일에서 헤더를 최상단으로 강제 이동
         this.forceHeaderToTop();
+        
+        // 스크롤 이벤트 리스너 설정 - 위로 스크롤하면 헤더(로고) 바로 나타나게
+        this.setupScrollListener();
         
         // 모든 드롭다운 패널을 강제로 닫기
         this.closeAllDropdowns();
@@ -900,8 +905,29 @@ class PriceComparisonSite {
         console.log('필터링된 제품 개수:', filteredProducts.length);
         console.log('필터링된 제품 목록:', filteredProducts);
 
-        // 가격순 정렬 (낮은 가격부터 높은 가격 순)
+        // 초특가는 할인율 높은 순, 나머지는 가격 낮은 순으로 정렬
         filteredProducts.sort((a, b) => {
+            const categoryA = a.category === '특가';
+            const categoryB = b.category === '특가';
+            
+            // 둘 다 초특가인 경우: 할인율 높은 순
+            if (categoryA && categoryB) {
+                const discountRateA = this.calculateDiscountRate(a);
+                const discountRateB = this.calculateDiscountRate(b);
+                if (discountRateA !== discountRateB) {
+                    return discountRateB - discountRateA; // 할인율 높은 순
+                }
+                // 할인율이 같으면 가격 낮은 순
+                const priceA = this.calculateFinalPrice(a) || 0;
+                const priceB = this.calculateFinalPrice(b) || 0;
+                return priceA - priceB;
+            }
+            
+            // 하나만 초특가인 경우: 초특가를 먼저
+            if (categoryA && !categoryB) return -1;
+            if (!categoryA && categoryB) return 1;
+            
+            // 둘 다 초특가가 아닌 경우: 가격 낮은 순
             const priceA = this.calculateFinalPrice(a) || 0;
             const priceB = this.calculateFinalPrice(b) || 0;
             return priceA - priceB;
@@ -934,14 +960,40 @@ class PriceComparisonSite {
         console.log('표시할 제품 목록 (승인된 제품만):', approvedProducts);
         console.log('표시할 제품 개수:', approvedProducts.length);
         
-        // 가격순 정렬 (낮은 가격부터 높은 가격 순)
+        // 초특가는 할인율 높은 순, 나머지는 가격 낮은 순으로 정렬
         approvedProducts.sort((a, b) => {
+            const categoryA = a.category === '특가';
+            const categoryB = b.category === '특가';
+            
+            // 둘 다 초특가인 경우: 할인율 높은 순
+            if (categoryA && categoryB) {
+                const discountRateA = this.calculateDiscountRate(a);
+                const discountRateB = this.calculateDiscountRate(b);
+                if (discountRateA !== discountRateB) {
+                    return discountRateB - discountRateA; // 할인율 높은 순
+                }
+                // 할인율이 같으면 가격 낮은 순
+                const priceA = this.calculateFinalPrice(a) || 0;
+                const priceB = this.calculateFinalPrice(b) || 0;
+                return priceA - priceB;
+            }
+            
+            // 하나만 초특가인 경우: 초특가를 먼저
+            if (categoryA && !categoryB) return -1;
+            if (!categoryA && categoryB) return 1;
+            
+            // 둘 다 초특가가 아닌 경우: 가격 낮은 순
             const priceA = this.calculateFinalPrice(a) || 0;
             const priceB = this.calculateFinalPrice(b) || 0;
             return priceA - priceB;
         });
         
-        console.log('가격순 정렬된 제품 목록:', approvedProducts);
+        console.log('정렬된 제품 목록 (초특가는 할인율 높은 순, 나머지는 가격 낮은 순):', approvedProducts.map(p => ({
+            name: p.name,
+            category: p.category,
+            discountRate: this.calculateDiscountRate(p) + '%',
+            price: this.calculateFinalPrice(p)
+        })));
         
         // 제품이 없으면 빈 화면 표시
         if (approvedProducts.length === 0) {
@@ -951,6 +1003,11 @@ class PriceComparisonSite {
         console.log('renderProducts 호출 전');
         await this.renderProducts(approvedProducts);
         console.log('renderProducts 호출 후');
+        
+        // 전체 탭 활성 상태 표시
+        this.currentCategory = '전체';
+        this.updateCategoryActiveState();
+        
         console.log('=== displayAllProducts 완료 ===');
     }
 
@@ -980,8 +1037,29 @@ class PriceComparisonSite {
         console.log('필터링된 제품 개수:', filteredProducts.length);
         console.log('필터링된 제품 목록:', filteredProducts);
         
-        // 가격순 정렬 (낮은 가격부터 높은 가격 순)
+        // 초특가는 할인율 높은 순, 나머지는 가격 낮은 순으로 정렬
         filteredProducts.sort((a, b) => {
+            const categoryA = a.category === '특가';
+            const categoryB = b.category === '특가';
+            
+            // 둘 다 초특가인 경우: 할인율 높은 순
+            if (categoryA && categoryB) {
+                const discountRateA = this.calculateDiscountRate(a);
+                const discountRateB = this.calculateDiscountRate(b);
+                if (discountRateA !== discountRateB) {
+                    return discountRateB - discountRateA; // 할인율 높은 순
+                }
+                // 할인율이 같으면 가격 낮은 순
+                const priceA = this.calculateFinalPrice(a) || 0;
+                const priceB = this.calculateFinalPrice(b) || 0;
+                return priceA - priceB;
+            }
+            
+            // 하나만 초특가인 경우: 초특가를 먼저
+            if (categoryA && !categoryB) return -1;
+            if (!categoryA && categoryB) return 1;
+            
+            // 둘 다 초특가가 아닌 경우: 가격 낮은 순
             const priceA = this.calculateFinalPrice(a) || 0;
             const priceB = this.calculateFinalPrice(b) || 0;
             return priceA - priceB;
@@ -1029,32 +1107,54 @@ class PriceComparisonSite {
             return;
         }
 
-        // 가격 낮은 순으로 정렬
+        // 초특가는 할인율 높은 순, 나머지는 가격 낮은 순으로 정렬
         console.log('정렬 전 제품 목록:', products.map(p => ({ 
-            name: p.name, 
-            price: this.calculateFinalPrice(p)
+            name: p.name,
+            category: p.category,
+            price: this.calculateFinalPrice(p),
+            discountRate: this.calculateDiscountRate(p)
         })));
         
-        // 가격 낮은 순으로 정렬
         products.sort((a, b) => {
+            const categoryA = a.category === '특가';
+            const categoryB = b.category === '특가';
+            
+            // 둘 다 초특가인 경우: 할인율 높은 순
+            if (categoryA && categoryB) {
+                const discountRateA = this.calculateDiscountRate(a);
+                const discountRateB = this.calculateDiscountRate(b);
+                if (discountRateA !== discountRateB) {
+                    console.log(`정렬 비교 (초특가 할인율): "${a.name}" (${discountRateA}%) vs "${b.name}" (${discountRateB}%)`);
+                    return discountRateB - discountRateA; // 할인율 높은 순
+                }
+                // 할인율이 같으면 가격 낮은 순
+                const priceA = this.calculateFinalPrice(a) || 0;
+                const priceB = this.calculateFinalPrice(b) || 0;
+                return priceA - priceB;
+            }
+            
+            // 하나만 초특가인 경우: 초특가를 먼저
+            if (categoryA && !categoryB) return -1;
+            if (!categoryA && categoryB) return 1;
+            
+            // 둘 다 초특가가 아닌 경우: 가격 낮은 순
             const priceA = this.calculateFinalPrice(a) || 0;
             const priceB = this.calculateFinalPrice(b) || 0;
             
-            console.log(`정렬 비교: "${a.name}" (${priceA}원) vs "${b.name}" (${priceB}원)`);
+            console.log(`정렬 비교 (가격): "${a.name}" (${priceA}원) vs "${b.name}" (${priceB}원)`);
             
             return priceA - priceB; // 낮은 가격이 위로
         });
         
-        console.log('정렬 후 제품 목록 (가격 낮은 순):', products.map((p, index) => ({ 
+        console.log('정렬 후 제품 목록 (초특가는 할인율 높은 순, 나머지는 가격 낮은 순):', products.map((p, index) => ({ 
             순위: index + 1,
-            name: p.name, 
-            price: this.calculateFinalPrice(p)
+            name: p.name,
+            category: p.category,
+            price: this.calculateFinalPrice(p),
+            discountRate: this.calculateDiscountRate(p) + '%'
         })));
 
         console.log('HTML 생성 시작');
-        
-        // 첫번째칸: 설명용 카드
-        const infoCardHtml = this.createInfoCard();
         
         // 먼저 모든 상품의 게시글 이미지를 일괄 조회
         console.log('게시글 이미지 일괄 조회 시작...');
@@ -1094,12 +1194,12 @@ class PriceComparisonSite {
             console.log('[게시글 이미지 맵]', Object.keys(imageMap).length, '개 상품에 이미지 발견');
         }
         
-        // 나머지 상품들 (이미지 맵 전달)
+        // 상품들 (이미지 맵 전달)
         const productPromises = products.map(product => this.createProductElement(product, imageMap));
         const productsHtmlArray = await Promise.all(productPromises);
         const productsHtml = productsHtmlArray.join('');
         
-        const htmlContent = infoCardHtml + productsHtml;
+        const htmlContent = productsHtml;
         
         console.log('생성된 HTML 길이:', htmlContent.length);
         console.log('생성된 HTML 미리보기:', htmlContent.substring(0, 200) + '...');
@@ -1132,7 +1232,7 @@ class PriceComparisonSite {
                                 <span class="info-discount-label">할인율</span>
                                 시작가
                             </span>
-                            <a href="#" class="product-link-btn" style="pointer-events: none;">구매</a>
+                            <a href="#" class="product-link-btn" style="pointer-events: none;">구매 하기</a>
                         </div>
                         <div class="row-bottom">
                             <div class="store-time-info">
@@ -1141,7 +1241,7 @@ class PriceComparisonSite {
                                 <span class="product-price">최종가</span>
                             </div>
                             <div class="product-buttons">
-                                <button class="price-report-btn" style="pointer-events: none;">변동</button>
+                                <button class="price-report-btn" style="pointer-events: none;">가격 바뀜</button>
                             </div>
                         </div>
                     </div>
@@ -1165,7 +1265,16 @@ class PriceComparisonSite {
             const originalPrice = parseInt(product.originalPrice) || 0;
             if (originalPrice > 0 && originalPrice > finalPrice) {
                 const discountRate = Math.round(((originalPrice - finalPrice) / originalPrice) * 100);
-                discountRateHtml = `<span class="discount-rate">-${discountRate}%</span>`;
+                // 할인율에 따라 클래스 추가: 30% 이하 노랑, 30% 이상 파랑, 60% 이상 빨강
+                let discountClass = '';
+                if (discountRate >= 60) {
+                    discountClass = 'discount-rate-high'; // 빨강
+                } else if (discountRate >= 30) {
+                    discountClass = 'discount-rate-medium'; // 파랑
+                } else {
+                    discountClass = 'discount-rate-low'; // 노랑
+                }
+                discountRateHtml = `<span class="discount-rate ${discountClass}">-${discountRate}%</span>`;
             }
         }
         
@@ -1201,7 +1310,7 @@ class PriceComparisonSite {
                                     ${discountRateHtml}
                                     ${(product.originalPrice || 0).toLocaleString()}원
                                 </span>
-                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매</a>
+                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매 하기</a>
                             </div>
                             <div class="row-bottom">
                                 <div class="store-time-info">
@@ -1210,7 +1319,7 @@ class PriceComparisonSite {
                                     <span class="product-price">${finalPrice.toLocaleString()}원</span>
                                 </div>
                                 <div class="product-buttons">
-                                    <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', '${product.originalPrice || 0}', '${product.link || ''}')">변동</button>
+                                    <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', ${finalPrice}, '${product.link || ''}')">가격 바뀜</button>
                                 </div>
                             </div>
                         </div>
@@ -1230,7 +1339,16 @@ class PriceComparisonSite {
                 const originalPrice = parseInt(product.originalPrice) || 0;
                 if (originalPrice > 0 && originalPrice > finalPrice) {
                     const discountRate = Math.round(((originalPrice - finalPrice) / originalPrice) * 100);
-                    discountRateHtml = `<span class="discount-rate">-${discountRate}%</span>`;
+                    // 할인율에 따라 클래스 추가: 30% 이하 노랑, 30% 이상 파랑, 60% 이상 빨강
+                    let discountClass = '';
+                    if (discountRate >= 60) {
+                        discountClass = 'discount-rate-high'; // 빨강
+                    } else if (discountRate >= 30) {
+                        discountClass = 'discount-rate-medium'; // 파랑
+                    } else {
+                        discountClass = 'discount-rate-low'; // 노랑
+                    }
+                    discountRateHtml = `<span class="discount-rate ${discountClass}">-${discountRate}%</span>`;
                 }
             }
             
@@ -1250,14 +1368,14 @@ class PriceComparisonSite {
                                     ${discountRateHtml}
                                     가격 정보 없음
                                 </span>
-                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매</a>
+                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매 하기</a>
                             </div>
                             <div class="row-bottom">
                                 <div class="store-time-info">
                                     <span class="product-store">${this.getStoreDisplayName(product.store) || '미선택'}</span>
                                 </div>
                                 <div class="product-buttons">
-                                    <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', '${product.originalPrice || 0}', '${product.link || ''}')">변동</button>
+                                    <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', ${finalPrice}, '${product.link || ''}')">가격 바뀜</button>
                                 </div>
                             </div>
                         </div>
@@ -1303,6 +1421,23 @@ class PriceComparisonSite {
         }
     }
 
+    calculateDiscountRate(product) {
+        try {
+            const finalPrice = this.calculateFinalPrice(product);
+            const originalPrice = parseInt(product.originalPrice) || 0;
+            
+            // 할인율이 계산 가능한 경우만 반환
+            if (originalPrice > 0 && originalPrice > finalPrice && finalPrice > 0) {
+                const discountRate = Math.round(((originalPrice - finalPrice) / originalPrice) * 100);
+                return discountRate;
+            }
+            return 0; // 할인율이 없거나 계산 불가능하면 0
+        } catch (error) {
+            console.error(`할인율 계산 오류 - 제품: ${product.name}`, error);
+            return 0;
+        }
+    }
+
     truncateUrl(url) {
         if (!url) return '';
         // URL이 40자 이하이면 그대로 반환
@@ -1342,10 +1477,10 @@ class PriceComparisonSite {
             let cssClass = '';
             
             if (diffMinutes < 24 * 60) {
-                // 24시간 이내: 시:분 형식 (01:20, 00:10)
+                // 24시간 이내: 시:분 형식 (01:20 전, 02:19 전)
                 const hours = Math.floor(diffMinutes / 60);
                 const minutes = diffMinutes % 60;
-                timeText = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                timeText = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} 전`;
                 
                 if (diffHours <= 3) {
                     cssClass = 'recent'; // 3시간 이내 - 연두 형광
@@ -1355,13 +1490,13 @@ class PriceComparisonSite {
                     cssClass = 'old'; // 10시간 이상 - 빨강 형광
                 }
             } else if (diffDays < 7) {
-                timeText = `${diffDays}일`;
+                timeText = `${diffDays}일 전`;
                 cssClass = 'old'; // 1일 이상 - 빨강 형광
             } else {
                 timeText = updateTime.toLocaleDateString('ko-KR', {
                     month: '2-digit',
                     day: '2-digit'
-                });
+                }) + ' 전';
                 cssClass = 'old'; // 1주 이상 - 빨강 형광
             }
             
@@ -2928,7 +3063,8 @@ class PriceComparisonSite {
         
         const formData = {
             name: document.getElementById('productName').value.trim() || '제품명 미입력',
-            price: parseInt(document.getElementById('productPrice').value) || 0,
+            originalPrice: parseInt(document.getElementById('productOriginalPrice').value) || 0,
+            price: parseInt(document.getElementById('productPrice').value) || 0, // 최종가
             link: document.getElementById('productLink').value.trim() || '링크 미입력',
             store: document.getElementById('productStore').value.trim() || '미선택',
             category: document.getElementById('productCategory').value.trim() || '',
@@ -2958,9 +3094,9 @@ class PriceComparisonSite {
             return false;
         }
         
-        // 가격 검증
+        // 최종가 검증
         if (!data.price || data.price <= 0) {
-            alert('올바른 가격을 입력해주세요.');
+            alert('올바른 최종가를 입력해주세요.');
             return false;
         }
         
@@ -2992,7 +3128,7 @@ class PriceComparisonSite {
             const product = {
                 name: productData.name,
                 store: productData.store,
-                originalPrice: productData.price,
+                originalPrice: productData.originalPrice || 0, // 정가(시작가)
                 deliveryFee: 0, // 기본값
                 rating: 4.0, // 기본값
                 category: productData.category || this.detectCategory(productData.name),
@@ -3005,6 +3141,15 @@ class PriceComparisonSite {
                 imageUrls: productData.imageUrls || [],
                 userId: productData.userId
             };
+            
+            // 최종가 설정: price 필드가 최종가, originalPrice가 있으면 그대로 사용, 없으면 price를 originalPrice로 설정
+            if (productData.price && productData.price > 0) {
+                product.finalPrice = productData.price;
+                // originalPrice가 없으면 price를 originalPrice로 설정 (호환성)
+                if (!product.originalPrice || product.originalPrice === 0) {
+                    product.originalPrice = productData.price;
+                }
+            }
 
             console.log('저장할 제품 데이터:', product);
             console.log('사용자 타입:', productData.userType);
@@ -3588,19 +3733,16 @@ class PriceComparisonSite {
     setupRealtimeListener() {
         try {
             // 제품 컬렉션 실시간 리스너
-            if (window.firebase && window.firebase.firestore) {
-                const db = window.firebase.firestore();
-                const productsRef = db.collection('products');
+            if (window.firestoreDB && window.firebaseCollection && window.firebaseOnSnapshot) {
+                const db = window.firestoreDB;
+                const productsRef = window.firebaseCollection(db, 'products');
                 
                 // Firebase 실시간 리스너 비활성화 (F5 문제 해결을 위해)
                 console.log('Firebase 실시간 리스너 비활성화됨 (F5 문제 해결)');
                 
-                // 대신 수동 새로고침 버튼 추가
-                this.addManualRefreshButton();
-                
                 // 가격 변경 신고 컬렉션 실시간 리스너
-                const reportsRef = db.collection('priceReports');
-                reportsRef.onSnapshot((snapshot) => {
+                const reportsRef = window.firebaseCollection(db, 'priceReports');
+                window.firebaseOnSnapshot(reportsRef, (snapshot) => {
                     console.log('신고 실시간 데이터 업데이트 감지:', snapshot.docChanges().length, '개 변경');
                     
                     snapshot.docChanges().forEach((change) => {
@@ -3665,8 +3807,8 @@ class PriceComparisonSite {
                 });
                 
                 // 필독 데이터 실시간 리스너
-                const noticesRef = db.collection('notices');
-                noticesRef.doc('main').onSnapshot((doc) => {
+                const noticeDocRef = window.firebaseDoc(db, 'notices', 'main');
+                window.firebaseOnSnapshot(noticeDocRef, (doc) => {
                     console.log('필독 데이터 변경 감지');
                     if (doc.exists()) {
                         const data = doc.data();
@@ -3677,8 +3819,8 @@ class PriceComparisonSite {
                 });
                 
                 // 숫자별 댓글 실시간 리스너
-                const numberCommentsRef = db.collection('numberComments');
-                numberCommentsRef.onSnapshot((snapshot) => {
+                const numberCommentsRef = window.firebaseCollection(db, 'numberComments');
+                window.firebaseOnSnapshot(numberCommentsRef, (snapshot) => {
                     console.log('숫자별 댓글 변경 감지:', snapshot.docChanges().length, '개 변경');
                     const allComments = [];
                     snapshot.forEach((doc) => {
@@ -3695,8 +3837,8 @@ class PriceComparisonSite {
                 });
                 
                 // 공지사항별 댓글 실시간 리스너 (새 시스템: noticePosts)
-                const noticePostsRef = db.collection('noticePosts');
-                noticePostsRef.onSnapshot((snapshot) => {
+                const noticePostsRef = window.firebaseCollection(db, 'noticePosts');
+                window.firebaseOnSnapshot(noticePostsRef, (snapshot) => {
                     console.log('공지사항 댓글 변경 감지:', snapshot.docChanges().length, '개 변경');
                     
                     // 현재 열려있는 공지사항이면 UI 업데이트
@@ -3947,8 +4089,29 @@ class PriceComparisonSite {
             }
         }
 
-        // 가격순 정렬 (낮은 가격부터 높은 가격 순)
+        // 초특가는 할인율 높은 순, 나머지는 가격 낮은 순으로 정렬
         filteredProducts.sort((a, b) => {
+            const categoryA = a.category === '특가';
+            const categoryB = b.category === '특가';
+            
+            // 둘 다 초특가인 경우: 할인율 높은 순
+            if (categoryA && categoryB) {
+                const discountRateA = this.calculateDiscountRate(a);
+                const discountRateB = this.calculateDiscountRate(b);
+                if (discountRateA !== discountRateB) {
+                    return discountRateB - discountRateA; // 할인율 높은 순
+                }
+                // 할인율이 같으면 가격 낮은 순
+                const priceA = this.calculateFinalPrice(a) || 0;
+                const priceB = this.calculateFinalPrice(b) || 0;
+                return priceA - priceB;
+            }
+            
+            // 하나만 초특가인 경우: 초특가를 먼저
+            if (categoryA && !categoryB) return -1;
+            if (!categoryA && categoryB) return 1;
+            
+            // 둘 다 초특가가 아닌 경우: 가격 낮은 순
             const priceA = this.calculateFinalPrice(a) || 0;
             const priceB = this.calculateFinalPrice(b) || 0;
             return priceA - priceB;
@@ -3964,7 +4127,7 @@ class PriceComparisonSite {
         // 카테고리 카운트 업데이트
         this.updateCategoryCounts();
         
-        console.log(`메인 제품 목록 업데이트 완료: ${filteredProducts.length}개 제품 표시 (가격순 정렬)`);
+        console.log(`메인 제품 목록 업데이트 완료: ${filteredProducts.length}개 제품 표시 (초특가는 할인율 높은 순, 나머지는 가격 낮은 순 정렬)`);
     }
 
     // 제품 수정 기능
@@ -4070,7 +4233,7 @@ class PriceComparisonSite {
                             </div>
                             <div class="form-group">
                                 <label for="editProductDescription">게시글</label>
-                                <textarea id="editProductDescription" rows="4" placeholder="게시글 내용을 입력하세요...">${product.description || ''}</textarea>
+                                <textarea id="editProductDescription" rows="8" placeholder="게시글 내용을 입력하세요... (인터넷 주소를 입력하면 클릭 가능한 링크로 변환됩니다)">${product.description || ''}</textarea>
                             </div>
                             <div class="form-actions">
                                 <button type="button" class="cancel-btn" onclick="closeEditPopup()">취소</button>
@@ -4514,12 +4677,12 @@ class PriceComparisonSite {
                                 <input type="text" id="editProductName" value="${product ? (product.name || '') : productName}" placeholder="제품명을 입력하세요">
                             </div>
                             <div class="form-group">
-                                <label for="editOldPrice">기존 가격 (원)</label>
-                                <input type="number" id="editOldPrice" value="${report.oldPrice}" placeholder="기존 가격을 입력하세요">
+                                <label for="editOriginalPrice" style="color: #60a5fa;">정가(시작가)</label>
+                                <input type="number" id="editOriginalPrice" value="${report.oldPrice || (product ? (product.originalPrice || 0) : 0)}" placeholder="정가(시작가)를 입력하세요 (원)">
                             </div>
                             <div class="form-group">
-                                <label for="editNewPrice">신고 가격 (원)</label>
-                                <input type="number" id="editNewPrice" value="${report.newPrice}" placeholder="신고 가격을 입력하세요">
+                                <label for="editNewPrice" style="color: #dc2626;">최종가</label>
+                                <input type="number" id="editNewPrice" value="${report.newPrice}" placeholder="최종가를 입력하세요 (원)">
                             </div>
                             <div class="form-group">
                                 <label for="editNewLink">링크</label>
@@ -4605,7 +4768,7 @@ class PriceComparisonSite {
 
             // 신고 데이터 업데이트
             const reportFormData = {
-                oldPrice: parseInt(document.getElementById('editOldPrice').value) || 0,
+                oldPrice: parseInt(document.getElementById('editOriginalPrice').value) || 0,
                 newPrice: parseInt(document.getElementById('editNewPrice').value) || 0,
                 newLink: document.getElementById('editNewLink').value.trim() || '',
                 reporter: document.getElementById('editReporter').value.trim() || '신고자 미입력',
@@ -4674,11 +4837,23 @@ class PriceComparisonSite {
                 status: 'approved'
             });
             
+            // 로컬 데이터 업데이트
+            const productIndex = this.products.findIndex(p => p.id === productId);
+            if (productIndex !== -1) {
+                this.products[productIndex].status = 'approved';
+            }
+            
             alert('제품이 승인되었습니다.');
             this.loadPendingProducts();
             
             // 알림 업데이트
             this.updateAdminNotification();
+            
+            // 메인 제품 리스트 즉시 업데이트
+            this.updateMainProductList();
+            
+            // 카테고리 개수 업데이트
+            this.updateCategoryCounts();
             
         } catch (error) {
             console.error('제품 승인 실패:', error);
@@ -4752,12 +4927,23 @@ class PriceComparisonSite {
                 this.outOfStockStages = JSON.parse(savedSettings);
             }
             
+            // 관리자 설정 불러오기
+            const savedAutoReport = localStorage.getItem('outOfStockAutoReport');
+            if (savedAutoReport) {
+                this.outOfStockAutoReport = parseInt(savedAutoReport) || 5;
+            }
+            
             // UI에 설정값 반영
             document.getElementById('outOfStockStage1').value = this.outOfStockStages.stage1;
             document.getElementById('outOfStockStage2').value = this.outOfStockStages.stage2;
             document.getElementById('outOfStockStage3').value = this.outOfStockStages.stage3;
+            document.getElementById('outOfStockAutoReport').value = this.outOfStockAutoReport;
+            
+            // 관리자 설정 텍스트 업데이트
+            this.updateAutoReportText();
             
             console.log('품절 설정 로드:', this.outOfStockStages);
+            console.log('품절 자동신고 설정:', this.outOfStockAutoReport);
         } catch (error) {
             console.error('품절 설정 로드 실패:', error);
         }
@@ -4768,10 +4954,16 @@ class PriceComparisonSite {
             const stage1 = parseInt(document.getElementById('outOfStockStage1').value);
             const stage2 = parseInt(document.getElementById('outOfStockStage2').value);
             const stage3 = parseInt(document.getElementById('outOfStockStage3').value);
+            const autoReport = parseInt(document.getElementById('outOfStockAutoReport').value);
             
             // 유효성 검사
             if (stage1 < 1 || stage2 <= stage1 || stage3 <= stage2) {
                 alert('설정값이 잘못되었습니다. 단계별로 증가하는 값이어야 합니다.');
+                return;
+            }
+            
+            if (autoReport < 1) {
+                alert('관리자 설정값은 1 이상이어야 합니다.');
                 return;
             }
             
@@ -4780,18 +4972,33 @@ class PriceComparisonSite {
                 stage2: stage2,
                 stage3: stage3
             };
+            this.outOfStockAutoReport = autoReport;
             
             // localStorage에 저장
             localStorage.setItem('outOfStockStages', JSON.stringify(this.outOfStockStages));
+            localStorage.setItem('outOfStockAutoReport', autoReport.toString());
+            
+            // 관리자 설정 텍스트 업데이트
+            this.updateAutoReportText();
             
             // 모든 상품의 X선 업데이트
             this.updateOutOfStockCrosses();
             
             alert('품절 설정이 저장되었습니다.');
             console.log('품절 설정 저장:', this.outOfStockStages);
+            console.log('품절 자동신고 설정 저장:', this.outOfStockAutoReport);
         } catch (error) {
             console.error('품절 설정 저장 실패:', error);
             alert('설정 저장에 실패했습니다.');
+        }
+    }
+
+    updateAutoReportText() {
+        const autoReportInput = document.getElementById('outOfStockAutoReport');
+        const autoReportText = document.getElementById('autoReportText');
+        if (autoReportInput && autoReportText) {
+            const value = autoReportInput.value || '5';
+            autoReportText.textContent = `📢 품절 ${value}회 도달 시 자동으로 변경신고에 품절신고 생성`;
         }
     }
 
@@ -4881,11 +5088,17 @@ class PriceComparisonSite {
     async handleOutOfStock(productId) {
         try {
             console.log('품절 신고 처리:', productId);
+            
+            // 관리자 설정 불러오기
+            const savedAutoReport = localStorage.getItem('outOfStockAutoReport');
+            const autoReportThreshold = savedAutoReport ? parseInt(savedAutoReport) : (this.outOfStockAutoReport || 5);
+            
             const productRef = window.firebaseDoc(window.firebaseCollection(window.firebaseDb, 'products'), productId);
             const productDoc = await window.firebaseGetDoc(productRef);
             
             if (productDoc.exists()) {
-                const currentCount = productDoc.data().outOfStockCount || 0;
+                const product = productDoc.data();
+                const currentCount = product.outOfStockCount || 0;
                 const newCount = currentCount + 1;
                 
                 await window.firebaseUpdateDoc(productRef, {
@@ -4894,6 +5107,36 @@ class PriceComparisonSite {
                 });
                 
                 console.log('품절 카운트 업데이트:', newCount);
+                
+                // 관리자 설정값에 도달하면 자동으로 품절신고 생성
+                if (newCount === autoReportThreshold) {
+                    console.log(`품절 카운트가 관리자 설정값(${autoReportThreshold})에 도달 - 자동 품절신고 생성`);
+                    
+                    const outOfStockReport = {
+                        productId: productId,
+                        reportType: 'outOfStock',
+                        reporter: 'system',
+                        reportedAt: new Date().toISOString(),
+                        status: 'pending',
+                        productName: product.name || '알 수 없는 제품',
+                        productLink: product.link || '',
+                        autoGenerated: true,
+                        outOfStockCount: newCount
+                    };
+                    
+                    try {
+                        await window.firebaseAddDoc(window.firebaseCollection(window.firebaseDb, 'priceReports'), outOfStockReport);
+                        console.log('자동 품절신고 생성 완료');
+                        
+                        // 알림 업데이트
+                        if (window.priceComparisonSite) {
+                            window.priceComparisonSite.updateAdminNotification();
+                        }
+                    } catch (error) {
+                        console.error('자동 품절신고 생성 실패:', error);
+                    }
+                }
+                
                 return newCount;
             }
         } catch (error) {
@@ -4934,18 +5177,22 @@ class PriceComparisonSite {
         console.log('=== displayPriceReports 출력 대상:', adminContent);
         console.log('출력할 내용:', sortedReports.length, '개 신고');
         
+        // 품절신고와 가격가격 바뀜 개수 계산
+        const outOfStockCount = sortedReports.filter(r => r.reportType === 'outOfStock').length;
+        const priceChangeCount = sortedReports.filter(r => !r.reportType || r.reportType !== 'outOfStock').length;
+        
         if (sortedReports.length === 0) {
             adminContent.innerHTML = `
-                <h3>가격 변경 신고 (0개)</h3>
+                <h3>변경신고 (0개)</h3>
                 <div class="no-reports">
-                    <p>대기 중인 가격 변경 신고가 없습니다.</p>
+                    <p>대기 중인 변경신고가 없습니다.</p>
                 </div>
             `;
             return;
         }
         
         adminContent.innerHTML = `
-            <h3>가격 변경 신고 (${sortedReports.length}개)</h3>
+            <h3>변경신고 (${sortedReports.length}개) - 가격변동: ${priceChangeCount}개, 품절: ${outOfStockCount}개</h3>
             <div class="price-reports">
                 ${sortedReports.map(report => this.createPriceReportElement(report)).join('')}
             </div>
@@ -4963,6 +5210,7 @@ class PriceComparisonSite {
         let isDragging = false;
         let startY = 0;
         let scrollStart = 0;
+        const scrollSpeed = 1.5; // 스크롤 속도 배수 (1.5배로 증가)
 
         adminPanel.addEventListener('mousedown', (e) => {
             isDragging = true;
@@ -4974,7 +5222,7 @@ class PriceComparisonSite {
 
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
-            const deltaY = startY - e.clientY;
+            const deltaY = (startY - e.clientY) * scrollSpeed;
             adminPanel.scrollTop = scrollStart + deltaY;
         });
 
@@ -4995,7 +5243,7 @@ class PriceComparisonSite {
         });
 
         adminPanel.addEventListener('touchmove', (e) => {
-            const deltaY = touchStartY - e.touches[0].clientY;
+            const deltaY = (touchStartY - e.touches[0].clientY) * scrollSpeed;
             adminPanel.scrollTop = touchScrollStart + deltaY;
         });
     }
@@ -5098,6 +5346,52 @@ class PriceComparisonSite {
         
         // 이벤트 리스너 설정
         this.setupDeleteConfirmationEvents(itemType, itemId);
+    }
+
+    // 스크롤 이벤트 리스너 설정 - 위로 스크롤하면 헤더(로고) 바로 나타나게
+    setupScrollListener() {
+        let lastScrollTop = 0;
+        let ticking = false;
+        
+        // 스크롤 방향 감지 및 헤더 표시
+        const handleScroll = () => {
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    const header = document.querySelector('.header');
+                    
+                    if (header) {
+                        // 위로 스크롤 (현재 위치가 이전 위치보다 위)
+                        if (currentScrollTop < lastScrollTop) {
+                            // 헤더를 바로 보이게
+                            header.style.display = 'flex';
+                            header.style.opacity = '1';
+                            header.style.visibility = 'visible';
+                            header.style.transform = 'translateY(0)';
+                            header.style.transition = 'opacity 0.2s ease-in, transform 0.2s ease-in';
+                        }
+                        // 아래로 스크롤할 때는 기본 동작 유지 (필요시 숨김 처리 가능)
+                    }
+                    
+                    lastScrollTop = currentScrollTop <= 0 ? 0 : currentScrollTop;
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        };
+        
+        // 스크롤 이벤트 리스너 등록
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        
+        // 초기 상태 설정
+        const header = document.querySelector('.header');
+        if (header) {
+            header.style.display = 'flex';
+            header.style.opacity = '1';
+            header.style.visibility = 'visible';
+        }
+        
+        console.log('스크롤 리스너 설정 완료 - 위로 스크롤 시 헤더 표시');
     }
 
     // 모바일에서 최상단 버튼 바만 우측 최상단에 고정
@@ -5241,12 +5535,11 @@ class PriceComparisonSite {
             // Firebase에서 제품 삭제 - 여러 방법 시도
             let firebaseDeleteSuccess = false;
             
-            // 방법 1: 직접 Firebase API 사용
-            if (window.firebase && window.firebase.firestore) {
+            // 방법 1: 전역 Firebase 함수 사용 (모듈식 SDK)
+            if (window.firebaseDeleteDoc && window.firebaseDoc && window.firebaseDb) {
                 try {
-                    const db = window.firebase.firestore();
-                    const productRef = db.collection('products').doc(productId);
-                    await productRef.delete();
+                    const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
+                    await window.firebaseDeleteDoc(productRef);
                     console.log('Firebase에서 제품 삭제 완료 (방법 1):', productId);
                     firebaseDeleteSuccess = true;
                 } catch (firebaseError) {
@@ -5254,19 +5547,7 @@ class PriceComparisonSite {
                 }
             }
             
-            // 방법 2: 전역 Firebase 함수 사용
-            if (!firebaseDeleteSuccess && window.firebaseDeleteDoc && window.firebaseDoc && window.firebaseDb) {
-                try {
-                    const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
-                    await window.firebaseDeleteDoc(productRef);
-                    console.log('Firebase에서 제품 삭제 완료 (방법 2):', productId);
-                    firebaseDeleteSuccess = true;
-                } catch (firebaseError) {
-                    console.error('Firebase 삭제 방법 2 실패:', firebaseError);
-                }
-            }
-            
-            // 방법 3: fetch API로 직접 삭제
+            // 방법 2: fetch API로 직접 삭제
             if (!firebaseDeleteSuccess) {
                 try {
                     const response = await fetch(`https://firestore.googleapis.com/v1/projects/price-match-1f952/databases/(default)/documents/products/${productId}`, {
@@ -5277,38 +5558,32 @@ class PriceComparisonSite {
                     });
                     
                     if (response.ok) {
-                        console.log('Firebase에서 제품 삭제 완료 (방법 3):', productId);
+                        console.log('Firebase에서 제품 삭제 완료 (방법 2):', productId);
                         firebaseDeleteSuccess = true;
                     } else {
-                        console.error('Firebase 삭제 방법 3 실패:', response.status, response.statusText);
+                        console.error('Firebase 삭제 방법 2 실패:', response.status, response.statusText);
                     }
                 } catch (fetchError) {
-                    console.error('Firebase 삭제 방법 3 실패:', fetchError);
+                    console.error('Firebase 삭제 방법 2 실패:', fetchError);
                 }
             }
             
-            // 방법 4: 강제 삭제 (실시간 리스너를 통한 삭제)
-            if (!firebaseDeleteSuccess) {
+            // 방법 3: 문서 존재 확인 후 삭제 시도
+            if (!firebaseDeleteSuccess && window.firebaseGetDoc && window.firebaseDoc && window.firebaseDb && window.firebaseDeleteDoc) {
                 try {
-                    console.log('방법 4: 실시간 리스너를 통한 강제 삭제 시도');
-                    // 실시간 리스너가 삭제를 감지하도록 강제로 트리거
-                    if (window.firebase && window.firebase.firestore) {
-                        const db = window.firebase.firestore();
-                        const productRef = db.collection('products').doc(productId);
-                        
-                        // 문서 존재 여부 확인 후 삭제
-                        const docSnapshot = await productRef.get();
-                        if (docSnapshot.exists) {
-                            await productRef.delete();
-                            console.log('Firebase에서 제품 삭제 완료 (방법 4):', productId);
-                            firebaseDeleteSuccess = true;
-                        } else {
-                            console.log('문서가 이미 존재하지 않음:', productId);
-                            firebaseDeleteSuccess = true; // 이미 삭제된 것으로 간주
-                        }
+                    console.log('방법 3: 문서 존재 확인 후 삭제 시도');
+                    const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
+                    const docSnapshot = await window.firebaseGetDoc(productRef);
+                    if (docSnapshot.exists()) {
+                        await window.firebaseDeleteDoc(productRef);
+                        console.log('Firebase에서 제품 삭제 완료 (방법 3):', productId);
+                        firebaseDeleteSuccess = true;
+                    } else {
+                        console.log('문서가 이미 존재하지 않음:', productId);
+                        firebaseDeleteSuccess = true; // 이미 삭제된 것으로 간주
                     }
                 } catch (error) {
-                    console.error('방법 4 실패:', error);
+                    console.error('Firebase 삭제 방법 3 실패:', error);
                 }
             }
             
@@ -5373,12 +5648,11 @@ class PriceComparisonSite {
             // Firebase에서 신고 삭제 - 여러 방법 시도
             let firebaseDeleteSuccess = false;
             
-            // 방법 1: 직접 Firebase API 사용
-            if (window.firebase && window.firebase.firestore) {
+            // 방법 1: 전역 Firebase 함수 사용 (모듈식 SDK)
+            if (window.firebaseDeleteDoc && window.firebaseDoc && window.firebaseDb) {
                 try {
-                    const db = window.firebase.firestore();
-                    const reportRef = db.collection('priceReports').doc(reportId);
-                    await reportRef.delete();
+                    const reportRef = window.firebaseDoc(window.firebaseDb, 'priceReports', reportId);
+                    await window.firebaseDeleteDoc(reportRef);
                     console.log('Firebase에서 가격 변경 신고 삭제 완료 (방법 1):', reportId);
                     firebaseDeleteSuccess = true;
                 } catch (firebaseError) {
@@ -5386,19 +5660,7 @@ class PriceComparisonSite {
                 }
             }
             
-            // 방법 2: 전역 Firebase 함수 사용
-            if (!firebaseDeleteSuccess && window.firebaseDeleteDoc && window.firebaseDoc && window.firebaseDb) {
-                try {
-                    const reportRef = window.firebaseDoc(window.firebaseDb, 'priceReports', reportId);
-                    await window.firebaseDeleteDoc(reportRef);
-                    console.log('Firebase에서 가격 변경 신고 삭제 완료 (방법 2):', reportId);
-                    firebaseDeleteSuccess = true;
-                } catch (firebaseError) {
-                    console.error('Firebase 삭제 방법 2 실패:', firebaseError);
-                }
-            }
-            
-            // 방법 3: 실제 프로젝트 ID로 fetch API 사용
+            // 방법 2: 실제 프로젝트 ID로 fetch API 사용
             if (!firebaseDeleteSuccess) {
                 try {
                     // 실제 Firebase 프로젝트 ID 사용
@@ -5411,38 +5673,32 @@ class PriceComparisonSite {
                     });
                     
                     if (response.ok) {
-                        console.log('Firebase에서 가격 변경 신고 삭제 완료 (방법 3):', reportId);
+                        console.log('Firebase에서 가격 변경 신고 삭제 완료 (방법 2):', reportId);
                         firebaseDeleteSuccess = true;
                     } else {
-                        console.error('Firebase 삭제 방법 3 실패:', response.status, response.statusText);
+                        console.error('Firebase 삭제 방법 2 실패:', response.status, response.statusText);
                     }
                 } catch (fetchError) {
-                    console.error('Firebase 삭제 방법 3 실패:', fetchError);
+                    console.error('Firebase 삭제 방법 2 실패:', fetchError);
                 }
             }
             
-            // 방법 4: 강제 삭제 (실시간 리스너를 통한 삭제)
-            if (!firebaseDeleteSuccess) {
+            // 방법 3: 문서 존재 확인 후 삭제 시도
+            if (!firebaseDeleteSuccess && window.firebaseGetDoc && window.firebaseDoc && window.firebaseDb && window.firebaseDeleteDoc) {
                 try {
-                    console.log('방법 4: 실시간 리스너를 통한 강제 삭제 시도');
-                    // 실시간 리스너가 삭제를 감지하도록 강제로 트리거
-                    if (window.firebase && window.firebase.firestore) {
-                        const db = window.firebase.firestore();
-                        const reportRef = db.collection('priceReports').doc(reportId);
-                        
-                        // 문서 존재 여부 확인 후 삭제
-                        const docSnapshot = await reportRef.get();
-                        if (docSnapshot.exists) {
-                            await reportRef.delete();
-                            console.log('Firebase에서 가격 변경 신고 삭제 완료 (방법 4):', reportId);
-                            firebaseDeleteSuccess = true;
-                        } else {
-                            console.log('문서가 이미 존재하지 않음:', reportId);
-                            firebaseDeleteSuccess = true; // 이미 삭제된 것으로 간주
-                        }
+                    console.log('방법 3: 문서 존재 확인 후 삭제 시도');
+                    const reportRef = window.firebaseDoc(window.firebaseDb, 'priceReports', reportId);
+                    const docSnapshot = await window.firebaseGetDoc(reportRef);
+                    if (docSnapshot.exists()) {
+                        await window.firebaseDeleteDoc(reportRef);
+                        console.log('Firebase에서 가격 변경 신고 삭제 완료 (방법 3):', reportId);
+                        firebaseDeleteSuccess = true;
+                    } else {
+                        console.log('문서가 이미 존재하지 않음:', reportId);
+                        firebaseDeleteSuccess = true; // 이미 삭제된 것으로 간주
                     }
                 } catch (error) {
-                    console.error('방법 4 실패:', error);
+                    console.error('Firebase 삭제 방법 3 실패:', error);
                 }
             }
             
@@ -5488,11 +5744,11 @@ class PriceComparisonSite {
     createPriceReportElement(report) {
         console.log('가격 신고 요소 생성:', report);
         
+        // 품절신고인지 확인
+        const isOutOfStockReport = report.reportType === 'outOfStock';
+        
         const product = this.products.find(p => p.id === report.productId);
-        const productName = product ? product.name : '알 수 없는 제품';
-        const priceChange = report.newPrice - report.oldPrice;
-        const changeText = priceChange > 0 ? `+${priceChange.toLocaleString()}원` : `${priceChange.toLocaleString()}원`;
-        const changeClass = priceChange > 0 ? 'price-increase' : 'price-decrease';
+        const productName = report.productName || (product ? product.name : '알 수 없는 제품');
         
         // productId가 없거나 유효하지 않은 경우 처리
         if (!report.productId) {
@@ -5507,6 +5763,34 @@ class PriceComparisonSite {
                 </div>
             `;
         }
+        
+        // 품절신고인 경우
+        if (isOutOfStockReport) {
+            return `
+                <div class="price-report-item" data-report-id="${report.id}" draggable="true" style="border-left: 4px solid #ef4444;">
+                    <div class="report-info">
+                        <h4>${productName} <span style="color: #ef4444; font-size: 0.9em;">[품절신고]</span></h4>
+                        <p><strong>제품 ID:</strong> ${report.productId}</p>
+                        <p><strong>신고 유형:</strong> 품절신고</p>
+                        <p><strong>신고자:</strong> ${report.reporter}</p>
+                        <p><strong>신고 시간:</strong> ${this.formatUpdateTime(report.reportedAt)}</p>
+                        ${report.productLink ? `<p><strong>제품 링크:</strong> <a href="${report.productLink}" target="_blank" class="report-link">${this.truncateUrl(report.productLink)}</a></p>` : ''}
+                        <p><strong>상태:</strong> ${report.status === 'pending' ? '대기중' : report.status === 'approved' ? '승인됨' : '거부됨'}</p>
+                    </div>
+                    <div class="admin-controls">
+                        ${report.status === 'pending' ? `
+                            <button class="reject-btn" onclick="showDeleteConfirmation('report', '${report.id}', '${productName}')">삭제</button>
+                            ${report.productLink ? `<a href="${report.productLink}" target="_blank" class="link-btn">연결</a>` : ''}
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 가격 변경 신고인 경우 (기존 로직)
+        const priceChange = report.newPrice - report.oldPrice;
+        const changeText = priceChange > 0 ? `+${priceChange.toLocaleString()}원` : `${priceChange.toLocaleString()}원`;
+        const changeClass = priceChange > 0 ? 'price-increase' : 'price-decrease';
         
         return `
             <div class="price-report-item" data-report-id="${report.id}" draggable="true">
@@ -5893,9 +6177,8 @@ class PriceComparisonSite {
 
     // 상품 리스트용 카테고리 표시 (조금 더 큰 이모티콘)
     getCategoryDisplayForProduct(category) {
-        const icon = this.getCategoryIcon(category);
         const displayNames = {
-            '특가': '초특가',
+            '특가': '핫딜',
             '식품': '식품',
             '생활': '생활',
             '가전': '가전',
@@ -5903,6 +6186,15 @@ class PriceComparisonSite {
             '기타': '기타'
         };
         const name = displayNames[category] || category;
+        // 특가(핫딜)인 경우 노란색 번개 아이콘 추가 (세로로 길고 가로로 짧게)
+        if (category === '특가') {
+            return `<span class="hotdeal-icon" style="display: inline-block; width: 7px; height: 16px; margin-right: 3px; vertical-align: middle; position: relative;">
+                        <svg width="7" height="16" viewBox="0 0 7 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3.5 0L0 8H3.5V11L7 4H3.5V0Z" fill="#fbbf24" stroke="#f59e0b" stroke-width="0.5"/>
+                        </svg>
+                    </span>${name}`;
+        }
+        const icon = this.getCategoryIcon(category);
         return icon ? `<span style="font-size: 0.85em; vertical-align: middle;">${icon}</span> ${name}` : name;
     }
 
@@ -5913,6 +6205,16 @@ class PriceComparisonSite {
         if (adminPanel) {
             const adminControls = adminPanel.querySelector('.admin-controls');
             if (adminControls) {
+                // 기존 버튼 제거 (중복 방지)
+                const existingFixBtn = adminControls.querySelector('.fix-categories-btn');
+                const existingRefreshBtn = adminControls.querySelector('.refresh-data-btn');
+                if (existingFixBtn) {
+                    existingFixBtn.remove();
+                }
+                if (existingRefreshBtn) {
+                    existingRefreshBtn.remove();
+                }
+                
                 // 카테고리 일괄 수정 버튼
                 const fixCategoriesButton = document.createElement('button');
                 fixCategoriesButton.textContent = '🔧 카테고리 일괄 수정';
@@ -6039,9 +6341,27 @@ class PriceComparisonSite {
             item.classList.remove('active');
         });
         
-        // 현재 카테고리에 active 클래스 추가
-        const currentCategoryItem = Array.from(document.querySelectorAll('.category-item'))
-            .find(item => item.querySelector('.category-name').textContent === this.currentCategory);
+        // 현재 카테고리에 active 클래스 추가 (텍스트 내 이모지/공백 포함 케이스 대응)
+        const items = Array.from(document.querySelectorAll('.category-item'));
+        let currentCategoryItem = null;
+        
+        for (const item of items) {
+            const dataCategory = item.getAttribute('data-category');
+            const nameEl = item.querySelector('.category-name');
+            const nameText = nameEl ? nameEl.textContent : '';
+            
+            // 1) data-category가 있으면 그것으로 매칭
+            if (dataCategory && dataCategory === this.currentCategory) {
+                currentCategoryItem = item;
+                break;
+            }
+            
+            // 2) 텍스트에 현재 카테고리명이 포함되어 있으면 매칭 (이모지/공백 포함 대비)
+            if (nameText && nameText.indexOf(this.currentCategory) !== -1) {
+                currentCategoryItem = item;
+                break;
+            }
+        }
         
         if (currentCategoryItem) {
             currentCategoryItem.classList.add('active');
@@ -6101,14 +6421,32 @@ function toggleSection(sectionId) {
             section.classList.remove('collapsed');
             section.classList.remove('hidden'); // hidden 클래스 제거
             
-            // z-index를 최대값으로 설정 (나중에 열린 패널이 앞에 나오도록)
-            let maxZIndex = 10000;
-            document.querySelectorAll('[id="productFormDropdown"], [id="noticePanel"], [id="adminPanel"]').forEach(p => {
-                const z = parseInt(p.style.zIndex) || parseInt(window.getComputedStyle(p).zIndex) || 0;
-                if (z > maxZIndex) maxZIndex = z;
-            });
-            section.style.zIndex = (maxZIndex + 10).toString();
-            console.log(`z-index 설정: ${sectionId} = ${section.style.zIndex}`);
+            // 모바일 감지
+            const isMobile = window.innerWidth <= 768;
+            
+            // z-index 설정 - 모바일에서는 최대값, PC에서는 상대적 값
+            if (isMobile) {
+                // 모바일: z-index만 최대값으로 설정 (display는 각 패널별 로직에서 처리)
+                section.style.zIndex = '2147483647';
+                section.style.position = 'fixed';
+                section.style.top = '65px';
+                section.style.left = '0';
+                section.style.right = '0';
+                section.style.width = '100vw';
+                section.style.maxWidth = '100vw';
+                section.style.pointerEvents = 'auto';
+                // display는 각 패널별 if문에서 별도 처리
+                console.log(`모바일 z-index 강제 설정: ${sectionId} = 2147483647`);
+            } else {
+                // PC: 상대적 z-index 설정
+                let maxZIndex = 10000;
+                document.querySelectorAll('[id="productFormDropdown"], [id="noticePanel"], [id="adminPanel"]').forEach(p => {
+                    const z = parseInt(p.style.zIndex) || parseInt(window.getComputedStyle(p).zIndex) || 0;
+                    if (z > maxZIndex) maxZIndex = z;
+                });
+                section.style.zIndex = (maxZIndex + 10).toString();
+                console.log(`PC z-index 설정: ${sectionId} = ${section.style.zIndex}`);
+            }
             
             if (sectionId === 'adminPanel') {
                 section.style.display = 'block';
@@ -6238,6 +6576,12 @@ function goToHome() {
 function filterByCategory(category) {
     if (window.priceComparisonSite) {
         window.priceComparisonSite.filterByCategory(category);
+    }
+}
+
+function updateAutoReportText() {
+    if (window.priceComparisonSite) {
+        window.priceComparisonSite.updateAutoReportText();
     }
 }
 
@@ -6784,6 +7128,7 @@ window.showPriceChangeModal = function(productId, currentPrice, currentLink) {
                     </div>
                     <div class="modal-actions-small">
                         <button onclick="submitPriceChange('${productId}', ${currentPrice})" class="submit-btn-small">신고</button>
+                        <button onclick="submitOutOfStockReport('${productId}')" class="submit-btn-small" style="background: #ef4444; margin-left: 8px;">품절</button>
                         <button onclick="closePriceChangeModal()" class="cancel-btn-small">취소</button>
                     </div>
                 </div>
@@ -6859,6 +7204,54 @@ window.submitPriceChange = async function(productId, oldPrice) {
     } catch (error) {
         console.error('가격 변동 신고 실패:', error);
         alert('신고 제출에 실패했습니다.');
+    }
+};
+
+// 품절신고 제출 함수
+window.submitOutOfStockReport = async function(productId) {
+    if (!confirm('품절신고를 하시겠습니까?')) {
+        return;
+    }
+    
+    try {
+        // Firebase에서 제품 정보 가져오기
+        const productRef = window.firebaseDoc(window.firebaseCollection(window.firebaseDb, 'products'), productId);
+        const productDoc = await window.firebaseGetDoc(productRef);
+        
+        if (!productDoc.exists()) {
+            alert('제품을 찾을 수 없습니다.');
+            return;
+        }
+        
+        const product = productDoc.data();
+        
+        // 품절신고 객체 생성
+        const outOfStockReport = {
+            productId: productId,
+            reportType: 'outOfStock', // 품절신고 구분자
+            reporter: 'anonymous',
+            reportedAt: new Date().toISOString(),
+            status: 'pending',
+            productName: product.name || '알 수 없는 제품',
+            productLink: product.link || ''
+        };
+        
+        // Firebase에 품절신고 저장 (priceReports 컬렉션에 저장)
+        await window.firebaseAddDoc(window.firebaseCollection(window.firebaseDb, 'priceReports'), outOfStockReport);
+        
+        alert('품절신고가 접수되었습니다.');
+        closePriceChangeModal();
+        
+        // GA 추적
+        if (window.gtag) {
+            window.gtag('event', 'out_of_stock_report', {
+                event_category: 'Out of Stock Report',
+                event_label: `Product ID: ${productId}`
+            });
+        }
+    } catch (error) {
+        console.error('품절신고 실패:', error);
+        alert('품절신고 제출에 실패했습니다.');
     }
 };
 
@@ -6948,7 +7341,22 @@ window.showProductDetail = async function(productId) {
                 
                 let descHtml = '';
                 if (product.description && product.description.trim()) {
-                    descHtml = `<div class="product-description" style="margin-top: 16px;"><p>${product.description.replace(/\n/g, '<br>')}</p></div>`;
+                    // URL을 클릭 가능한 링크로 변환하는 함수
+                    const convertUrlsToLinks = (text) => {
+                        // URL 패턴 매칭 (http, https, www로 시작하는 URL)
+                        const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*)/g;
+                        return text.replace(urlPattern, (url) => {
+                            // www로 시작하는 경우 http:// 추가
+                            let href = url;
+                            if (url.startsWith('www.')) {
+                                href = 'http://' + url;
+                            }
+                            return `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline; word-break: break-all;">${url}</a>`;
+                        });
+                    };
+                    
+                    const descriptionWithLinks = convertUrlsToLinks(product.description);
+                    descHtml = `<div class="product-description" style="margin-top: 16px;"><p style="white-space: pre-wrap; word-break: break-word;">${descriptionWithLinks.replace(/\n/g, '<br>')}</p></div>`;
                 }
                 infoSection.innerHTML = nameHtml + imagesHtml + descHtml;
             }
@@ -7114,18 +7522,68 @@ window.handleOutOfStockClick = async function() {
                     window.priceComparisonSite.updateOutOfStockCrosses();
                 }
             } else {
-                // 일반 사용자는 기존 방식
-                const newCount = Math.max(0, currentCount + (btn.classList.contains('active') ? -1 : 1));
+                // 일반 사용자는 품절 카운트 증가 및 관리자 설정값 체크
+                const product = productDoc.data();
+                const currentCount = product.outOfStockCount || 0;
+                const newCount = currentCount + 1;
                 
+                // 품절 카운트 증가
                 await window.firebaseUpdateDoc(productRef, {
                     outOfStockCount: newCount,
                     lastUpdated: new Date().toISOString()
                 });
                 
+                // 관리자 설정 불러오기
+                const savedAutoReport = localStorage.getItem('outOfStockAutoReport');
+                const autoReportThreshold = savedAutoReport ? parseInt(savedAutoReport) : 5;
+                
+                // 관리자 설정값에 도달하면 자동으로 품절신고 생성
+                if (newCount === autoReportThreshold) {
+                    console.log(`품절 카운트가 관리자 설정값(${autoReportThreshold})에 도달 - 자동 품절신고 생성`);
+                    
+                    const outOfStockReport = {
+                        productId: productId,
+                        reportType: 'outOfStock',
+                        reporter: 'system',
+                        reportedAt: new Date().toISOString(),
+                        status: 'pending',
+                        productName: product.name || '알 수 없는 제품',
+                        productLink: product.link || '',
+                        autoGenerated: true,
+                        outOfStockCount: newCount
+                    };
+                    
+                    try {
+                        await window.firebaseAddDoc(window.firebaseCollection(window.firebaseDb, 'priceReports'), outOfStockReport);
+                        console.log('자동 품절신고 생성 완료');
+                        
+                        // 알림 업데이트
+                        if (window.priceComparisonSite) {
+                            window.priceComparisonSite.updateAdminNotification();
+                        }
+                    } catch (error) {
+                        console.error('자동 품절신고 생성 실패:', error);
+                    }
+                    
+                    alert(`품절 카운트가 ${autoReportThreshold}회에 도달하여 관리자에게 품절신고가 자동으로 전송되었습니다.`);
+                } else {
+                    alert('품절 신고가 접수되었습니다.');
+                }
+                
+                // UI 업데이트
                 const countEl = document.getElementById('outOfStockCount');
                 if (countEl) countEl.textContent = newCount;
                 
-                btn.classList.toggle('active');
+                // 버튼 상태는 유지
+                btn.classList.add('active');
+                
+                // GA 추적
+                if (window.gtag) {
+                    window.gtag('event', 'out_of_stock_report', {
+                        event_category: 'Out of Stock Report',
+                        event_label: `Product ID: ${productId}`
+                    });
+                }
             }
         }
     } catch (error) {
@@ -7221,6 +7679,23 @@ async function loadProductDetailPosts(productId) {
                 imagesHtml = `<div class="post-image-wrapper"><img src="${post.imageUrl}" class="post-image" alt="상품 이미지" onclick="window.open('${post.imageUrl}')"></div>`;
             }
             
+            // URL을 클릭 가능한 링크로 변환하는 함수
+            const convertUrlsToLinks = (text) => {
+                if (!text) return '';
+                // URL 패턴 매칭 (http, https, www로 시작하는 URL)
+                const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*)/g;
+                return text.replace(urlPattern, (url) => {
+                    // www로 시작하는 경우 http:// 추가
+                    let href = url;
+                    if (url.startsWith('www.')) {
+                        href = 'http://' + url;
+                    }
+                    return `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline; word-break: break-all;">${url}</a>`;
+                });
+            };
+            
+            const postContentWithLinks = post.content ? convertUrlsToLinks(post.content) : '';
+            
             postElement.innerHTML = `
                 <div class="post-header">
                     <div class="post-left">
@@ -7234,7 +7709,7 @@ async function loadProductDetailPosts(productId) {
                         </div>
                     ` : ''}
                 </div>
-                <div class="post-content">${post.content ? post.content.replace(/\n/g, '<br>') : ''}</div>
+                <div class="post-content" style="white-space: pre-wrap; word-break: break-word;">${postContentWithLinks.replace(/\n/g, '<br>')}</div>
                 ${imagesHtml}
             `;
             
@@ -7281,6 +7756,21 @@ async function loadProductDetailPosts(productId) {
                 const minutes = date.getMinutes().toString().padStart(2, '0');
                 const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}`;
                 
+                // URL을 클릭 가능한 링크로 변환 (댓글용)
+                const convertUrlsToLinksForComment = (text) => {
+                    if (!text) return '';
+                    const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*)/g;
+                    return text.replace(urlPattern, (url) => {
+                        let href = url;
+                        if (url.startsWith('www.')) {
+                            href = 'http://' + url;
+                        }
+                        return `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline; word-break: break-all;">${url}</a>`;
+                    });
+                };
+                
+                const commentContentWithLinks = comment.content ? convertUrlsToLinksForComment(comment.content) : '';
+                
                 commentElement.innerHTML = `
                     <div class="post-header">
                         <div class="post-left">
@@ -7294,7 +7784,7 @@ async function loadProductDetailPosts(productId) {
                             </div>
                         ` : ''}
                     </div>
-                    <div class="post-content">${comment.content ? comment.content.replace(/\n/g, '<br>') : ''}</div>
+                    <div class="post-content" style="white-space: pre-wrap; word-break: break-word;">${commentContentWithLinks.replace(/\n/g, '<br>')}</div>
                     <div class="comment-reply-section" style="margin-top: 12px;">
                         <button class="reply-btn" onclick="showReplyForm('${comment.id}')" style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">답글</button>
                         <div id="replyForm-${comment.id}" style="display: none; margin-top: 8px;">
@@ -7350,6 +7840,18 @@ function getUserId() {
 
 // 사용자가 등록한 최저가 신고 목록 조회
 window.showMyPriceReports = async function() {
+    // 최저가 신고 팝업 닫기
+    const productFormDropdown = document.getElementById('productFormDropdown');
+    if (productFormDropdown && !productFormDropdown.classList.contains('collapsed')) {
+        productFormDropdown.classList.add('collapsed');
+        // 모바일에서도 확실히 닫기
+        productFormDropdown.style.display = 'none';
+        productFormDropdown.style.visibility = 'hidden';
+        productFormDropdown.style.maxHeight = '0';
+        productFormDropdown.style.padding = '0';
+        productFormDropdown.style.overflow = 'hidden';
+    }
+    
     const userId = getUserId();
     console.log('사용자 ID:', userId);
     
@@ -7440,8 +7942,12 @@ window.showEditPriceReportModal = async function(report) {
             <input type="text" id="editProductName" value="${report.name}" style="width: 100%; padding: 8px;">
         </div>
         <div class="form-group">
-            <label>가격</label>
-            <input type="number" id="editProductPrice" value="${report.price}" style="width: 100%; padding: 8px;">
+            <label style="color: #60a5fa;">정가(시작가)</label>
+            <input type="number" id="editProductOriginalPrice" value="${report.originalPrice || 0}" style="width: 100%; padding: 8px;">
+        </div>
+        <div class="form-group">
+            <label style="color: #dc2626;">최종가</label>
+            <input type="number" id="editProductPrice" value="${report.price || report.finalPrice || 0}" style="width: 100%; padding: 8px;">
         </div>
         <div class="form-group">
             <label>링크</label>
@@ -7473,7 +7979,7 @@ window.showEditPriceReportModal = async function(report) {
         </div>
         <div class="form-group">
             <label>게시글 작성 (선택사항)</label>
-            <textarea id="editProductDescription" rows="4" style="width: 100%; padding: 8px;">${report.description || ''}</textarea>
+            <textarea id="editProductDescription" rows="8" style="width: 100%; padding: 8px;" placeholder="게시글 내용을 입력하세요... (인터넷 주소를 입력하면 클릭 가능한 링크로 변환됩니다)">${report.description || ''}</textarea>
         </div>
         <div class="form-group">
             <label>상품 이미지 (선택사항, 여러장 가능)</label>
@@ -7483,6 +7989,9 @@ window.showEditPriceReportModal = async function(report) {
         </div>
         <button onclick="submitEditPriceReport('${report.id}')" style="padding: 12px 24px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-right: 10px;">
             저장
+        </button>
+        <button onclick="deleteMyPriceReportProduct('${report.id}')" style="padding: 12px 24px; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-right: 10px;">
+            삭제
         </button>
         <button onclick="closeEditPriceReportModal()" style="padding: 12px 24px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
             취소
@@ -7505,6 +8014,7 @@ window.showEditPriceReportModal = async function(report) {
 // 최저가 신고 수정 제출
 window.submitEditPriceReport = async function(reportId) {
     const name = document.getElementById('editProductName').value.trim();
+    const originalPrice = parseInt(document.getElementById('editProductOriginalPrice').value) || 0;
     const price = parseInt(document.getElementById('editProductPrice').value);
     const link = document.getElementById('editProductLink').value.trim();
     const store = document.getElementById('editProductStore').value;
@@ -7556,7 +8066,9 @@ window.submitEditPriceReport = async function(reportId) {
         
         const updateData = {
             name: name,
-            price: price,
+            originalPrice: originalPrice,
+            finalPrice: price, // 최종가
+            price: price, // 호환성을 위해 유지
             link: link,
             store: store,
             category: category,
@@ -7593,6 +8105,92 @@ window.closeEditPriceReportModal = function() {
             window.removeEventListener('keydown', modal.escapeHandler);
         }
         modal.remove();
+    }
+};
+
+// 내 최저가 신고 삭제 (사용자가 자신이 등록한 제품 삭제)
+window.deleteMyPriceReportProduct = async function(productId) {
+    if (!confirm('정말로 이 최저가 신고를 삭제하시겠습니까?')) {
+        return;
+    }
+    
+    try {
+        const userId = getUserId();
+        
+        // 제품이 해당 사용자의 것인지 확인
+        const productRef = window.firebaseDoc(window.firebaseCollection(window.firebaseDb, 'products'), productId);
+        const productDoc = await window.firebaseGetDoc(productRef);
+        
+        if (!productDoc.exists()) {
+            alert('제품을 찾을 수 없습니다.');
+            return;
+        }
+        
+        const productData = productDoc.data();
+        
+        // 사용자 ID 확인 (자신이 등록한 것만 삭제 가능)
+        if (productData.userId !== userId) {
+            alert('본인이 등록한 최저가 신고만 삭제할 수 있습니다.');
+            return;
+        }
+        
+        // 제품 삭제
+        await window.firebaseDeleteDoc(productRef);
+        
+        alert('최저가 신고가 삭제되었습니다.');
+        closeEditPriceReportModal();
+        
+        // 화면 새로고침
+        if (window.priceComparisonSite) {
+            window.location.reload();
+        }
+    } catch (error) {
+        console.error('최저가 신고 삭제 실패:', error);
+        alert('삭제에 실패했습니다.');
+    }
+};
+
+// 가격 변경 신고 삭제 (관리자용 폼에서 사용)
+window.deleteMyPriceReport = async function(reportId) {
+    if (!confirm('정말로 이 가격 변경 신고를 삭제하시겠습니까?')) {
+        return;
+    }
+    
+    try {
+        const userId = getUserId();
+        
+        // 신고가 해당 사용자의 것인지 확인
+        const reportRef = window.firebaseDoc(window.firebaseDb, 'priceReports', reportId);
+        const reportDoc = await window.firebaseGetDoc(reportRef);
+        
+        if (!reportDoc.exists()) {
+            alert('신고를 찾을 수 없습니다.');
+            return;
+        }
+        
+        const reportData = reportDoc.data();
+        
+        // 사용자 ID 확인 (자신이 신고한 것만 삭제 가능)
+        // reporter 필드나 userId 필드 확인
+        if (reportData.reporterUserId && reportData.reporterUserId !== userId) {
+            alert('본인이 신고한 가격 변경 신고만 삭제할 수 있습니다.');
+            return;
+        }
+        
+        // 신고 삭제
+        await window.firebaseDeleteDoc(reportRef);
+        
+        alert('가격 변경 신고가 삭제되었습니다.');
+        closeEditPopup();
+        
+        // 화면 새로고침
+        if (window.priceComparisonSite) {
+            window.priceComparisonSite.loadPriceReportsFromFirebase();
+            window.location.reload();
+        }
+    } catch (error) {
+        console.error('가격 변경 신고 삭제 실패:', error);
+        alert('삭제에 실패했습니다.');
     }
 };
 
@@ -7986,7 +8584,8 @@ window.handleOutOfStock = async function(productId) {
             const productDoc = await window.firebaseGetDoc(productRef);
             
             if (productDoc.exists()) {
-                const currentCount = (productDoc.data().outOfStockCount || 0) + 1;
+                const product = productDoc.data();
+                const currentCount = (product.outOfStockCount || 0) + 1;
                 
                 await window.firebaseUpdateDoc(productRef, {
                     outOfStockCount: currentCount,
@@ -7994,6 +8593,39 @@ window.handleOutOfStock = async function(productId) {
                 });
                 
                 console.log('품절 카운트 업데이트 완료:', currentCount);
+                
+                // 관리자 설정 불러오기
+                const savedAutoReport = localStorage.getItem('outOfStockAutoReport');
+                const autoReportThreshold = savedAutoReport ? parseInt(savedAutoReport) : 5;
+                
+                // 관리자 설정값에 도달하면 자동으로 품절신고 생성
+                if (currentCount === autoReportThreshold) {
+                    console.log(`품절 카운트가 관리자 설정값(${autoReportThreshold})에 도달 - 자동 품절신고 생성`);
+                    
+                    const outOfStockReport = {
+                        productId: productId,
+                        reportType: 'outOfStock',
+                        reporter: 'system',
+                        reportedAt: new Date().toISOString(),
+                        status: 'pending',
+                        productName: product.name || '알 수 없는 제품',
+                        productLink: product.link || '',
+                        autoGenerated: true,
+                        outOfStockCount: currentCount
+                    };
+                    
+                    try {
+                        await window.firebaseAddDoc(window.firebaseCollection(window.firebaseDb, 'priceReports'), outOfStockReport);
+                        console.log('자동 품절신고 생성 완료');
+                        
+                        // 알림 업데이트
+                        if (window.priceComparisonSite) {
+                            window.priceComparisonSite.updateAdminNotification();
+                        }
+                    } catch (error) {
+                        console.error('자동 품절신고 생성 실패:', error);
+                    }
+                }
                 
                 // UI 업데이트
                 updateOutOfStockCount(productId, currentCount);

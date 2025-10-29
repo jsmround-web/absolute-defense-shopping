@@ -157,7 +157,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getFirestore, collection, addDoc, getDocs, getDoc, onSnapshot, orderBy, query, doc, updateDoc, where, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, getDocs, getDoc, onSnapshot, orderBy, query, doc, updateDoc, where, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
         
         // Firebase 설정 (실제 프로젝트 설정으로 변경하세요)
@@ -198,6 +198,7 @@ const firebaseConfig = {
         window.firebaseUpdateDoc = updateDoc;
         window.firebaseWhere = where;
         window.firebaseSetDoc = setDoc;
+        window.firebaseDeleteDoc = deleteDoc;
     </script>
 </head>
 <body>
@@ -254,8 +255,13 @@ const firebaseConfig = {
                         </div>
                         
                         <div class="form-group">
-                            <label for="productPrice">가격</label>
-                            <input type="number" id="productPrice" name="productPrice" placeholder="가격을 입력하세요 (원)">
+                            <label for="productOriginalPrice" style="color: #60a5fa;">정가(시작가)</label>
+                            <input type="number" id="productOriginalPrice" name="productOriginalPrice" placeholder="정가(시작가)를 입력하세요 (원)">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="productPrice" style="color: #dc2626;">최종가</label>
+                            <input type="number" id="productPrice" name="productPrice" placeholder="최종가를 입력하세요 (원)">
                         </div>
                         
                         <div class="form-group">
@@ -282,7 +288,7 @@ const firebaseConfig = {
                             <label for="productCategory">카테고리 (선택사항)</label>
                             <select id="productCategory" name="productCategory">
                                 <option value="">카테고리 선택 안함</option>
-                                <option value="특가">초특가</option>
+                                <option value="특가">핫딜</option>
                                 <option value="식품">식품</option>
                                 <option value="생활">생활</option>
                                 <option value="가전">가전</option>
@@ -300,7 +306,7 @@ const firebaseConfig = {
                         
                         <div class="form-group">
                             <label for="productDescription">게시글 작성 (선택사항)</label>
-                            <textarea id="productDescription" name="productDescription" rows="4" placeholder="상품에 대한 상세 설명이나 후기를 작성해주세요..."></textarea>
+                            <textarea id="productDescription" name="productDescription" rows="8" placeholder="상품에 대한 상세 설명이나 후기를 작성해주세요... (인터넷 주소를 입력하면 클릭 가능한 링크로 변환됩니다)"></textarea>
                         </div>
                         
                         <button type="submit" class="submit-btn">제품 등록</button>
@@ -476,6 +482,12 @@ const firebaseConfig = {
                                 </p>
                                 
                                 <div class="form-group" style="margin-bottom: 20px;">
+                                    <label>관리자 설정 (품절신고 자동 생성):</label>
+                                    <input type="number" id="outOfStockAutoReport" min="1" value="5" style="width: 100px; padding: 8px; margin-left: 10px;" onchange="updateAutoReportText()">
+                                    <span id="autoReportText" style="color: #3b82f6; margin-left: 10px;">📢 품절 5회 도달 시 자동으로 변경신고에 품절신고 생성</span>
+                                </div>
+                                
+                                <div class="form-group" style="margin-bottom: 20px;">
                                     <label>1단계 (초록색):</label>
                                     <input type="number" id="outOfStockStage1" min="1" value="1" style="width: 100px; padding: 8px; margin-left: 10px;">
                                     <span style="color: #10b981; margin-left: 10px;">✓ 품절 1회 이상</span>
@@ -513,7 +525,13 @@ const firebaseConfig = {
                 <span class="category-count" id="totalCount">0</span>
             </div>
             <div class="category-item" data-category="특가" onclick="filterByCategory('특가')">
-                <span class="category-name">초특가</span>
+                <span class="category-name">
+                    <span class="hotdeal-icon" style="display: inline-block; width: 7px; height: 16px; margin-right: 3px; vertical-align: middle; position: relative;">
+                        <svg width="7" height="16" viewBox="0 0 7 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3.5 0L0 8H3.5V11L7 4H3.5V0Z" fill="#fbbf24" stroke="#f59e0b" stroke-width="0.5"/>
+                        </svg>
+                    </span>핫딜
+                </span>
                 <span class="category-count" id="specialCount">0</span>
             </div>
             <div class="category-item" onclick="filterByCategory('식품')">
@@ -560,11 +578,6 @@ const firebaseConfig = {
     <!-- 상품 상세보기 모달 -->
     <div id="productDetailDropdown" class="header-dropdown collapsed">
         <div class="product-detail-content">
-            <!-- 헤더 -->
-            <div class="detail-header">
-                <h1 class="detail-logo" onclick="goToHome()" style="cursor: pointer; font-size: 1.2rem; margin: 0; padding: 0;">절대방어 쇼핑</h1>
-            </div>
-            
             <!-- 본문 -->
             <div class="product-detail-body">
                 <div id="productDetailInfo" class="detail-info">
@@ -583,7 +596,7 @@ const firebaseConfig = {
                         <button onclick="handleOutOfStockClick()" id="outOfStockDetailBtn" class="detail-action-btn out-of-stock-btn">
                             품절 <span id="outOfStockCount">0</span>
                         </button>
-                        <a id="purchaseDetailBtn" href="#" target="_blank" class="detail-action-btn purchase-btn">구매</a>
+                        <a id="purchaseDetailBtn" href="#" target="_blank" class="detail-action-btn purchase-btn">구매 하기</a>
                     </div>
                 </div>
                 

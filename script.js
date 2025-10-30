@@ -905,33 +905,8 @@ class PriceComparisonSite {
         console.log('필터링된 제품 개수:', filteredProducts.length);
         console.log('필터링된 제품 목록:', filteredProducts);
 
-        // 초특가는 할인율 높은 순, 나머지는 가격 낮은 순으로 정렬
-        filteredProducts.sort((a, b) => {
-            const categoryA = a.category === '특가';
-            const categoryB = b.category === '특가';
-            
-            // 둘 다 초특가인 경우: 할인율 높은 순
-            if (categoryA && categoryB) {
-                const discountRateA = this.calculateDiscountRate(a);
-                const discountRateB = this.calculateDiscountRate(b);
-                if (discountRateA !== discountRateB) {
-                    return discountRateB - discountRateA; // 할인율 높은 순
-                }
-                // 할인율이 같으면 가격 낮은 순
-                const priceA = this.calculateFinalPrice(a) || 0;
-                const priceB = this.calculateFinalPrice(b) || 0;
-                return priceA - priceB;
-            }
-            
-            // 하나만 초특가인 경우: 초특가를 먼저
-            if (categoryA && !categoryB) return -1;
-            if (!categoryA && categoryB) return 1;
-            
-            // 둘 다 초특가가 아닌 경우: 가격 낮은 순
-            const priceA = this.calculateFinalPrice(a) || 0;
-            const priceB = this.calculateFinalPrice(b) || 0;
-            return priceA - priceB;
-        });
+        // 할인율 높은 순, 같은 할인율이면 낮은 가격 순
+        this.sortProductsByDiscountThenPrice(filteredProducts);
 
         console.log('가격순 정렬된 제품 목록:', filteredProducts);
 
@@ -960,35 +935,10 @@ class PriceComparisonSite {
         console.log('표시할 제품 목록 (승인된 제품만):', approvedProducts);
         console.log('표시할 제품 개수:', approvedProducts.length);
         
-        // 초특가는 할인율 높은 순, 나머지는 가격 낮은 순으로 정렬
-        approvedProducts.sort((a, b) => {
-            const categoryA = a.category === '특가';
-            const categoryB = b.category === '특가';
-            
-            // 둘 다 초특가인 경우: 할인율 높은 순
-            if (categoryA && categoryB) {
-                const discountRateA = this.calculateDiscountRate(a);
-                const discountRateB = this.calculateDiscountRate(b);
-                if (discountRateA !== discountRateB) {
-                    return discountRateB - discountRateA; // 할인율 높은 순
-                }
-                // 할인율이 같으면 가격 낮은 순
-                const priceA = this.calculateFinalPrice(a) || 0;
-                const priceB = this.calculateFinalPrice(b) || 0;
-                return priceA - priceB;
-            }
-            
-            // 하나만 초특가인 경우: 초특가를 먼저
-            if (categoryA && !categoryB) return -1;
-            if (!categoryA && categoryB) return 1;
-            
-            // 둘 다 초특가가 아닌 경우: 가격 낮은 순
-            const priceA = this.calculateFinalPrice(a) || 0;
-            const priceB = this.calculateFinalPrice(b) || 0;
-            return priceA - priceB;
-        });
+        // 할인율 높은 순, 같은 할인율이면 낮은 가격 순
+        this.sortProductsByDiscountThenPrice(approvedProducts);
         
-        console.log('정렬된 제품 목록 (초특가는 할인율 높은 순, 나머지는 가격 낮은 순):', approvedProducts.map(p => ({
+        console.log('정렬된 제품 목록 (할인율 높은 순, 동률 시 낮은 가격 순):', approvedProducts.map(p => ({
             name: p.name,
             category: p.category,
             discountRate: this.calculateDiscountRate(p) + '%',
@@ -1037,33 +987,8 @@ class PriceComparisonSite {
         console.log('필터링된 제품 개수:', filteredProducts.length);
         console.log('필터링된 제품 목록:', filteredProducts);
         
-        // 초특가는 할인율 높은 순, 나머지는 가격 낮은 순으로 정렬
-        filteredProducts.sort((a, b) => {
-            const categoryA = a.category === '특가';
-            const categoryB = b.category === '특가';
-            
-            // 둘 다 초특가인 경우: 할인율 높은 순
-            if (categoryA && categoryB) {
-                const discountRateA = this.calculateDiscountRate(a);
-                const discountRateB = this.calculateDiscountRate(b);
-                if (discountRateA !== discountRateB) {
-                    return discountRateB - discountRateA; // 할인율 높은 순
-                }
-                // 할인율이 같으면 가격 낮은 순
-                const priceA = this.calculateFinalPrice(a) || 0;
-                const priceB = this.calculateFinalPrice(b) || 0;
-                return priceA - priceB;
-            }
-            
-            // 하나만 초특가인 경우: 초특가를 먼저
-            if (categoryA && !categoryB) return -1;
-            if (!categoryA && categoryB) return 1;
-            
-            // 둘 다 초특가가 아닌 경우: 가격 낮은 순
-            const priceA = this.calculateFinalPrice(a) || 0;
-            const priceB = this.calculateFinalPrice(b) || 0;
-            return priceA - priceB;
-        });
+        // 할인율 높은 순, 같은 할인율이면 낮은 가격 순
+        this.sortProductsByDiscountThenPrice(filteredProducts);
         
         console.log('가격순 정렬된 제품 목록:', filteredProducts);
         
@@ -1107,46 +1032,17 @@ class PriceComparisonSite {
             return;
         }
 
-        // 초특가는 할인율 높은 순, 나머지는 가격 낮은 순으로 정렬
+        // 할인율 높은 순, 같은 할인율이면 낮은 가격 순
         console.log('정렬 전 제품 목록:', products.map(p => ({ 
             name: p.name,
             category: p.category,
             price: this.calculateFinalPrice(p),
             discountRate: this.calculateDiscountRate(p)
         })));
-        
-        products.sort((a, b) => {
-            const categoryA = a.category === '특가';
-            const categoryB = b.category === '특가';
-            
-            // 둘 다 초특가인 경우: 할인율 높은 순
-            if (categoryA && categoryB) {
-                const discountRateA = this.calculateDiscountRate(a);
-                const discountRateB = this.calculateDiscountRate(b);
-                if (discountRateA !== discountRateB) {
-                    console.log(`정렬 비교 (초특가 할인율): "${a.name}" (${discountRateA}%) vs "${b.name}" (${discountRateB}%)`);
-                    return discountRateB - discountRateA; // 할인율 높은 순
-                }
-                // 할인율이 같으면 가격 낮은 순
-                const priceA = this.calculateFinalPrice(a) || 0;
-                const priceB = this.calculateFinalPrice(b) || 0;
-                return priceA - priceB;
-            }
-            
-            // 하나만 초특가인 경우: 초특가를 먼저
-            if (categoryA && !categoryB) return -1;
-            if (!categoryA && categoryB) return 1;
-            
-            // 둘 다 초특가가 아닌 경우: 가격 낮은 순
-            const priceA = this.calculateFinalPrice(a) || 0;
-            const priceB = this.calculateFinalPrice(b) || 0;
-            
-            console.log(`정렬 비교 (가격): "${a.name}" (${priceA}원) vs "${b.name}" (${priceB}원)`);
-            
-            return priceA - priceB; // 낮은 가격이 위로
-        });
-        
-        console.log('정렬 후 제품 목록 (초특가는 할인율 높은 순, 나머지는 가격 낮은 순):', products.map((p, index) => ({ 
+
+        this.sortProductsByDiscountThenPrice(products);
+
+        console.log('정렬 후 제품 목록 (할인율 높은 순, 동률 시 낮은 가격 순):', products.map((p, index) => ({ 
             순위: index + 1,
             name: p.name,
             category: p.category,
@@ -1259,20 +1155,20 @@ class PriceComparisonSite {
         
         console.log(`제품 "${product.name}" 최종 가격:`, finalPrice);
         
-        // 할인율 계산 (초특가 카테고리만)
+        // 할인율 계산 (모든 카테고리)
         let discountRateHtml = '';
-        if (product.category === '특가' && product.originalPrice && finalPrice > 0) {
+        if (product.originalPrice && finalPrice > 0) {
             const originalPrice = parseInt(product.originalPrice) || 0;
             if (originalPrice > 0 && originalPrice > finalPrice) {
                 const discountRate = Math.round(((originalPrice - finalPrice) / originalPrice) * 100);
-                // 할인율에 따라 클래스 추가: 30% 이하 노랑, 30% 이상 파랑, 60% 이상 빨강
+                // 할인율 색상 규칙: 60% 이상 빨강, 30% 이상 파랑, 30% 이하는 검정
                 let discountClass = '';
                 if (discountRate >= 60) {
                     discountClass = 'discount-rate-high'; // 빨강
                 } else if (discountRate >= 30) {
                     discountClass = 'discount-rate-medium'; // 파랑
                 } else {
-                    discountClass = 'discount-rate-low'; // 노랑
+                    discountClass = 'discount-rate-low'; // 검정
                 }
                 discountRateHtml = `<span class="discount-rate ${discountClass}">-${discountRate}%</span>`;
             }
@@ -1305,7 +1201,7 @@ class PriceComparisonSite {
                         </div>
                         <div class="product-row-2">
                             <div class="row-top">
-                                <span class="product-category">${this.getCategoryDisplayForProduct(product.category) || '기타'}</span>
+                                <span class="product-category">${this.getCategoryDisplayForProduct(product.category) || '일반딜'}</span>
                                 <span class="product-original-price">
                                     ${discountRateHtml}
                                     ${(product.originalPrice || 0).toLocaleString()}원
@@ -1335,18 +1231,18 @@ class PriceComparisonSite {
             // 에러 핸들러에서도 할인율 계산
             const finalPrice = this.calculateFinalPrice(product) || 0;
             let discountRateHtml = '';
-            if (product.category === '특가' && product.originalPrice && finalPrice > 0) {
+            if (product.originalPrice && finalPrice > 0) {
                 const originalPrice = parseInt(product.originalPrice) || 0;
                 if (originalPrice > 0 && originalPrice > finalPrice) {
                     const discountRate = Math.round(((originalPrice - finalPrice) / originalPrice) * 100);
-                    // 할인율에 따라 클래스 추가: 30% 이하 노랑, 30% 이상 파랑, 60% 이상 빨강
+                    // 할인율 색상 규칙: 60% 이상 빨강, 30% 이상 파랑, 30% 이하는 검정
                     let discountClass = '';
                     if (discountRate >= 60) {
                         discountClass = 'discount-rate-high'; // 빨강
                     } else if (discountRate >= 30) {
                         discountClass = 'discount-rate-medium'; // 파랑
                     } else {
-                        discountClass = 'discount-rate-low'; // 노랑
+                        discountClass = 'discount-rate-low'; // 검정
                     }
                     discountRateHtml = `<span class="discount-rate ${discountClass}">-${discountRate}%</span>`;
                 }
@@ -1363,7 +1259,7 @@ class PriceComparisonSite {
                         </div>
                         <div class="product-row-2">
                             <div class="row-top">
-                                <span class="product-category">${this.getCategoryDisplayForProduct(product.category) || '기타'}</span>
+                                <span class="product-category">${this.getCategoryDisplayForProduct(product.category) || '일반딜'}</span>
                                 <span class="product-original-price">
                                     ${discountRateHtml}
                                     가격 정보 없음
@@ -1419,6 +1315,19 @@ class PriceComparisonSite {
             console.error(`가격 계산 오류 - 제품: ${product.name}`, error);
             return 0;
         }
+    }
+
+    // 공통 정렬: 할인율 높은 순, 같은 할인율이면 낮은 가격 순
+    sortProductsByDiscountThenPrice(productsArray) {
+        if (!Array.isArray(productsArray)) return;
+        productsArray.sort((a, b) => {
+            const drA = this.calculateDiscountRate(a) || 0;
+            const drB = this.calculateDiscountRate(b) || 0;
+            if (drA !== drB) return drB - drA; // 할인율 높은 순
+            const priceA = this.calculateFinalPrice(a) || 0;
+            const priceB = this.calculateFinalPrice(b) || 0;
+            return priceA - priceB; // 낮은 가격 순
+        });
     }
 
     calculateDiscountRate(product) {
@@ -1477,10 +1386,10 @@ class PriceComparisonSite {
             let cssClass = '';
             
             if (diffMinutes < 24 * 60) {
-                // 24시간 이내: 시:분 형식 (01:20 전, 02:19 전)
+                // 24시간 이내: 01시35분 전 형식
                 const hours = Math.floor(diffMinutes / 60);
                 const minutes = diffMinutes % 60;
-                timeText = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} 전`;
+                timeText = `${hours.toString().padStart(2, '0')}시${minutes.toString().padStart(2, '0')}분 전`;
                 
                 if (diffHours <= 3) {
                     cssClass = 'recent'; // 3시간 이내 - 연두 형광
@@ -2379,6 +2288,9 @@ class PriceComparisonSite {
             // 댓글 표시
             commentsList.innerHTML = '';
             const currentUserId = this.getUserId();
+            const isAdmin = (typeof adminAuth !== 'undefined' && adminAuth && typeof adminAuth.isAuthenticated === 'function')
+                ? adminAuth.isAuthenticated()
+                : (localStorage.getItem('admin_session') === 'true');
             
             comments.forEach((comment) => {
                 const commentElement = document.createElement('div');
@@ -2400,7 +2312,7 @@ class PriceComparisonSite {
                             <span class="post-author">익명</span>
                             <span class="post-date">${formattedDate}</span>
                         </div>
-                        ${comment.userId === currentUserId ? `
+                        ${(isAdmin || comment.userId === currentUserId) ? `
                             <div class="post-actions">
                                 <button class="post-edit-btn" onclick="editNoticePost('${comment.id}')" style="font-size: 0.85rem; padding: 4px 8px;">✏️ 수정</button>
                                 <button class="post-delete-btn" onclick="deleteNoticePost('${comment.id}')" style="font-size: 0.85rem; padding: 4px 8px;">🗑️ 삭제</button>
@@ -4064,7 +3976,7 @@ class PriceComparisonSite {
     }
 
     // 메인 제품 목록 업데이트 함수
-    updateMainProductList() {
+    async updateMainProductList() {
         const productList = document.getElementById('productList');
         if (!productList) {
             console.warn('productList 요소를 찾을 수 없습니다.');
@@ -4089,45 +4001,21 @@ class PriceComparisonSite {
             }
         }
 
-        // 초특가는 할인율 높은 순, 나머지는 가격 낮은 순으로 정렬
-        filteredProducts.sort((a, b) => {
-            const categoryA = a.category === '특가';
-            const categoryB = b.category === '특가';
-            
-            // 둘 다 초특가인 경우: 할인율 높은 순
-            if (categoryA && categoryB) {
-                const discountRateA = this.calculateDiscountRate(a);
-                const discountRateB = this.calculateDiscountRate(b);
-                if (discountRateA !== discountRateB) {
-                    return discountRateB - discountRateA; // 할인율 높은 순
-                }
-                // 할인율이 같으면 가격 낮은 순
-                const priceA = this.calculateFinalPrice(a) || 0;
-                const priceB = this.calculateFinalPrice(b) || 0;
-                return priceA - priceB;
-            }
-            
-            // 하나만 초특가인 경우: 초특가를 먼저
-            if (categoryA && !categoryB) return -1;
-            if (!categoryA && categoryB) return 1;
-            
-            // 둘 다 초특가가 아닌 경우: 가격 낮은 순
-            const priceA = this.calculateFinalPrice(a) || 0;
-            const priceB = this.calculateFinalPrice(b) || 0;
-            return priceA - priceB;
-        });
+        // 할인율 높은 순, 같은 할인율이면 낮은 가격 순
+        this.sortProductsByDiscountThenPrice(filteredProducts);
 
         // 제품 목록 렌더링
         if (filteredProducts.length === 0) {
             productList.innerHTML = '<div class="no-products">등록된 제품이 없습니다.</div>';
         } else {
-            productList.innerHTML = filteredProducts.map(product => this.createProductElement(product)).join('');
+            const productHtmlArray = await Promise.all(filteredProducts.map(product => this.createProductElement(product)));
+            productList.innerHTML = productHtmlArray.join('');
         }
 
         // 카테고리 카운트 업데이트
         this.updateCategoryCounts();
         
-        console.log(`메인 제품 목록 업데이트 완료: ${filteredProducts.length}개 제품 표시 (초특가는 할인율 높은 순, 나머지는 가격 낮은 순 정렬)`);
+        console.log(`메인 제품 목록 업데이트 완료: ${filteredProducts.length}개 제품 표시 (할인율 높은 순, 동률 시 낮은 가격 순)`);
     }
 
     // 제품 수정 기능
@@ -4209,12 +4097,11 @@ class PriceComparisonSite {
                                 <label for="editProductCategory">카테고리</label>
                                 <select id="editProductCategory">
                                     <option value="">카테고리를 선택하세요</option>
-                                    <option value="특가" ${product.category === '특가' ? 'selected' : ''}>초특가</option>
                                     <option value="식품" ${product.category === '식품' ? 'selected' : ''}>식품</option>
                                     <option value="생활" ${product.category === '생활' ? 'selected' : ''}>생활</option>
                                     <option value="가전" ${product.category === '가전' ? 'selected' : ''}>가전</option>
                                     <option value="유아" ${product.category === '유아' ? 'selected' : ''}>유아</option>
-                                    <option value="기타" ${product.category === '기타' ? 'selected' : ''}>기타</option>
+                                    <option value="기타" ${product.category === '기타' ? 'selected' : ''}>일반딜</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -4702,12 +4589,11 @@ class PriceComparisonSite {
                             <div class="form-group">
                                 <label for="editCategory">카테고리</label>
                                 <select id="editCategory">
-                                    <option value="특가" ${product && product.category === '특가' ? 'selected' : ''}>초특가</option>
                                     <option value="식품" ${product && product.category === '식품' ? 'selected' : ''}>식품</option>
                                     <option value="생활" ${product && product.category === '생활' ? 'selected' : ''}>생활</option>
                                     <option value="가전" ${product && product.category === '가전' ? 'selected' : ''}>가전</option>
                                     <option value="유아" ${product && product.category === '유아' ? 'selected' : ''}>유아</option>
-                                    <option value="기타" ${product && product.category === '기타' ? 'selected' : (!product ? 'selected' : '')}>기타</option>
+                                    <option value="기타" ${product && product.category === '기타' ? 'selected' : (!product ? 'selected' : '')}>일반딜</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -6133,15 +6019,22 @@ class PriceComparisonSite {
         console.log('카테고리별 제품 수:', categoryCounts);
         
         // 전체 제품 수
-        document.getElementById('totalCount').textContent = approvedProducts.length;
-        
-        // 새로운 대분류별 제품 수 (HTML 순서와 동일하게)
-        document.getElementById('specialCount').textContent = categoryCounts['특가'];
-        document.getElementById('foodCount').textContent = categoryCounts['식품'];
-        document.getElementById('dailyCount').textContent = categoryCounts['생활'];
-        document.getElementById('electronicsCount').textContent = categoryCounts['가전'];
-        document.getElementById('babyCount').textContent = categoryCounts['유아'];
-        document.getElementById('etcCount').textContent = categoryCounts['기타'];
+        const totalEl = document.getElementById('totalCount');
+        if (totalEl) totalEl.textContent = approvedProducts.length;
+
+        // 새로운 대분류별 제품 수 (HTML 존재 여부 확인 후 적용)
+        const specialEl = document.getElementById('specialCount');
+        if (specialEl) specialEl.textContent = categoryCounts['특가'];
+        const foodEl = document.getElementById('foodCount');
+        if (foodEl) foodEl.textContent = categoryCounts['식품'];
+        const dailyEl = document.getElementById('dailyCount');
+        if (dailyEl) dailyEl.textContent = categoryCounts['생활'];
+        const elecEl = document.getElementById('electronicsCount');
+        if (elecEl) elecEl.textContent = categoryCounts['가전'];
+        const babyEl = document.getElementById('babyCount');
+        if (babyEl) babyEl.textContent = categoryCounts['유아'];
+        const etcEl = document.getElementById('etcCount');
+        if (etcEl) etcEl.textContent = categoryCounts['기타'];
         
         console.log('=== 카테고리 카운트 업데이트 완료 ===');
     }
@@ -6155,7 +6048,7 @@ class PriceComparisonSite {
             '생활': '🏠',
             '가전': '🌀',
             '유아': '🍼',
-            '기타': '🎸'
+            '기타': ''
         };
         return icons[category] || '';
     }
@@ -6169,7 +6062,7 @@ class PriceComparisonSite {
             '생활': '생활',
             '가전': '가전',
             '유아': '유아',
-            '기타': '기타'
+            '기타': '일반딜'
         };
         const name = displayNames[category] || category;
         return icon ? `<span style="font-size: 0.7em; vertical-align: middle;">${icon}</span> ${name}` : name;
@@ -6183,7 +6076,7 @@ class PriceComparisonSite {
             '생활': '생활',
             '가전': '가전',
             '유아': '유아',
-            '기타': '기타'
+            '기타': '일반딜'
         };
         const name = displayNames[category] || category;
         // 특가(핫딜)인 경우 노란색 번개 아이콘 추가 (세로로 길고 가로로 짧게)
@@ -6192,10 +6085,20 @@ class PriceComparisonSite {
                         <svg width="7" height="16" viewBox="0 0 7 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M3.5 0L0 8H3.5V11L7 4H3.5V0Z" fill="#fbbf24" stroke="#f59e0b" stroke-width="0.5"/>
                         </svg>
-                    </span>${name}`;
+                    </span><span class="discount-rate-high">핫딜</span>`;
         }
+        // 식품/생활/가전/유아에도 좌측에 핫딜 로고+글자 추가
+        const hotdealLabel = `<span class="hotdeal-icon" style="display: inline-block; width: 7px; height: 16px; margin-right: 3px; vertical-align: middle; position: relative;">
+                        <svg width="7" height="16" viewBox="0 0 7 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3.5 0L0 8H3.5V11L7 4H3.5V0Z" fill="#fbbf24" stroke="#f59e0b" stroke-width="0.5"/>
+                        </svg>
+                    </span><span class=\"discount-rate-high\">핫딜</span>`;
         const icon = this.getCategoryIcon(category);
-        return icon ? `<span style="font-size: 0.85em; vertical-align: middle;">${icon}</span> ${name}` : name;
+        const categoryLabel = icon ? `<span style="font-size: 0.85em; vertical-align: middle;">${icon}</span> ${name}` : name;
+        if (['식품','생활','가전','유아'].includes(category)) {
+            return `${hotdealLabel} ${categoryLabel}`;
+        }
+        return categoryLabel;
     }
 
     // 수동 새로고침 버튼 및 카테고리 일괄 수정 버튼 추가
@@ -7969,12 +7872,11 @@ window.showEditPriceReportModal = async function(report) {
             <label>카테고리</label>
             <select id="editProductCategory" style="width: 100%; padding: 8px;">
                 <option value="">카테고리 선택 안함</option>
-                <option value="특가" ${report.category === '특가' ? 'selected' : ''}>초특가</option>
                 <option value="식품" ${report.category === '식품' ? 'selected' : ''}>식품</option>
                 <option value="생활" ${report.category === '생활' ? 'selected' : ''}>생활</option>
                 <option value="가전" ${report.category === '가전' ? 'selected' : ''}>가전</option>
                 <option value="유아" ${report.category === '유아' ? 'selected' : ''}>유아</option>
-                <option value="기타" ${report.category === '기타' ? 'selected' : ''}>기타</option>
+                <option value="기타" ${report.category === '기타' ? 'selected' : ''}>일반딜</option>
             </select>
         </div>
         <div class="form-group">

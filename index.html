@@ -288,12 +288,11 @@ const firebaseConfig = {
                             <label for="productCategory">카테고리 (선택사항)</label>
                             <select id="productCategory" name="productCategory">
                                 <option value="">카테고리 선택 안함</option>
-                                <option value="특가">핫딜</option>
                                 <option value="식품">식품</option>
                                 <option value="생활">생활</option>
                                 <option value="가전">가전</option>
                                 <option value="유아">유아</option>
-                                <option value="기타">기타</option>
+                                <option value="기타">일반딜</option>
                             </select>
                         </div>
                         
@@ -524,34 +523,24 @@ const firebaseConfig = {
                 <span class="category-name">전체</span>
                 <span class="category-count" id="totalCount">0</span>
             </div>
-            <div class="category-item" data-category="특가" onclick="filterByCategory('특가')">
-                <span class="category-name">
-                    <span class="hotdeal-icon" style="display: inline-block; width: 7px; height: 16px; margin-right: 3px; vertical-align: middle; position: relative;">
-                        <svg width="7" height="16" viewBox="0 0 7 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M3.5 0L0 8H3.5V11L7 4H3.5V0Z" fill="#fbbf24" stroke="#f59e0b" stroke-width="0.5"/>
-                        </svg>
-                    </span>핫딜
-                </span>
-                <span class="category-count" id="specialCount">0</span>
-            </div>
-            <div class="category-item" onclick="filterByCategory('식품')">
+            <div class="category-item" data-category="식품" onclick="filterByCategory('식품')">
                 <span class="category-name"><span style="font-size: 0.7em; vertical-align: middle;">🍚</span> 식품</span>
                 <span class="category-count" id="foodCount">0</span>
             </div>
-            <div class="category-item" onclick="filterByCategory('생활')">
+            <div class="category-item" data-category="생활" onclick="filterByCategory('생활')">
                 <span class="category-name"><span style="font-size: 0.7em; vertical-align: middle;">🏠</span> 생활</span>
                 <span class="category-count" id="dailyCount">0</span>
             </div>
-            <div class="category-item" onclick="filterByCategory('가전')">
+            <div class="category-item" data-category="가전" onclick="filterByCategory('가전')">
                 <span class="category-name"><span style="font-size: 0.7em; vertical-align: middle;">🌀</span> 가전</span>
                 <span class="category-count" id="electronicsCount">0</span>
             </div>
-            <div class="category-item" onclick="filterByCategory('유아')">
+            <div class="category-item" data-category="유아" onclick="filterByCategory('유아')">
                 <span class="category-name"><span style="font-size: 0.7em; vertical-align: middle;">🍼</span> 유아</span>
                 <span class="category-count" id="babyCount">0</span>
             </div>
             <div class="category-item" onclick="filterByCategory('기타')">
-                <span class="category-name"><span style="font-size: 0.7em; vertical-align: middle;">🎸</span> 기타</span>
+                <span class="category-name">일반딜</span>
                 <span class="category-count" id="etcCount">0</span>
             </div>
         </div>

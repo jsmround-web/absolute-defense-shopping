@@ -323,10 +323,30 @@ const gaTracker = new GoogleAnalyticsTracker();
 // 전역 추적 함수들
 function trackProductClick(productName, productCategory) {
     gaTracker.trackProductClick(productName, productCategory);
+    
+    // 클릭 카운트 증가
+    if (window.priceComparisonSite) {
+        const product = window.priceComparisonSite.products.find(p => 
+            p.name === productName && (p.category === productCategory || (!p.category && productCategory === '기타'))
+        );
+        if (product && product.id) {
+            window.priceComparisonSite.incrementClickCount(product.id);
+        }
+    }
 }
 
 function trackPurchaseClick(productName, productCategory) {
     gaTracker.trackEvent('purchase_click', 'conversion', `${productName} (${productCategory})`);
+    
+    // 구매 카운트 증가
+    if (window.priceComparisonSite) {
+        const product = window.priceComparisonSite.products.find(p => 
+            p.name === productName && (p.category === productCategory || (!p.category && productCategory === '기타'))
+        );
+        if (product && product.id) {
+            window.priceComparisonSite.incrementPurchaseCount(product.id);
+        }
+    }
 }
 
 // 페이지가 로드되면 앱 실행
@@ -339,6 +359,7 @@ class PriceComparisonSite {
         this.priceReports = []; // 가격 변경 신고 배열 초기화
         this.currentCategory = '전체';
         this.currentSearchTerm = '';
+        this.currentSortType = 'discount'; // 기본값: 할인율순
         this.isSubmitting = false; // 중복 제출 방지 플래그
         this.isSubmittingComment = false; // 댓글 중복 제출 방지 플래그
         this.noticeListenersSetup = false; // 필독 패널 이벤트 리스너 중복 방지 플래그
@@ -370,6 +391,12 @@ class PriceComparisonSite {
         
         // 모든 드롭다운 패널을 강제로 닫기
         this.closeAllDropdowns();
+        
+        // 정렬 바 버튼 이벤트 리스너 설정 (모바일 호환성을 위해)
+        // DOM이 완전히 로드된 후 실행되도록 약간의 지연
+        setTimeout(() => {
+            this.setupSortBarListeners();
+        }, 100);
         
         // 브라우저 뒤로가기 버튼 처리 (상세보기 닫기)
         window.addEventListener('popstate', (event) => {
@@ -905,8 +932,8 @@ class PriceComparisonSite {
         console.log('필터링된 제품 개수:', filteredProducts.length);
         console.log('필터링된 제품 목록:', filteredProducts);
 
-        // 할인율 높은 순, 같은 할인율이면 낮은 가격 순
-        this.sortProductsByDiscountThenPrice(filteredProducts);
+        // 현재 정렬 타입에 따라 정렬
+        this.applyCurrentSort(filteredProducts);
 
         console.log('가격순 정렬된 제품 목록:', filteredProducts);
 
@@ -935,8 +962,8 @@ class PriceComparisonSite {
         console.log('표시할 제품 목록 (승인된 제품만):', approvedProducts);
         console.log('표시할 제품 개수:', approvedProducts.length);
         
-        // 할인율 높은 순, 같은 할인율이면 낮은 가격 순
-        this.sortProductsByDiscountThenPrice(approvedProducts);
+        // 현재 정렬 타입에 따라 정렬
+        await this.applyCurrentSort(approvedProducts);
         
         console.log('정렬된 제품 목록 (할인율 높은 순, 동률 시 낮은 가격 순):', approvedProducts.map(p => ({
             name: p.name,
@@ -987,11 +1014,11 @@ class PriceComparisonSite {
         console.log('필터링된 제품 개수:', filteredProducts.length);
         console.log('필터링된 제품 목록:', filteredProducts);
         
-        // 할인율 높은 순, 같은 할인율이면 낮은 가격 순
-        this.sortProductsByDiscountThenPrice(filteredProducts);
-        
+        // 현재 정렬 타입에 따라 정렬
+        this.applyCurrentSort(filteredProducts);
+
         console.log('가격순 정렬된 제품 목록:', filteredProducts);
-        
+
         console.log('renderProducts 호출 전');
         await this.renderProducts(filteredProducts);
         console.log('renderProducts 호출 후');
@@ -1032,7 +1059,7 @@ class PriceComparisonSite {
             return;
         }
 
-        // 할인율 높은 순, 같은 할인율이면 낮은 가격 순
+        // 현재 정렬 타입에 따라 정렬
         console.log('정렬 전 제품 목록:', products.map(p => ({ 
             name: p.name,
             category: p.category,
@@ -1040,7 +1067,7 @@ class PriceComparisonSite {
             discountRate: this.calculateDiscountRate(p)
         })));
 
-        this.sortProductsByDiscountThenPrice(products);
+        await this.applyCurrentSort(products);
 
         console.log('정렬 후 제품 목록 (할인율 높은 순, 동률 시 낮은 가격 순):', products.map((p, index) => ({ 
             순위: index + 1,
@@ -1128,7 +1155,7 @@ class PriceComparisonSite {
                                 <span class="info-discount-label">할인율</span>
                                 시작가
                             </span>
-                            <a href="#" class="product-link-btn" style="pointer-events: none;">구매 하기</a>
+                            <a href="#" class="product-link-btn" style="pointer-events: none;">구매하러 가기</a>
                         </div>
                         <div class="row-bottom">
                             <div class="store-time-info">
@@ -1137,7 +1164,7 @@ class PriceComparisonSite {
                                 <span class="product-price">최종가</span>
                             </div>
                             <div class="product-buttons">
-                                <button class="price-report-btn" style="pointer-events: none;">가격 바뀜</button>
+                                <button class="price-report-btn" style="pointer-events: none;">가격바뀜 신고</button>
                             </div>
                         </div>
                     </div>
@@ -1206,7 +1233,7 @@ class PriceComparisonSite {
                                     ${discountRateHtml}
                                     ${(product.originalPrice || 0).toLocaleString()}원
                                 </span>
-                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매 하기</a>
+                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매하러 가기</a>
                             </div>
                             <div class="row-bottom">
                                 <div class="store-time-info">
@@ -1215,7 +1242,7 @@ class PriceComparisonSite {
                                     <span class="product-price">${finalPrice.toLocaleString()}원</span>
                                 </div>
                                 <div class="product-buttons">
-                                    <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', ${finalPrice}, '${product.link || ''}')">가격 바뀜</button>
+                                    <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', ${finalPrice}, '${product.link || ''}')">가격바뀜 신고</button>
                                 </div>
                             </div>
                         </div>
@@ -1264,14 +1291,14 @@ class PriceComparisonSite {
                                     ${discountRateHtml}
                                     가격 정보 없음
                                 </span>
-                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매 하기</a>
+                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매하러 가기</a>
                             </div>
                             <div class="row-bottom">
                                 <div class="store-time-info">
                                     <span class="product-store">${this.getStoreDisplayName(product.store) || '미선택'}</span>
                                 </div>
                                 <div class="product-buttons">
-                                    <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', ${finalPrice}, '${product.link || ''}')">가격 바뀜</button>
+                                    <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', ${finalPrice}, '${product.link || ''}')">가격바뀜 신고</button>
                                 </div>
                             </div>
                         </div>
@@ -1344,6 +1371,212 @@ class PriceComparisonSite {
         } catch (error) {
             console.error(`할인율 계산 오류 - 제품: ${product.name}`, error);
             return 0;
+        }
+    }
+
+    // 현재 정렬 타입에 따라 정렬 적용
+    applyCurrentSort(productsArray) {
+        if (!Array.isArray(productsArray)) return;
+        
+        switch(this.currentSortType) {
+            case 'discount':
+                this.sortProductsByDiscountThenPrice(productsArray);
+                break;
+            case 'newest':
+                productsArray.sort((a, b) => {
+                    let dateA, dateB;
+                    if (a.createdAt?.toDate) {
+                        dateA = a.createdAt.toDate();
+                    } else if (a.createdAt) {
+                        dateA = new Date(a.createdAt);
+                    } else {
+                        dateA = new Date(0);
+                    }
+                    
+                    if (b.createdAt?.toDate) {
+                        dateB = b.createdAt.toDate();
+                    } else if (b.createdAt) {
+                        dateB = new Date(b.createdAt);
+                    } else {
+                        dateB = new Date(0);
+                    }
+                    return dateB - dateA; // 최신순
+                });
+                break;
+            case 'clicks':
+                productsArray.sort((a, b) => {
+                    const clicksA = a.clickCount || 0;
+                    const clicksB = b.clickCount || 0;
+                    return clicksB - clicksA; // 클릭수 높은순
+                });
+                break;
+            case 'purchases':
+                productsArray.sort((a, b) => {
+                    const purchasesA = a.purchaseCount || 0;
+                    const purchasesB = b.purchaseCount || 0;
+                    return purchasesB - purchasesA; // 구매수 높은순
+                });
+                break;
+            case 'price-low':
+                productsArray.sort((a, b) => {
+                    const priceA = this.calculateFinalPrice(a) || 0;
+                    const priceB = this.calculateFinalPrice(b) || 0;
+                    return priceA - priceB; // 낮은 가격순
+                });
+                break;
+            case 'price-high':
+                productsArray.sort((a, b) => {
+                    const priceA = this.calculateFinalPrice(a) || 0;
+                    const priceB = this.calculateFinalPrice(b) || 0;
+                    return priceB - priceA; // 높은 가격순
+                });
+                break;
+            default:
+                this.sortProductsByDiscountThenPrice(productsArray);
+        }
+    }
+
+    // 정렬 메서드
+    async sortProducts(sortType) {
+        console.log('정렬 메서드 실행:', sortType, '현재 카테고리:', this.currentCategory);
+        
+        // 최상단으로 스크롤
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        this.currentSortType = sortType;
+        
+        // 정렬 바 UI 업데이트
+        const sortItems = document.querySelectorAll('.sort-item');
+        console.log('정렬 바 버튼 개수:', sortItems.length);
+        sortItems.forEach(item => {
+            item.classList.remove('active');
+            if (item.dataset.sort === sortType) {
+                item.classList.add('active');
+            }
+        });
+        
+        // 현재 필터링된 상품 가져오기
+        let productsToSort = [];
+        if (this.currentCategory === '전체') {
+            productsToSort = this.products.filter(p => p.status === 'approved');
+        } else {
+            productsToSort = this.products.filter(p => 
+                p.status === 'approved' && p.category === this.currentCategory
+            );
+        }
+        
+        // 검색어가 있으면 추가 필터링
+        if (this.currentSearchTerm) {
+            const searchTerm = this.currentSearchTerm.toLowerCase();
+            productsToSort = productsToSort.filter(product => {
+                const name = (product.name || '').toLowerCase();
+                return name.includes(searchTerm);
+            });
+        }
+        
+        // 정렬 타입에 따라 정렬
+        switch(sortType) {
+            case 'discount':
+                this.sortProductsByDiscountThenPrice(productsToSort);
+                break;
+            case 'newest':
+                productsToSort.sort((a, b) => {
+                    let dateA, dateB;
+                    if (a.createdAt?.toDate) {
+                        dateA = a.createdAt.toDate();
+                    } else if (a.createdAt) {
+                        dateA = new Date(a.createdAt);
+                    } else {
+                        dateA = new Date(0);
+                    }
+                    
+                    if (b.createdAt?.toDate) {
+                        dateB = b.createdAt.toDate();
+                    } else if (b.createdAt) {
+                        dateB = new Date(b.createdAt);
+                    } else {
+                        dateB = new Date(0);
+                    }
+                    return dateB - dateA; // 최신순
+                });
+                break;
+            case 'clicks':
+                productsToSort.sort((a, b) => {
+                    const clicksA = a.clickCount || 0;
+                    const clicksB = b.clickCount || 0;
+                    return clicksB - clicksA; // 클릭수 높은순
+                });
+                break;
+            case 'purchases':
+                productsToSort.sort((a, b) => {
+                    const purchasesA = a.purchaseCount || 0;
+                    const purchasesB = b.purchaseCount || 0;
+                    return purchasesB - purchasesA; // 구매수 높은순
+                });
+                break;
+            case 'price-low':
+                productsToSort.sort((a, b) => {
+                    const priceA = this.calculateFinalPrice(a) || 0;
+                    const priceB = this.calculateFinalPrice(b) || 0;
+                    return priceA - priceB; // 낮은 가격순
+                });
+                break;
+            case 'price-high':
+                productsToSort.sort((a, b) => {
+                    const priceA = this.calculateFinalPrice(a) || 0;
+                    const priceB = this.calculateFinalPrice(b) || 0;
+                    return priceB - priceA; // 높은 가격순
+                });
+                break;
+        }
+        
+        // 정렬된 상품 다시 표시
+        await this.renderProducts(productsToSort, this.currentSearchTerm);
+    }
+
+    // 클릭 카운트 증가
+    async incrementClickCount(productId) {
+        try {
+            const productRef = window.firebaseDoc(window.firestoreDB, 'products', productId);
+            const productSnap = await window.firebaseGetDoc(productRef);
+            
+            if (productSnap.exists()) {
+                const currentCount = productSnap.data().clickCount || 0;
+                await window.firebaseUpdateDoc(productRef, {
+                    clickCount: currentCount + 1
+                });
+                
+                // 로컬 products 배열도 업데이트
+                const product = this.products.find(p => p.id === productId);
+                if (product) {
+                    product.clickCount = currentCount + 1;
+                }
+            }
+        } catch (error) {
+            console.error('클릭 카운트 증가 오류:', error);
+        }
+    }
+
+    // 구매 카운트 증가
+    async incrementPurchaseCount(productId) {
+        try {
+            const productRef = window.firebaseDoc(window.firestoreDB, 'products', productId);
+            const productSnap = await window.firebaseGetDoc(productRef);
+            
+            if (productSnap.exists()) {
+                const currentCount = productSnap.data().purchaseCount || 0;
+                await window.firebaseUpdateDoc(productRef, {
+                    purchaseCount: currentCount + 1
+                });
+                
+                // 로컬 products 배열도 업데이트
+                const product = this.products.find(p => p.id === productId);
+                if (product) {
+                    product.purchaseCount = currentCount + 1;
+                }
+            }
+        } catch (error) {
+            console.error('구매 카운트 증가 오류:', error);
         }
     }
 
@@ -4773,7 +5006,6 @@ class PriceComparisonSite {
             }
             
             console.log('제품 시간 갱신 완료:', nowISO);
-            alert('확인 시간이 업데이트되었습니다.');
             
         } catch (error) {
             console.error('제품 시간 갱신 실패:', error);
@@ -5490,8 +5722,6 @@ class PriceComparisonSite {
                 productElement.remove();
                 console.log('DOM에서 제품 요소 제거 완료');
             }
-            
-            alert('제품이 성공적으로 삭제되었습니다.');
             
             // 현재 관리자 패널 상태를 세션 스토리지로 확인
             const currentView = sessionStorage.getItem('currentAdminView') || 'all';
@@ -6224,6 +6454,9 @@ class PriceComparisonSite {
         console.log('현재 제품 목록:', this.products);
         console.log('카테고리 필터링 시작:', category);
         
+        // 최상단으로 스크롤
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
         this.currentCategory = category;
         this.updateCategoryActiveState();
         
@@ -6269,6 +6502,110 @@ class PriceComparisonSite {
         if (currentCategoryItem) {
             currentCategoryItem.classList.add('active');
         }
+    }
+
+    // 정렬 바 버튼 이벤트 리스너 설정 (모바일 호환성)
+    setupSortBarListeners() {
+        console.log('정렬 바 이벤트 리스너 설정 시작');
+        
+        // 정렬 바 자체에 이벤트 위임 사용 (더 안정적)
+        const sortBar = document.querySelector('.sort-bar');
+        if (!sortBar) {
+            console.error('정렬 바를 찾을 수 없습니다.');
+            return;
+        }
+        
+        // 기존 이벤트 리스너 제거 후 새로 추가 (중복 방지)
+        const newSortBar = sortBar.cloneNode(true);
+        sortBar.parentNode.replaceChild(newSortBar, sortBar);
+        
+        // 이벤트 위임으로 정렬 바 전체에 리스너 추가 (capture 단계에서 처리하여 다른 이벤트보다 먼저 실행)
+        newSortBar.addEventListener('click', function(e) {
+            const button = e.target.closest('.sort-item');
+            if (button) {
+                e.preventDefault();
+                e.stopPropagation();
+                const sortType = button.getAttribute('data-sort');
+                if (sortType) {
+                    console.log('정렬 버튼 클릭됨 (이벤트 위임):', sortType);
+                    sortProducts(sortType);
+                    return false;
+                }
+            }
+        }, { passive: false, capture: true });
+        
+        // 터치 이벤트도 추가 (모바일, capture 단계에서 처리)
+        newSortBar.addEventListener('touchend', function(e) {
+            const button = e.target.closest('.sort-item');
+            if (button) {
+                e.preventDefault();
+                e.stopPropagation();
+                const sortType = button.getAttribute('data-sort');
+                if (sortType) {
+                    console.log('정렬 버튼 터치됨 (이벤트 위임):', sortType);
+                    sortProducts(sortType);
+                    return false;
+                }
+            }
+        }, { passive: false, capture: true });
+        
+        // touchstart도 이벤트 위임으로 추가
+        newSortBar.addEventListener('touchstart', function(e) {
+            const button = e.target.closest('.sort-item');
+            if (button) {
+                // 터치 시작 시 피드백
+                button.style.opacity = '0.7';
+            }
+        }, { passive: true, capture: true });
+        
+        // 각 버튼에도 직접 이벤트 추가 (이중 보안)
+        const sortItems = newSortBar.querySelectorAll('.sort-item');
+        console.log('찾은 정렬 바 버튼 개수:', sortItems.length);
+        
+        sortItems.forEach(button => {
+            const sortType = button.getAttribute('data-sort');
+            if (sortType) {
+                console.log('정렬 버튼 직접 이벤트 리스너 추가:', sortType);
+                
+                // 클릭 이벤트
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('정렬 버튼 직접 클릭됨:', sortType);
+                    sortProducts(sortType);
+                }, { passive: false });
+                
+                // 터치 이벤트 (touchstart와 touchend 함께 처리)
+                let touchStarted = false;
+                
+                button.addEventListener('touchstart', function(e) {
+                    touchStarted = true;
+                    // 터치 시작 시 피드백
+                    button.style.opacity = '0.7';
+                }, { passive: true });
+                
+                button.addEventListener('touchend', function(e) {
+                    if (touchStarted) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('정렬 버튼 직접 터치됨:', sortType);
+                        sortProducts(sortType);
+                        touchStarted = false;
+                    }
+                    // 터치 종료 시 원래대로
+                    setTimeout(() => {
+                        button.style.opacity = '1';
+                    }, 100);
+                }, { passive: false });
+                
+                button.addEventListener('touchcancel', function(e) {
+                    touchStarted = false;
+                    button.style.opacity = '1';
+                }, { passive: true });
+            }
+        });
+        
+        console.log('정렬 바 이벤트 리스너 설정 완료');
     }
 }
 
@@ -6479,6 +6816,15 @@ function goToHome() {
 function filterByCategory(category) {
     if (window.priceComparisonSite) {
         window.priceComparisonSite.filterByCategory(category);
+    }
+}
+
+function sortProducts(sortType) {
+    console.log('정렬 함수 호출됨:', sortType);
+    if (window.priceComparisonSite) {
+        window.priceComparisonSite.sortProducts(sortType);
+    } else {
+        console.error('priceComparisonSite가 초기화되지 않았습니다.');
     }
 }
 
@@ -7232,6 +7578,19 @@ window.showProductDetail = async function(productId) {
                 // 상품명을 첫 줄에 표시
                 const nameHtml = `<div class="product-detail-name" style="font-size: 1.3rem; font-weight: 700; margin-bottom: 16px; color: #111827;">${product.name || '제품명 없음'}</div>`;
                 
+                // 구매하기 링크 주소 표시 (제목 바로 아래)
+                let linkHtml = '';
+                if (product.link) {
+                    // 링크 주소를 한 줄로 제한하고 넘치는 부분은 ... 으로 표시
+                    const maxLength = 60; // 표시할 최대 문자 수
+                    const displayLink = product.link.length > maxLength 
+                        ? product.link.substring(0, maxLength) + '...' 
+                        : product.link;
+                    linkHtml = `<div style="margin-bottom: 16px; font-size: 0.9rem; color: #3b82f6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <a href="${product.link}" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${product.link}">${displayLink}</a>
+                    </div>`;
+                }
+                
                 // 모든 이미지 표시 (imageUrls 배열 또는 imageUrl)
                 let imagesHtml = '';
                 if (product.imageUrls && Array.isArray(product.imageUrls) && product.imageUrls.length > 0) {
@@ -7261,16 +7620,27 @@ window.showProductDetail = async function(productId) {
                     const descriptionWithLinks = convertUrlsToLinks(product.description);
                     descHtml = `<div class="product-description" style="margin-top: 16px;"><p style="white-space: pre-wrap; word-break: break-word;">${descriptionWithLinks.replace(/\n/g, '<br>')}</p></div>`;
                 }
-                infoSection.innerHTML = nameHtml + imagesHtml + descHtml;
+                infoSection.innerHTML = nameHtml + linkHtml + imagesHtml + descHtml;
             }
             
             // 추천/품절 카운트 표시
             updateDetailCounts(productId, product);
             
-            // 구매 버튼 링크 설정
+            // 구매 버튼 링크 설정 및 클릭 이벤트 추가
             const purchaseBtn = document.getElementById('purchaseDetailBtn');
             if (purchaseBtn && product.link) {
                 purchaseBtn.href = product.link;
+                // 기존 이벤트 리스너 제거 후 새로 추가 (중복 방지)
+                const newPurchaseBtn = purchaseBtn.cloneNode(true);
+                purchaseBtn.parentNode.replaceChild(newPurchaseBtn, purchaseBtn);
+                newPurchaseBtn.addEventListener('click', function(e) {
+                    // 구매 카운트 증가
+                    if (window.priceComparisonSite && product.id) {
+                        window.priceComparisonSite.incrementPurchaseCount(product.id);
+                    }
+                    // Google Analytics 추적
+                    trackPurchaseClick(product.name, product.category || '기타');
+                });
             }
             
             // 현재 상품 ID 저장

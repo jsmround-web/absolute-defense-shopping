@@ -545,7 +545,27 @@ const firebaseConfig = {
             </div>
         </div>
 
-
+        <!-- 정렬 바 -->
+        <div class="sort-bar">
+            <button class="sort-item active" data-sort="discount" onclick="sortProducts('discount')">
+                할인율순
+            </button>
+            <button class="sort-item" data-sort="newest" onclick="sortProducts('newest')">
+                신규순
+            </button>
+            <button class="sort-item" data-sort="price-low" onclick="sortProducts('price-low')">
+                낮은가격순
+            </button>
+            <button class="sort-item" data-sort="price-high" onclick="sortProducts('price-high')">
+                높은가격순
+            </button>
+            <button class="sort-item" data-sort="clicks" onclick="sortProducts('clicks')">
+                클릭순
+            </button>
+            <button class="sort-item" data-sort="purchases" onclick="sortProducts('purchases')">
+                구매순
+            </button>
+        </div>
 
         <!-- 검색 결과 -->
         <main class="main-content">
@@ -585,7 +605,7 @@ const firebaseConfig = {
                         <button onclick="handleOutOfStockClick()" id="outOfStockDetailBtn" class="detail-action-btn out-of-stock-btn">
                             품절 <span id="outOfStockCount">0</span>
                         </button>
-                        <a id="purchaseDetailBtn" href="#" target="_blank" class="detail-action-btn purchase-btn">구매 하기</a>
+                        <a id="purchaseDetailBtn" href="#" target="_blank" class="detail-action-btn purchase-btn">구매하러 가기</a>
                     </div>
                 </div>
                 

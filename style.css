@@ -38,18 +38,31 @@ body {
     /* 카테고리바의 정확한 하단 계산: 헤더(42px) + 카테고리바 높이 */
     /* 헤더 top: 42px + 카테고리바(padding 2px*2=4px + border 1px*2=2px + 내용물 약25-30px) = 약73-78px */
     /* 더 안전하게 80px로 설정하여 확실히 카테고리바 아래로 */
-    #productList {
-        margin-top: 0 !important;
-        padding-top: 70px !important; /* 헤더(42px) + 카테고리바 높이(약28px) = 70px - 카테고리바 하단에 정확히 맞춤 */
-        position: relative !important;
-        z-index: 1 !important; /* 카테고리바(z-index:9998)보다 낮게 */
+    
+    /* PC에서 main-content를 정렬바 하단 아래로 아주 조금 내리기 */
+    .main-content {
+        margin-top: 85px !important; /* 헤더(42px) + 카테고리바(18px) + 여백(2.5px) + 정렬바(18px) + 여유(4.5px) = 85px - 정렬바 바로 아래 조금 */
+        padding-top: 0 !important;
     }
     
+    /* PC에서 상품 리스트를 정렬바 하단 아래로 아주 조금 내리기 */
+    #productList,
+    #productList.product-list,
     .product-list {
-        margin-top: 0 !important;
+        margin-top: 4.5px !important; /* 정렬바 바로 아래 조금 */
         padding-top: 0 !important;
         position: relative !important;
         z-index: 1 !important;
+    }
+    
+    /* searchResults도 함께 내리기 */
+    .search-results {
+        margin-top: 4.5px !important;
+    }
+    
+    /* 모든 하위 요소의 margin-top 제거 */
+    .main-content > * {
+        margin-top: 0 !important;
     }
     
     .product-item {
@@ -388,6 +401,7 @@ body {
         right: 0 !important;
         margin: 0 !important;
         padding: 2px 4px !important;
+        border-bottom: none !important; /* 정렬 바와 여백 0 */
         z-index: 100000 !important; /* 드롭다운보다 낮지만 버튼보다 높음 */
         width: 100% !important;
         box-sizing: border-box !important;
@@ -396,12 +410,53 @@ body {
         display: flex !important;
     }
     
-    /* 모바일: 상품리스트가 카테고리바 바로 아래 오도록 */
+    /* 모바일: 정렬 바 스타일 - 카테고리 바와 동일한 높이, 상하 외부 여백 제거 */
+    .sort-bar {
+        position: fixed !important;
+        top: 62.5px !important; /* 헤더(42px) + 카테고리바(18px) + 여백(2.5px) = 62.5px */
+        left: 0 !important;
+        right: 0 !important;
+        padding: 0 4px !important; /* 상하 외부 여백 제거 (0), 좌우만 유지 */
+        gap: 2px !important; /* 카테고리 바와 동일한 gap */
+        margin: 0 !important;
+        z-index: 9998 !important; /* 최상단 버튼바(2147483646)보다 훨씬 낮게, 카테고리바(100000)보다도 낮게, 기본값(9997)보다 약간 높게 */
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        background: linear-gradient(135deg, #f8fafc, #f1f5f9) !important;
+        border-top: none !important; /* 카테고리 바와의 경계선 제거 (여백 0) */
+        border-bottom: none !important; /* 하단 경계선도 제거 (상품 리스트와 여백 0) */
+        overflow-x: auto !important;
+        white-space: nowrap !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        pointer-events: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        align-items: center !important; /* 카테고리 바와 동일하게 중앙 정렬 */
+        min-height: 18px !important; /* 카테고리 바와 동일한 높이 */
+    }
+    
+    .sort-item {
+        padding: 2px 3px !important; /* 상하 내부 여백으로 높이 유지 (카테고리 아이템과 비슷한 높이) */
+        font-size: 0.65rem !important; /* 카테고리 아이템과 동일한 font-size */
+        pointer-events: auto !important;
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: rgba(59, 130, 246, 0.3) !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important; /* 카테고리 아이템과 동일하게 중앙 정렬 */
+        border-radius: 3px !important; /* 카테고리 아이템과 동일한 border-radius */
+    }
+    
+    /* 모바일: 상품리스트가 정렬바 바로 아래 오도록 (여백 0) */
     #productList {
         margin-top: 0 !important;
-        padding-top: 70px !important; /* 헤더(42px) + 카테고리바 높이(약28px) = 70px - 카테고리바 하단에 정확히 맞춤 */
+        padding-top: 80.5px !important; /* 헤더(42px) + 카테고리바(18px) + 여백(2.5px) + 정렬바(18px) = 80.5px */
         position: relative !important;
         z-index: 1 !important; /* 카테고리바(z-index:100000)보다 낮게 */
+        pointer-events: auto !important;
     }
     
     .product-list {
@@ -409,19 +464,16 @@ body {
         padding-top: 0 !important;
         position: relative !important;
         z-index: 1 !important;
+        pointer-events: auto !important;
     }
     
     .product-item {
         position: relative !important;
         z-index: 1 !important;
+        pointer-events: auto !important;
     }
     
     .main-content {
-        margin-top: 0 !important;
-        padding-top: 0 !important;
-    }
-    
-    .product-list {
         margin-top: 0 !important;
         padding-top: 0 !important;
     }
@@ -540,6 +592,10 @@ body {
         position: fixed !important;
         top: 42px !important; /* 헤더 바로 아래 */
         right: 8px !important;
+        left: auto !important;
+        bottom: 0 !important;
+        height: calc(100vh - 42px) !important;
+        max-height: calc(100vh - 42px) !important;
         z-index: 100001 !important;
     }
     
@@ -558,8 +614,24 @@ body {
         position: fixed !important;
         top: 42px !important; /* 헤더 바로 아래 */
         right: 8px !important;
-        left: 8px !important;
+        left: auto !important;
         z-index: 100001 !important;
+    }
+    
+    /* PC에서 최저가신고 팝업 우측 정렬 및 크기 제한 */
+    #productFormDropdown.header-dropdown {
+        right: 8px !important;
+        left: auto !important;
+        max-width: 400px !important;
+        width: 400px !important;
+    }
+    
+    /* PC에서 필독 패널 우측 정렬 */
+    #noticePanel.notice-panel {
+        right: 8px !important;
+        left: auto !important;
+        max-width: 400px !important;
+        width: 400px !important;
     }
     
     /* PC에서 상세보기 전체화면 */
@@ -607,7 +679,9 @@ body {
 
 /* PC에서 필독 패널 열림 상태 */
 .notice-panel:not(.collapsed) {
-    max-height: 600px;
+    bottom: 0;
+    height: calc(100vh - 42px);
+    max-height: calc(100vh - 42px);
     padding: 20px;
     overflow-y: auto;
 }
@@ -620,7 +694,9 @@ body {
 
 /* PC에서 noticePanel ID별 스타일 */
 #noticePanel:not(.collapsed) {
-    max-height: 600px !important;
+    bottom: 0 !important;
+    height: calc(100vh - 42px) !important;
+    max-height: calc(100vh - 42px) !important;
     padding: 20px !important;
     overflow-y: auto !important;
     display: block !important;
@@ -654,7 +730,9 @@ body {
     }
     
     .notice-panel:not(.collapsed) {
-        max-height: 70vh !important;
+        bottom: 0 !important;
+        height: calc(100vh - 65px) !important;
+        max-height: calc(100vh - 65px) !important;
         padding: 20px !important;
         overflow-y: auto !important;
     }
@@ -667,7 +745,9 @@ body {
     
     /* noticePanel 컨테이너의 collapsed 상태 */
     #noticePanel:not(.collapsed) {
-        max-height: 70vh !important;
+        bottom: 0 !important;
+        height: calc(100vh - 65px) !important;
+        max-height: calc(100vh - 65px) !important;
         padding: 20px !important;
         overflow-y: auto !important;
     }
@@ -1569,9 +1649,25 @@ body {
 /* 기본 스타일은 .header-dropdown에서 처리됨 */
 
 .header-dropdown:not(.collapsed) {
-    max-height: 95vh;
+    bottom: 0;
+    height: calc(100vh - 42px);
+    max-height: calc(100vh - 42px);
     padding: 20px;
     margin-top: 4px;
+}
+
+/* 관리탭은 원래대로 (자동 높이) */
+#adminPanel:not(.collapsed) {
+    bottom: auto !important;
+    height: auto !important;
+    max-height: 95vh !important;
+}
+
+/* PC에서 최저가신고 팝업 전체화면 */
+#productFormDropdown:not(.collapsed) {
+    bottom: 0 !important;
+    height: calc(100vh - 42px) !important;
+    max-height: calc(100vh - 42px) !important;
 }
 
 /* 상세보기 드롭다운은 전체화면 (기본값) */
@@ -1625,7 +1721,7 @@ body {
     border-left: none;
     border-right: none;
     border-top: 1px solid #cbd5e1;
-    border-bottom: 1px solid #cbd5e1;
+    border-bottom: none; /* 정렬 바와 여백 0 */
     overflow-x: auto;
     white-space: nowrap;
     z-index: 9998;
@@ -1752,6 +1848,56 @@ body {
     color: white;
 }
 
+/* 정렬 바 스타일 */
+.sort-bar {
+    position: fixed;
+    top: 62.5px; /* 헤더(42px) + 카테고리바(18px) + 여백(2.5px) = 62.5px */
+    left: 0;
+    right: 0;
+    display: flex;
+    gap: 2px;
+    margin: 0;
+    padding: 2px; /* 카테고리 바와 동일한 padding */
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    border-top: none; /* 카테고리 바와 여백 0 */
+    border-bottom: none; /* 상품 리스트와 여백 0 */
+    overflow-x: auto;
+    white-space: nowrap;
+    z-index: 9997;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: center; /* 카테고리 바와 동일하게 중앙 정렬 */
+    min-height: auto; /* 카테고리 바와 동일한 높이 */
+}
+
+.sort-item {
+    padding: 1px 3px; /* 카테고리 아이템과 동일한 padding */
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 3px; /* 카테고리 아이템과 동일한 border-radius */
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.65rem; /* 카테고리 아이템과 동일한 font-size */
+    font-weight: 500;
+    color: #374151;
+    flex-shrink: 0;
+    white-space: nowrap;
+    display: flex;
+    align-items: center; /* 카테고리 아이템과 동일하게 중앙 정렬 */
+}
+
+.sort-item:hover {
+    background: #f3f4f6;
+    border-color: #3b82f6;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.sort-item.active {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    border-color: #dc2626;
+}
 
     .logo {
         font-size: 1.32rem;
@@ -2801,7 +2947,7 @@ body {
 /* 메인 콘텐츠 */
 .main-content {
     min-height: 400px;
-    margin-top: 0;
+    margin-top: 80.5px; /* 헤더(42px) + 카테고리바(18px) + 여백(2.5px) + 정렬바(18px) = 80.5px, 정렬바 바로 아래 */
     padding-top: 0;
 }
 
@@ -3976,11 +4122,27 @@ body {
     
     /* 펼쳐졌을 때 */
     .header-dropdown:not(.collapsed) {
-        max-height: 70vh;
+        bottom: 0 !important;
+        height: calc(100vh - 65px) !important;
+        max-height: calc(100vh - 65px) !important;
         padding: 20px;
         margin-top: 0;
         overflow-y: auto;
         padding-top: 20px; /* 상단 패딩 제거 */
+    }
+    
+    /* 모바일에서 최저가신고 팝업 전체화면 */
+    #productFormDropdown:not(.collapsed) {
+        bottom: 0 !important;
+        height: calc(100vh - 65px) !important;
+        max-height: calc(100vh - 65px) !important;
+    }
+    
+    /* 모바일에서 관리탭은 원래대로 (자동 높이) */
+    #adminPanel:not(.collapsed) {
+        bottom: auto !important;
+        height: auto !important;
+        max-height: 80vh !important;
     }
     
     /* 모바일에서 상세보기 내부 여백 제거 */
@@ -5309,11 +5471,21 @@ body {
     }
     
     /* 상품 리스트 및 다른 요소는 확실히 뒤로 */
-    .container > *:not(#productFormDropdown):not(#noticePanel):not(#adminPanel):not(.header):not(.top-button-bar):not(.category-bar),
+    .container > *:not(#productFormDropdown):not(#noticePanel):not(#adminPanel):not(.header):not(.top-button-bar):not(.category-bar):not(.sort-bar),
     .main-content,
     .product-list,
     .product-item {
         position: relative !important;
         z-index: 1 !important;
+    }
+    
+    /* 정렬 바는 항상 보이게 (하지만 최상단 버튼바보다는 낮게) */
+    .sort-bar {
+        z-index: 9998 !important; /* 최상단 버튼바(2147483646)보다 훨씬 낮게, 카테고리바(100000)보다도 낮게 */
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: flex !important;
+        position: fixed !important;
+        pointer-events: auto !important;
     }
 }

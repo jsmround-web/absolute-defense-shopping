@@ -41,7 +41,7 @@ body {
     
     /* PC에서 main-content를 정렬바 하단 아래로 아주 조금 내리기 */
     .main-content {
-        margin-top: 85px !important; /* 헤더(42px) + 카테고리바(18px) + 여백(2.5px) + 정렬바(18px) + 여유(4.5px) = 85px - 정렬바 바로 아래 조금 */
+        margin-top: 87px !important; /* 헤더(42px) + 카테고리바(18px) + 여백(2.5px) + 정렬바(18px) + 여유(6.5px) = 87px - 정렬바 바로 아래 조금 */
         padding-top: 0 !important;
     }
     
@@ -49,7 +49,7 @@ body {
     #productList,
     #productList.product-list,
     .product-list {
-        margin-top: 4.5px !important; /* 정렬바 바로 아래 조금 */
+        margin-top: 6.5px !important; /* 정렬바 바로 아래 조금 */
         padding-top: 0 !important;
         position: relative !important;
         z-index: 1 !important;
@@ -57,7 +57,7 @@ body {
     
     /* searchResults도 함께 내리기 */
     .search-results {
-        margin-top: 4.5px !important;
+        margin-top: 6.5px !important;
     }
     
     /* 모든 하위 요소의 margin-top 제거 */
@@ -453,14 +453,14 @@ body {
     /* 모바일: 상품리스트가 정렬바 바로 아래 오도록 (여백 0) */
     #productList {
         margin-top: 0 !important;
-        padding-top: 80.5px !important; /* 헤더(42px) + 카테고리바(18px) + 여백(2.5px) + 정렬바(18px) = 80.5px */
+        padding-top: 93.5px !important; /* 헤더(42px) + 카테고리바(18px) + 여백(2.5px) + 정렬바(18px) + 여유(13px) = 93.5px - 정렬바 아래 조금 더 */
         position: relative !important;
         z-index: 1 !important; /* 카테고리바(z-index:100000)보다 낮게 */
         pointer-events: auto !important;
     }
     
     .product-list {
-        margin-top: 0 !important;
+        margin-top: 13px !important; /* 정렬바 바로 아래 조금 더 (6.5px + 6.5px) */
         padding-top: 0 !important;
         position: relative !important;
         z-index: 1 !important;

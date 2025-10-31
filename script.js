@@ -8209,7 +8209,7 @@ window.showEditPriceReportModal = async function(report) {
     `;
     
     content.innerHTML = `
-        <h2 style="margin-top: 0;">최저가 신고 수정</h2>
+        <h2 style="margin-top: 0;">핫딜 신고 수정</h2>
         <div class="form-group">
             <label>제품명</label>
             <input type="text" id="editProductName" value="${report.name}" style="width: 100%; padding: 8px;">

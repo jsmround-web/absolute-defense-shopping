@@ -634,6 +634,31 @@ body {
         width: 400px !important;
     }
     
+    /* PC에서 헤더, 카테고리바, 정렬바를 상품리스트 너비에 맞추기 */
+    .header {
+        max-width: 1200px !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        width: calc(100% - 4px) !important; /* 좌우 2px씩 여백 */
+    }
+    
+    .category-bar {
+        max-width: 1200px !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        width: calc(100% - 4px) !important; /* 좌우 2px씩 여백 */
+    }
+    
+    .sort-bar {
+        max-width: 1200px !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        width: calc(100% - 4px) !important; /* 좌우 2px씩 여백 */
+    }
+    
     /* PC에서 상세보기 전체화면 */
     #productDetailDropdown {
         position: fixed !important;
@@ -660,6 +685,58 @@ body {
         justify-content: center;
         max-width: 400px;
         margin: 0 auto;
+    }
+    
+    /* PC에서 상세페이지 가로 너비 절반으로 줄이기 */
+    #productDetailDropdown .product-detail-body {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+    }
+    
+    #productDetailDropdown .detail-info {
+        max-width: 50% !important;
+        width: 50% !important;
+        margin: 0 auto !important;
+        padding-top: 20px !important; /* 헤더 아래로 제목이 보이도록 여백 추가 (조정됨) */
+    }
+    
+    #productDetailDropdown .product-detail-name {
+        padding-top: 0 !important; /* 제목 자체는 추가 여백 없음 */
+    }
+    
+    #productDetailDropdown .product-detail-image {
+        max-width: 50% !important;
+        width: 50% !important;
+        margin: 0 auto !important;
+    }
+    
+    #productDetailDropdown .product-detail-image img {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    
+    #productDetailDropdown .posts-section {
+        max-width: 50% !important;
+        width: 50% !important;
+        margin: 0 auto !important;
+    }
+    
+    #productDetailDropdown .product-post {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    
+    #productDetailDropdown .comment-form-section {
+        max-width: 50% !important;
+        width: 50% !important;
+        margin: 0 auto !important;
+    }
+    
+    #productDetailDropdown .comment-actions-section {
+        max-width: 50% !important;
+        width: 50% !important;
+        margin: 0 auto !important;
     }
     
     #adminPanel .admin-panel {

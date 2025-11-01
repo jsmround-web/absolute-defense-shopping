@@ -7623,7 +7623,7 @@ window.showProductDetail = async function(productId) {
                         ? product.link.substring(0, maxLength) + '...' 
                         : product.link;
                     linkHtml = `<div style="margin-bottom: 16px; font-size: 0.9rem; color: #3b82f6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        <a href="${product.link}" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${product.link}">${displayLink}</a>
+                        <a id="productDetailTopLink" href="${product.link}" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${product.link}">${displayLink}</a>
                     </div>`;
                 }
                 
@@ -7661,6 +7661,19 @@ window.showProductDetail = async function(productId) {
             
             // 추천/품절 카운트 표시
             updateDetailCounts(productId, product);
+            
+            // 상단 링크 클릭 이벤트 추가 (구매횟수 증가)
+            const topLink = document.getElementById('productDetailTopLink');
+            if (topLink) {
+                topLink.addEventListener('click', function(e) {
+                    // 구매 카운트 증가
+                    if (window.priceComparisonSite && product.id) {
+                        window.priceComparisonSite.incrementPurchaseCount(product.id);
+                    }
+                    // Google Analytics 추적
+                    trackPurchaseClick(product.name, product.category || '기타');
+                });
+            }
             
             // 구매 버튼 링크 설정 및 클릭 이벤트 추가
             const purchaseBtn = document.getElementById('purchaseDetailBtn');

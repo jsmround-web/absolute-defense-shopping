@@ -1255,7 +1255,7 @@ class PriceComparisonSite {
                                 <div class="store-time-info">
                                     <span class="product-store">${this.getStoreDisplayName(product.store) || '미선택'}</span>
                                     ${this.formatUpdateTime(product.lastUpdated || product.createdAt)}
-                                    <span class="purchase-count-text">${(product.purchaseCount || 0)}구매클릭</span>
+                                    <span class="purchase-count-text">${(product.purchaseCount || 0)}구매</span>
                                     <span class="product-price">${finalPrice.toLocaleString()}원</span>
                                 </div>
                                 <div class="product-buttons">
@@ -1329,7 +1329,7 @@ class PriceComparisonSite {
                             <div class="row-bottom">
                                 <div class="store-time-info">
                                     <span class="product-store">${this.getStoreDisplayName(product.store) || '미선택'}</span>
-                                    <span class="purchase-count-text">${(product.purchaseCount || 0)}구매클릭</span>
+                                    <span class="purchase-count-text">${(product.purchaseCount || 0)}구매</span>
                                 </div>
                                 <div class="product-buttons">
                                     <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', ${finalPrice}, '${product.link || ''}')">바뀜신고</button>

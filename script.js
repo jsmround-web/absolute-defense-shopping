@@ -1117,8 +1117,8 @@ class PriceComparisonSite {
             console.log('[게시글 이미지 맵]', Object.keys(imageMap).length, '개 상품에 이미지 발견');
         }
         
-        // 상품들 (이미지 맵 전달)
-        const productPromises = products.map(product => this.createProductElement(product, imageMap));
+        // 상품들 (이미지 맵 전달, 순위 인덱스 포함)
+        const productPromises = products.map((product, index) => this.createProductElement(product, imageMap, index + 1));
         const productsHtmlArray = await Promise.all(productPromises);
         const productsHtml = productsHtmlArray.join('');
         
@@ -1155,7 +1155,7 @@ class PriceComparisonSite {
                                 <span class="info-discount-label">할인율</span>
                                 시작가
                             </span>
-                            <a href="#" class="product-link-btn" style="pointer-events: none;">구매하러 가기</a>
+                            <a href="#" class="product-link-btn" style="pointer-events: none;">구매하기</a>
                         </div>
                         <div class="row-bottom">
                             <div class="store-time-info">
@@ -1164,7 +1164,7 @@ class PriceComparisonSite {
                                 <span class="product-price">최종가</span>
                             </div>
                             <div class="product-buttons">
-                                <button class="price-report-btn" style="pointer-events: none;">가격바뀜 신고</button>
+                                <button class="price-report-btn" style="pointer-events: none;">바뀜신고</button>
                             </div>
                         </div>
                     </div>
@@ -1174,13 +1174,27 @@ class PriceComparisonSite {
         return infoCard;
     }
 
-    async createProductElement(product, imageMap = {}) {
+    async createProductElement(product, imageMap = {}, rank = null) {
         try {
         console.log(`제품 요소 생성 시작: ${product.name}`);
         
             const finalPrice = this.calculateFinalPrice(product) || 0;
         
         console.log(`제품 "${product.name}" 최종 가격:`, finalPrice);
+        
+        // 순위 표시 HTML 생성
+        let rankHtml = '';
+        if (rank !== null) {
+            let rankClass = 'product-rank';
+            if (rank === 1) {
+                rankClass = 'product-rank first-rank';
+            } else if (rank === 2) {
+                rankClass = 'product-rank second-rank';
+            } else if (rank === 3) {
+                rankClass = 'product-rank third-rank';
+            }
+            rankHtml = `<span class="${rankClass}">${rank}위</span>`;
+        }
         
         // 할인율 계산 (모든 카테고리)
         let discountRateHtml = '';
@@ -1224,25 +1238,28 @@ class PriceComparisonSite {
                     </div>
                     <div class="product-info">
                         <div class="product-row-1">
+                            ${rankHtml}
                             <div class="product-title">${product.name || '제품명 없음'}</div>
                         </div>
                         <div class="product-row-2">
                             <div class="row-top">
                                 <span class="product-category">${this.getCategoryDisplayForProduct(product.category) || '일반딜'}</span>
                                 <span class="product-original-price">
+                                    <span class="click-count-text">${(product.clickCount || 0)}클릭</span>
                                     ${discountRateHtml}
                                     ${(product.originalPrice || 0).toLocaleString()}원
                                 </span>
-                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매하러 가기</a>
+                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매하기</a>
                             </div>
                             <div class="row-bottom">
                                 <div class="store-time-info">
                                     <span class="product-store">${this.getStoreDisplayName(product.store) || '미선택'}</span>
                                     ${this.formatUpdateTime(product.lastUpdated || product.createdAt)}
+                                    <span class="purchase-count-text">${(product.purchaseCount || 0)}구매클릭</span>
                                     <span class="product-price">${finalPrice.toLocaleString()}원</span>
                                 </div>
                                 <div class="product-buttons">
-                                    <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', ${finalPrice}, '${product.link || ''}')">가격바뀜 신고</button>
+                                    <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', ${finalPrice}, '${product.link || ''}')">바뀜신고</button>
                                 </div>
                             </div>
                         </div>
@@ -1254,6 +1271,20 @@ class PriceComparisonSite {
         return htmlElement;
         } catch (error) {
             console.error(`제품 "${product.name}" HTML 요소 생성 오류:`, error);
+            
+            // 에러 핸들러에서도 순위 표시 HTML 생성
+            let rankHtml = '';
+            if (rank !== null) {
+                let rankClass = 'product-rank';
+                if (rank === 1) {
+                    rankClass = 'product-rank first-rank';
+                } else if (rank === 2) {
+                    rankClass = 'product-rank second-rank';
+                } else if (rank === 3) {
+                    rankClass = 'product-rank third-rank';
+                }
+                rankHtml = `<span class="${rankClass}">${rank}위</span>`;
+            }
             
             // 에러 핸들러에서도 할인율 계산
             const finalPrice = this.calculateFinalPrice(product) || 0;
@@ -1282,23 +1313,26 @@ class PriceComparisonSite {
                     </div>
                     <div class="product-info">
                         <div class="product-row-1">
+                            ${rankHtml}
                             <div class="product-title">${product.name || '제품명 없음'}</div>
                         </div>
                         <div class="product-row-2">
                             <div class="row-top">
                                 <span class="product-category">${this.getCategoryDisplayForProduct(product.category) || '일반딜'}</span>
                                 <span class="product-original-price">
+                                    <span class="click-count-text">${(product.clickCount || 0)}클릭</span>
                                     ${discountRateHtml}
                                     가격 정보 없음
                                 </span>
-                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매하러 가기</a>
+                                <a href="${product.link || '#'}" target="_blank" class="product-link-btn" onclick="event.stopPropagation(); trackPurchaseClick('${product.name}', '${product.category}')">구매하기</a>
                             </div>
                             <div class="row-bottom">
                                 <div class="store-time-info">
                                     <span class="product-store">${this.getStoreDisplayName(product.store) || '미선택'}</span>
+                                    <span class="purchase-count-text">${(product.purchaseCount || 0)}구매클릭</span>
                                 </div>
                                 <div class="product-buttons">
-                                    <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', ${finalPrice}, '${product.link || ''}')">가격바뀜 신고</button>
+                                    <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', ${finalPrice}, '${product.link || ''}')">바뀜신고</button>
                                 </div>
                             </div>
                         </div>
@@ -3284,7 +3318,9 @@ class PriceComparisonSite {
                 description: productData.description || '',
                 imageUrl: productData.imageUrl || '',
                 imageUrls: productData.imageUrls || [],
-                userId: productData.userId
+                userId: productData.userId,
+                clickCount: 0, // 클릭 횟수 초기화
+                purchaseCount: 0 // 구매 횟수 초기화
             };
             
             // 최종가 설정: price 필드가 최종가, originalPrice가 있으면 그대로 사용, 없으면 price를 originalPrice로 설정

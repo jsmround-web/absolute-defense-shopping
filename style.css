@@ -3029,7 +3029,7 @@ body {
     .product-thumbnail-img {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: contain;
         object-position: center center;
         display: block;
         border: none;
@@ -3046,15 +3046,13 @@ body {
         transform: scale(1);
     }
     
-    /* 모바일에서 이미지 중심 부분만 표시 (텍스트 제거) */
+    /* 모바일에서 이미지 전체가 보이도록 */
     @media (max-width: 768px) {
         .product-thumbnail img,
         .product-thumbnail-img {
+            object-fit: contain;
             object-position: center center;
-            /* 이미지 확대하여 중심 부분만 보이도록 */
-            transform: scale(1.2);
-            /* 스크린샷의 상단 텍스트를 잘라내기 위해 약간 아래로 */
-            object-position: center 40%;
+            transform: scale(1);
         }
     }
     
@@ -3592,6 +3590,61 @@ body {
     gap: 8px;
 }
 
+.product-row-1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.product-rank {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.product-rank.first-rank {
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+    box-shadow: 0 2px 4px rgba(251, 191, 36, 0.4) !important;
+    font-weight: 800;
+    padding: 3px 8px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.product-rank.second-rank {
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #cbd5e1, #94a3b8) !important;
+    box-shadow: 0 2px 4px rgba(203, 213, 225, 0.4) !important;
+    font-weight: 800;
+    padding: 3px 8px;
+    animation: pulse 2s ease-in-out infinite;
+    animation-delay: 0.3s;
+}
+
+.product-rank.third-rank {
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #d97706, #b45309) !important;
+    box-shadow: 0 2px 4px rgba(217, 119, 6, 0.4) !important;
+    font-weight: 800;
+    padding: 3px 8px;
+    animation: pulse 2s ease-in-out infinite;
+    animation-delay: 0.6s;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
 .product-title {
     font-size: 0.9rem;
     font-weight: 600;
@@ -3699,6 +3752,24 @@ body {
 
 .discount-rate-high {
     color: #ff1744; /* 빨강 - 60% 이상 (그대로) */
+}
+
+/* 클릭횟수 텍스트 스타일 (보라색, 배경 없음) */
+.click-count-text {
+    color: #9333ea;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-right: 4px;
+}
+
+/* 구매횟수 텍스트 스타일 (녹색 형광색, 배경 없음) */
+.purchase-count-text {
+    color: #39ff14;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-right: 4px;
+    margin-left: 1em; /* 오른쪽으로 한 글자 이동 */
+    text-shadow: 0 0 3px rgba(57, 255, 20, 0.5);
 }
 
 .product-original-price {
@@ -4248,7 +4319,7 @@ body {
     .product-thumbnail-img {
         width: 100% !important;
         height: 100% !important;
-        object-fit: cover;
+        object-fit: contain;
         object-position: center center;
         display: block;
         border: none !important;
@@ -4265,7 +4336,7 @@ body {
         transform: scale(1);
     }
     
-    /* 모바일에서 이미지 중심 부분만 표시 (텍스트 제거) */
+    /* 모바일에서 이미지 전체가 보이도록 */
     @media (max-width: 768px) {
         .product-thumbnail img,
         .product-thumbnail-img {
@@ -4274,11 +4345,9 @@ body {
             padding: 0 !important;
             margin: 0 !important;
             border: none !important;
+            object-fit: contain;
             object-position: center center;
-            /* 이미지 확대하여 중심 부분만 보이도록 */
-            transform: scale(1.2);
-            /* 스크린샷의 상단 텍스트를 잘라내기 위해 약간 아래로 */
-            object-position: center 40%;
+            transform: scale(1);
         }
     }
     
@@ -4309,6 +4378,46 @@ body {
         margin-bottom: 0 !important;
         margin-top: 0 !important;
         padding: 0 !important;
+    }
+    
+    .product-row-1 {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .product-rank {
+        font-size: 0.7rem;
+        padding: 2px 5px;
+    }
+    
+    .product-rank.first-rank {
+        font-size: 0.75rem;
+        padding: 2px 7px;
+        color: #ffffff !important;
+        background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+        box-shadow: 0 2px 4px rgba(251, 191, 36, 0.4) !important;
+        animation: pulse 2s ease-in-out infinite;
+    }
+    
+    .product-rank.second-rank {
+        font-size: 0.75rem;
+        padding: 2px 7px;
+        color: #ffffff !important;
+        background: linear-gradient(135deg, #cbd5e1, #94a3b8) !important;
+        box-shadow: 0 2px 4px rgba(203, 213, 225, 0.4) !important;
+        animation: pulse 2s ease-in-out infinite;
+        animation-delay: 0.3s;
+    }
+    
+    .product-rank.third-rank {
+        font-size: 0.75rem;
+        padding: 2px 7px;
+        color: #ffffff !important;
+        background: linear-gradient(135deg, #d97706, #b45309) !important;
+        box-shadow: 0 2px 4px rgba(217, 119, 6, 0.4) !important;
+        animation: pulse 2s ease-in-out infinite;
+        animation-delay: 0.6s;
     }
     
     .product-title {
@@ -4431,6 +4540,19 @@ body {
     
     .product-store {
         font-size: 0.65rem;
+    }
+    
+    /* 모바일: 클릭횟수 텍스트 스타일 */
+    .click-count-text {
+        font-size: 0.75rem;
+        margin-right: 3px;
+    }
+    
+    /* 모바일: 구매횟수 텍스트 스타일 */
+    .purchase-count-text {
+        font-size: 0.75rem;
+        margin-right: 3px;
+        margin-left: 4em; /* 왼쪽으로 두 글자 이동 (6em → 4em) */
     }
     
     .product-link-btn,
@@ -4829,10 +4951,7 @@ body {
 }
 
 /* 새로운 컴팩트 레이아웃 */
-.product-row-1 {
-    margin-bottom: 0 !important;
-    padding: 0 !important;
-}
+/* product-row-1 스타일은 위쪽에 정의됨 (순위 표시 포함) */
 
 .product-row-2 {
     display: flex;

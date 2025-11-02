@@ -4815,7 +4815,8 @@ class PriceComparisonSite {
             existingPopup.remove();
         }
 
-        const product = this.products.find(p => p.id === report.productId);
+        const productId = report.productId;
+        const product = this.products.find(p => p.id === productId);
         const productName = product ? product.name : '알 수 없는 제품';
 
         // 가격 수정 팝업 HTML 생성
@@ -4866,8 +4867,18 @@ class PriceComparisonSite {
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="editImageUrl">이미지 URL</label>
-                                <input type="url" id="editImageUrl" value="${product && product.imageUrl ? product.imageUrl : ''}" placeholder="이미지 URL을 입력하세요">
+                                <label for="editPriceReportImages">이미지 관리</label>
+                                <input type="file" id="editPriceReportImages" accept="image/*" multiple>
+                                <div id="editPriceReportImagePreviewContainer" style="margin-top: 12px;"></div>
+                                ${this.renderPriceReportEditImagePreview(product)}
+                            </div>
+                            <div class="form-group">
+                                <label for="editPriceReportDescription">게시글</label>
+                                <textarea id="editPriceReportDescription" rows="8" placeholder="게시글 내용을 입력하세요... (인터넷 주소를 입력하면 클릭 가능한 링크로 변환됩니다)">${product && product.description ? product.description : ''}</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="editImageUrl">이미지 URL (대체 입력)</label>
+                                <input type="url" id="editImageUrl" value="${product && product.imageUrl ? product.imageUrl : ''}" placeholder="이미지 URL을 직접 입력하세요">
                             </div>
                             <div class="form-group">
                                 <label for="editReporter">신고자</label>
@@ -4907,6 +4918,185 @@ class PriceComparisonSite {
             e.preventDefault();
             this.updatePriceReport(report.id);
         });
+
+        // 이미지 업로드 이벤트 리스너
+        const editPriceReportImageInput = document.getElementById('editPriceReportImages');
+        if (editPriceReportImageInput) {
+            editPriceReportImageInput.addEventListener('change', () => {
+                this.handlePriceReportEditImageSelection(productId);
+            });
+        }
+
+        // 기존 이미지 표시
+        if (product) {
+            this.renderPriceReportEditExistingImages(product);
+        }
+
+        // 이미지 순서 초기화
+        this.editPriceReportImageOrder = [];
+    }
+
+    // 가격 변경 신고 수정 폼용 이미지 미리보기 렌더링
+    renderPriceReportEditImagePreview(product) {
+        if (!product) {
+            return '<div style="color: #6b7280; font-size: 0.9rem;">제품 정보가 없습니다.</div>';
+        }
+        const existingImages = product.imageUrls || (product.imageUrl ? [product.imageUrl] : []);
+        if (existingImages.length === 0) {
+            return '<div style="color: #6b7280; font-size: 0.9rem;">등록된 이미지가 없습니다.</div>';
+        }
+        return '<div id="editPriceReportExistingImages" style="margin-top: 8px;"></div>';
+    }
+
+    // 가격 변경 신고 수정 폼용 기존 이미지 표시 및 삭제 기능
+    renderPriceReportEditExistingImages(product) {
+        const container = document.getElementById('editPriceReportExistingImages');
+        if (!container) return;
+
+        const existingImages = product.imageUrls || (product.imageUrl ? [product.imageUrl] : []);
+        if (existingImages.length === 0) {
+            container.innerHTML = '<div style="color: #6b7280; font-size: 0.9rem;">등록된 이미지가 없습니다.</div>';
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="margin-bottom: 8px;">
+                <strong>기존 이미지 (클릭하여 삭제):</strong>
+            </div>
+            <div id="editPriceReportExistingImageList" style="display: flex; gap: 12px; flex-wrap: wrap;"></div>
+        `;
+
+        const imageList = document.getElementById('editPriceReportExistingImageList');
+        existingImages.forEach((imageUrl, index) => {
+            const imageDiv = document.createElement('div');
+            imageDiv.style.cssText = `
+                position: relative;
+                width: 100px;
+                height: 100px;
+                border: 2px solid #e2e8f0;
+                border-radius: 8px;
+                overflow: hidden;
+                cursor: pointer;
+            `;
+
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+
+            const deleteOverlay = document.createElement('div');
+            deleteOverlay.style.cssText = `
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(220, 38, 38, 0.8);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: bold;
+                font-size: 1.2rem;
+            `;
+            deleteOverlay.textContent = '삭제';
+
+            imageDiv.appendChild(img);
+            imageDiv.appendChild(deleteOverlay);
+
+            imageDiv.onmouseenter = () => {
+                deleteOverlay.style.display = 'flex';
+            };
+            imageDiv.onmouseleave = () => {
+                deleteOverlay.style.display = 'none';
+            };
+
+            imageDiv.onclick = () => {
+                if (confirm('이 이미지를 삭제하시겠습니까?')) {
+                    imageDiv.setAttribute('data-deleted', 'true');
+                    imageDiv.style.opacity = '0.5';
+                    imageDiv.style.borderColor = '#dc2626';
+                }
+            };
+
+            imageList.appendChild(imageDiv);
+        });
+    }
+
+    // 가격 변경 신고 수정 폼에서 새 이미지 선택 처리
+    handlePriceReportEditImageSelection(productId) {
+        const input = document.getElementById('editPriceReportImages');
+        const files = input.files;
+        const container = document.getElementById('editPriceReportImagePreviewContainer');
+
+        if (!files || files.length === 0) {
+            return;
+        }
+
+        if (!this.editPriceReportImageOrder) {
+            this.editPriceReportImageOrder = [];
+        }
+
+        // 새로 선택한 파일 추가
+        Array.from(files).forEach(newFile => {
+            const isDuplicate = this.editPriceReportImageOrder.some(existingFile =>
+                existingFile.name === newFile.name && existingFile.size === newFile.size
+            );
+            if (!isDuplicate) {
+                this.editPriceReportImageOrder.push(newFile);
+            }
+        });
+
+        // 미리보기 표시
+        container.innerHTML = '<div style="margin-bottom: 8px;"><strong>새로 추가할 이미지:</strong></div>';
+        const previewDiv = document.createElement('div');
+        previewDiv.style.cssText = 'display: flex; gap: 12px; flex-wrap: wrap;';
+
+        this.editPriceReportImageOrder.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imageDiv = document.createElement('div');
+                imageDiv.style.cssText = `
+                    position: relative;
+                    width: 100px;
+                    height: 100px;
+                    border: 2px solid #3b82f6;
+                    border-radius: 8px;
+                    overflow: hidden;
+                `;
+
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.innerHTML = '×';
+                deleteBtn.style.cssText = `
+                    position: absolute;
+                    top: 4px;
+                    right: 4px;
+                    background: rgba(220, 38, 38, 0.9);
+                    color: white;
+                    border: none;
+                    border-radius: 50%;
+                    width: 24px;
+                    height: 24px;
+                    font-size: 18px;
+                    cursor: pointer;
+                `;
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    this.editPriceReportImageOrder.splice(index, 1);
+                    this.handlePriceReportEditImageSelection(productId);
+                };
+
+                imageDiv.appendChild(img);
+                imageDiv.appendChild(deleteBtn);
+                previewDiv.appendChild(imageDiv);
+            };
+            reader.readAsDataURL(file);
+        });
+
+        container.appendChild(previewDiv);
     }
 
     // 가격 변경 신고 업데이트
@@ -4930,12 +5120,61 @@ class PriceComparisonSite {
                 status: document.getElementById('editReportStatus').value
             };
 
+            // 이미지 처리
+            let imageUrls = product ? (product.imageUrls || (product.imageUrl ? [product.imageUrl] : [])) : [];
+            
+            // 삭제된 이미지 제거
+            const existingImageList = document.getElementById('editPriceReportExistingImageList');
+            if (existingImageList && imageUrls.length > 0) {
+                const remainingImageUrls = [];
+                existingImageList.querySelectorAll('img').forEach(img => {
+                    if (img.src && !img.closest('[data-deleted="true"]')) {
+                        remainingImageUrls.push(img.src);
+                    }
+                });
+                imageUrls = imageUrls.filter(url => remainingImageUrls.includes(url));
+            }
+            
+            // 새 이미지 업로드
+            if (this.editPriceReportImageOrder && this.editPriceReportImageOrder.length > 0) {
+                try {
+                    for (let i = 0; i < this.editPriceReportImageOrder.length; i++) {
+                        const imageFile = this.editPriceReportImageOrder[i];
+                        if (imageFile.size > 5 * 1024 * 1024) {
+                            alert(`이미지 ${i + 1}번의 크기가 5MB를 초과합니다.`);
+                            continue;
+                        }
+                        const storageRef = window.firebaseStorage();
+                        const imageRef = window.firebaseStorageRef(storageRef, `products/${Date.now()}_${i}_${imageFile.name}`);
+                        const snapshot = await window.firebaseUploadBytes(imageRef, imageFile);
+                        const imageUrl = await window.firebaseGetDownloadURL(snapshot.ref);
+                        imageUrls.push(imageUrl);
+                    }
+                } catch (error) {
+                    console.error('이미지 업로드 실패:', error);
+                    alert('이미지 업로드에 실패했습니다. 다른 정보는 저장됩니다.');
+                }
+            }
+
+            // 이미지 URL 직접 입력 처리
+            const directImageUrl = document.getElementById('editImageUrl').value.trim();
+            if (directImageUrl && !imageUrls.includes(directImageUrl)) {
+                // URL 입력이 있고 이미지 목록에 없으면 추가
+                imageUrls.push(directImageUrl);
+            }
+
+            // 게시글 처리
+            const description = document.getElementById('editPriceReportDescription')?.value.trim() || '';
+
             // 제품 데이터 업데이트
             const productFormData = {
                 name: document.getElementById('editProductName').value.trim() || '',
                 store: document.getElementById('editStore').value,
                 category: document.getElementById('editCategory').value,
-                imageUrl: document.getElementById('editImageUrl').value.trim() || ''
+                imageUrls: imageUrls,
+                imageUrl: imageUrls.length > 0 ? imageUrls[0] : (directImageUrl || ''),
+                description: description,
+                lastUpdated: new Date().toISOString()
             };
 
             // Firebase 신고 업데이트
@@ -5346,7 +5585,10 @@ class PriceComparisonSite {
         }
         
         adminContent.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3>변경신고 (${sortedReports.length}개) - 가격변동: ${priceChangeCount}개, 품절: ${outOfStockCount}개</h3>
+                <button class="edit-btn" onclick="priceComparisonSite.editPriceReport('${sortedReports[0]?.id || ''}')" style="padding: 8px 16px; font-size: 14px;">전체 수정</button>
+            </div>
             <div class="price-reports">
                 ${sortedReports.map(report => this.createPriceReportElement(report)).join('')}
             </div>
@@ -7394,11 +7636,20 @@ window.refreshProductData = function(productId) {
 
 // 가격 변동 모달 표시
 window.showPriceChangeModal = function(productId, currentPrice, currentLink) {
+    // 관리자 확인
+    const isAdmin = localStorage.getItem('admin_session') === 'true';
+    
     // 모달 HTML 생성
     const modalHTML = `
         <div id="priceChangeModal" class="modal-overlay" onclick="if(event.target.id === 'priceChangeModal') closePriceChangeModal()">
-            <div class="modal-content-small">
-                <div class="modal-header-small">
+            <div class="modal-content-small" style="position: relative;">
+                <div class="modal-header-small" style="position: relative;">
+                    ${isAdmin ? `
+                        <button onclick="event.stopPropagation(); if(window.priceComparisonSite) { window.priceComparisonSite.editProduct('${productId}'); closePriceChangeModal(); } else { alert('관리자 수정 기능을 사용할 수 없습니다.'); }" 
+                                style="position: absolute; top: 60px; right: 4px; background: #3b82f6; color: white; border: none; border-radius: 3px; padding: 2px 6px; font-size: 9px; cursor: pointer; z-index: 1000; font-weight: bold; opacity: 0.85; line-height: 1.2;">
+                            관리자<br>수정
+                        </button>
+                    ` : ''}
                     <h3>가격 변동 신고</h3>
                     <button onclick="closePriceChangeModal()" class="close-btn-small">&times;</button>
                 </div>

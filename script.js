@@ -1986,7 +1986,7 @@ class PriceComparisonSite {
         this.setupFormSubmitListener();
         
         // 관리자 버튼들 - 펼치기만 가능
-        document.getElementById('loadPendingProducts').addEventListener('click', () => {
+        document.getElementById('loadPendingProducts')?.addEventListener('click', () => {
             if (adminAuth.requireAuth()) {
                 const allList = document.getElementById('allProductsList');
                 const reportsList = document.getElementById('priceReportsList');
@@ -2005,7 +2005,7 @@ class PriceComparisonSite {
             }
         });
         
-        document.getElementById('loadAllProducts').addEventListener('click', () => {
+        document.getElementById('loadAllProducts')?.addEventListener('click', () => {
             if (adminAuth.requireAuth()) {
                 const allList = document.getElementById('allProductsList');
                 const pendingList = document.getElementById('pendingProductsList');
@@ -2032,7 +2032,7 @@ class PriceComparisonSite {
             }
         });
         
-        document.getElementById('loadPriceReports').addEventListener('click', () => {
+        document.getElementById('loadPriceReports')?.addEventListener('click', () => {
             if (adminAuth.requireAuth()) {
                 const reportsList = document.getElementById('priceReportsList');
                 const pendingList = document.getElementById('pendingProductsList');
@@ -2054,7 +2054,7 @@ class PriceComparisonSite {
             }
         });
         
-        document.getElementById('loadOutOfStockSettings').addEventListener('click', () => {
+        document.getElementById('loadOutOfStockSettings')?.addEventListener('click', () => {
             const thumbnailStatus = document.getElementById('thumbnailGenerationStatus');
             if (thumbnailStatus) thumbnailStatus.style.display = 'none';
             if (adminAuth.requireAuth()) {
@@ -2076,14 +2076,14 @@ class PriceComparisonSite {
             }
         });
         
-        document.getElementById('saveOutOfStockSettings').addEventListener('click', () => {
+        document.getElementById('saveOutOfStockSettings')?.addEventListener('click', () => {
             if (adminAuth.requireAuth()) {
                 this.saveOutOfStockSettings();
             }
         });
         
         // 관리자 로그아웃 버튼
-        document.getElementById('adminLogout').addEventListener('click', () => {
+        document.getElementById('adminLogout')?.addEventListener('click', () => {
             adminAuth.logout();
             alert('관리자 세션이 종료되었습니다.');
             // 관리자 패널 닫기
@@ -3439,7 +3439,7 @@ class PriceComparisonSite {
             form.parentNode.replaceChild(newForm, form);
             
             // 새 이벤트 리스너 추가
-            document.getElementById('productForm').addEventListener('submit', (e) => {
+            document.getElementById('productForm')?.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.handleFormSubmission();
             });
@@ -5021,7 +5021,7 @@ class PriceComparisonSite {
         }, 10);
 
         // 폼 제출 이벤트 리스너 추가
-        document.getElementById('productEditForm').addEventListener('submit', (e) => {
+        document.getElementById('productEditForm')?.addEventListener('submit', (e) => {
             e.preventDefault();
             this.updateProduct(product.id);
         });
@@ -5549,7 +5549,7 @@ class PriceComparisonSite {
         }, 10);
 
         // 폼 제출 이벤트 리스너 추가
-        document.getElementById('priceEditForm').addEventListener('submit', (e) => {
+        document.getElementById('priceEditForm')?.addEventListener('submit', (e) => {
             e.preventDefault();
             this.updatePriceReport(report.id);
         });
@@ -6520,11 +6520,11 @@ class PriceComparisonSite {
         noBtn.replaceWith(noBtn.cloneNode(true));
         
         // 새로운 이벤트 리스너 추가
-        document.getElementById('deleteConfirmYes').addEventListener('click', () => {
+        document.getElementById('deleteConfirmYes')?.addEventListener('click', () => {
             this.confirmDelete(itemType, itemId);
         });
         
-        document.getElementById('deleteConfirmNo').addEventListener('click', () => {
+        document.getElementById('deleteConfirmNo')?.addEventListener('click', () => {
             this.cancelDelete();
         });
     }

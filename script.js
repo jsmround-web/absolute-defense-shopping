@@ -2025,14 +2025,6 @@ class PriceComparisonSite {
             }
         });
         
-        document.getElementById('generateThumbnailsForAll').addEventListener('click', () => {
-            if (adminAuth.requireAuth()) {
-                if (confirm('모든 기존 상품에 대해 썸네일을 생성하시겠습니까?\n\n이 작업은 시간이 걸릴 수 있습니다.')) {
-                    this.generateThumbnailsForAllProducts();
-                }
-            }
-        });
-        
         document.getElementById('cancelThumbnailGeneration')?.addEventListener('click', () => {
             if (this.thumbnailGenerationCancelled !== undefined) {
                 this.thumbnailGenerationCancelled = true;
@@ -3479,9 +3471,53 @@ class PriceComparisonSite {
             try {
                 console.log('이미지 업로드 시작:', imageFilesToUpload.length, '개');
                 
+                // Firebase 인증 상태 확인 (익명 인증)
+                const auth = window.firebaseAuth;
+                if (auth) {
+                    const currentUser = auth.currentUser;
+                    if (!currentUser) {
+                        // 익명 인증이 이미 실패했는지 확인
+                        if (window.firebaseAuthReady === false) {
+                            console.warn('⚠️ Firebase 익명 인증이 실패했습니다. Storage 보안 규칙을 확인하세요.');
+                            console.warn('익명 인증 없이 업로드를 시도합니다. Storage 보안 규칙이 "allow write: if true;"인지 확인하세요.');
+                        } else {
+                            console.log('Firebase 인증 대기 중...');
+                            // 인증 완료 대기 (최대 3초)
+                            try {
+                                await new Promise((resolve, reject) => {
+                                    const timeout = setTimeout(() => {
+                                        console.warn('Firebase 인증 대기 시간 초과. 업로드를 시도합니다.');
+                                        resolve(); // 실패해도 업로드 시도
+                                    }, 3000);
+                                    
+                                    const unsubscribe = auth.onAuthStateChanged((user) => {
+                                        if (user) {
+                                            clearTimeout(timeout);
+                                            unsubscribe();
+                                            console.log('✅ Firebase 인증 완료:', user.uid);
+                                            resolve();
+                                        }
+                                    });
+                                });
+                            } catch (authError) {
+                                console.warn('Firebase 인증 실패, 업로드를 시도합니다:', authError);
+                            }
+                        }
+                    } else {
+                        console.log('✅ Firebase 인증 완료:', currentUser.uid);
+                    }
+                } else {
+                    console.warn('Firebase Auth가 초기화되지 않았습니다. 익명 인증 없이 시도합니다.');
+                }
+                
                 const thumbnailUrls = []; // 썸네일 URL 배열
                 const storageRef = window.firebaseStorage();
                 const timestamp = Date.now();
+                
+                // Firebase Storage 초기화 확인
+                if (!storageRef) {
+                    throw new Error('Firebase Storage가 초기화되지 않았습니다.');
+                }
                 
                 // 모든 이미지 업로드 (순서대로) - 원본 + 썸네일
                 for (let i = 0; i < imageFilesToUpload.length; i++) {
@@ -3495,11 +3531,18 @@ class PriceComparisonSite {
                     }
                     
                     // 원본 이미지 업로드
-                    const imageRef = window.firebaseStorageRef(storageRef, `products/${timestamp}_${i}_${imageFile.name}`);
-                    const snapshot = await window.firebaseUploadBytes(imageRef, imageFile);
-                    const imageUrl = await window.firebaseGetDownloadURL(snapshot.ref);
-                    imageUrls.push(imageUrl);
-                    console.log(`원본 이미지 ${i + 1}/${imageFilesToUpload.length} 업로드 완료:`, imageUrl);
+                    try {
+                        const imageRef = window.firebaseStorageRef(storageRef, `products/${timestamp}_${i}_${imageFile.name}`);
+                        console.log(`이미지 ${i + 1}/${imageFilesToUpload.length} 업로드 시도:`, imageFile.name, `(${(imageFile.size / 1024).toFixed(1)}KB)`);
+                        
+                        const snapshot = await window.firebaseUploadBytes(imageRef, imageFile);
+                        const imageUrl = await window.firebaseGetDownloadURL(snapshot.ref);
+                        imageUrls.push(imageUrl);
+                        console.log(`원본 이미지 ${i + 1}/${imageFilesToUpload.length} 업로드 완료:`, imageUrl);
+                    } catch (uploadError) {
+                        console.error(`이미지 ${i + 1} 업로드 실패:`, uploadError);
+                        throw new Error(`이미지 ${i + 1} 업로드 실패: ${uploadError.message || uploadError.code || '알 수 없는 오류'}`);
+                    }
                     
                     // 썸네일 생성 및 업로드
                     try {
@@ -3528,7 +3571,24 @@ class PriceComparisonSite {
                 this.currentThumbnailUrls = thumbnailUrls;
             } catch (error) {
                 console.error('이미지 업로드 실패:', error);
-                alert('이미지 업로드에 실패했습니다. 텍스트만 저장합니다.');
+                console.error('에러 상세 정보:', {
+                    message: error.message,
+                    code: error.code,
+                    stack: error.stack,
+                    name: error.name
+                });
+                
+                // Firebase Storage 권한 오류인지 확인
+                if (error.code === 'storage/unauthorized' || error.code === 'permission-denied') {
+                    alert('⚠️ Firebase Storage 접근 권한 오류\n\nFirebase Console에서 Storage 보안 규칙을 확인하세요.\n\n필요한 규칙:\nallow write: if request.auth != null;\n또는\nallow write: if true; (임시 테스트용)\n\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.');
+                } else if (error.code === 'storage/quota-exceeded') {
+                    alert('⚠️ Firebase Storage 용량 초과\n\n저장 공간이 부족합니다. Firebase Console에서 확인하세요.');
+                } else if (error.code === 'storage/canceled') {
+                    alert('⚠️ 이미지 업로드가 취소되었습니다.');
+                } else {
+                    alert(`이미지 업로드에 실패했습니다.\n\n오류: ${error.message || '알 수 없는 오류'}\n\n텍스트만 저장합니다.\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.`);
+                }
+                
                 imageUrls = [];
                 this.currentThumbnailUrls = [];
             }
@@ -5207,21 +5267,48 @@ class PriceComparisonSite {
             // 새 이미지 업로드
             if (this.editProductImageOrder && this.editProductImageOrder.length > 0) {
                 try {
+                    const storageRef = window.firebaseStorage();
+                    if (!storageRef) {
+                        throw new Error('Firebase Storage가 초기화되지 않았습니다.');
+                    }
+                    
                     for (let i = 0; i < this.editProductImageOrder.length; i++) {
                         const imageFile = this.editProductImageOrder[i];
                         if (imageFile.size > 5 * 1024 * 1024) {
                             alert(`이미지 ${i + 1}번의 크기가 5MB를 초과합니다.`);
                             continue;
                         }
-                        const storageRef = window.firebaseStorage();
-                        const imageRef = window.firebaseStorageRef(storageRef, `products/${Date.now()}_${i}_${imageFile.name}`);
-                        const snapshot = await window.firebaseUploadBytes(imageRef, imageFile);
-                        const imageUrl = await window.firebaseGetDownloadURL(snapshot.ref);
-                        imageUrls.push(imageUrl);
+                        
+                        try {
+                            const imageRef = window.firebaseStorageRef(storageRef, `products/${Date.now()}_${i}_${imageFile.name}`);
+                            console.log(`이미지 ${i + 1}/${this.editProductImageOrder.length} 업로드 시도:`, imageFile.name, `(${(imageFile.size / 1024).toFixed(1)}KB)`);
+                            
+                            const snapshot = await window.firebaseUploadBytes(imageRef, imageFile);
+                            const imageUrl = await window.firebaseGetDownloadURL(snapshot.ref);
+                            imageUrls.push(imageUrl);
+                            console.log(`이미지 ${i + 1}/${this.editProductImageOrder.length} 업로드 완료:`, imageUrl);
+                        } catch (uploadError) {
+                            console.error(`이미지 ${i + 1} 업로드 실패:`, uploadError);
+                            throw new Error(`이미지 ${i + 1} 업로드 실패: ${uploadError.message || uploadError.code || '알 수 없는 오류'}`);
+                        }
                     }
                 } catch (error) {
                     console.error('이미지 업로드 실패:', error);
-                    alert('이미지 업로드에 실패했습니다. 다른 정보는 저장됩니다.');
+                    console.error('에러 상세 정보:', {
+                        message: error.message,
+                        code: error.code,
+                        stack: error.stack,
+                        name: error.name
+                    });
+                    
+                    // Firebase Storage 권한 오류인지 확인
+                    if (error.code === 'storage/unauthorized' || error.code === 'permission-denied') {
+                        alert('⚠️ Firebase Storage 접근 권한 오류\n\nFirebase Console에서 Storage 보안 규칙을 확인하세요.\n\n필요한 규칙:\nallow write: if request.auth != null;\n또는\nallow write: if true; (임시 테스트용)\n\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.');
+                    } else if (error.code === 'storage/quota-exceeded') {
+                        alert('⚠️ Firebase Storage 용량 초과\n\n저장 공간이 부족합니다. Firebase Console에서 확인하세요.');
+                    } else {
+                        alert(`이미지 업로드에 실패했습니다.\n\n오류: ${error.message || error.code || '알 수 없는 오류'}\n\n다른 정보는 저장됩니다.\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.`);
+                    }
                 }
             }
             
@@ -5686,21 +5773,48 @@ class PriceComparisonSite {
             // 새 이미지 업로드
             if (this.editPriceReportImageOrder && this.editPriceReportImageOrder.length > 0) {
                 try {
+                    const storageRef = window.firebaseStorage();
+                    if (!storageRef) {
+                        throw new Error('Firebase Storage가 초기화되지 않았습니다.');
+                    }
+                    
                     for (let i = 0; i < this.editPriceReportImageOrder.length; i++) {
                         const imageFile = this.editPriceReportImageOrder[i];
                         if (imageFile.size > 5 * 1024 * 1024) {
                             alert(`이미지 ${i + 1}번의 크기가 5MB를 초과합니다.`);
                             continue;
                         }
-                        const storageRef = window.firebaseStorage();
-                        const imageRef = window.firebaseStorageRef(storageRef, `products/${Date.now()}_${i}_${imageFile.name}`);
-                        const snapshot = await window.firebaseUploadBytes(imageRef, imageFile);
-                        const imageUrl = await window.firebaseGetDownloadURL(snapshot.ref);
-                        imageUrls.push(imageUrl);
+                        
+                        try {
+                            const imageRef = window.firebaseStorageRef(storageRef, `products/${Date.now()}_${i}_${imageFile.name}`);
+                            console.log(`이미지 ${i + 1}/${this.editPriceReportImageOrder.length} 업로드 시도:`, imageFile.name, `(${(imageFile.size / 1024).toFixed(1)}KB)`);
+                            
+                            const snapshot = await window.firebaseUploadBytes(imageRef, imageFile);
+                            const imageUrl = await window.firebaseGetDownloadURL(snapshot.ref);
+                            imageUrls.push(imageUrl);
+                            console.log(`이미지 ${i + 1}/${this.editPriceReportImageOrder.length} 업로드 완료:`, imageUrl);
+                        } catch (uploadError) {
+                            console.error(`이미지 ${i + 1} 업로드 실패:`, uploadError);
+                            throw new Error(`이미지 ${i + 1} 업로드 실패: ${uploadError.message || uploadError.code || '알 수 없는 오류'}`);
+                        }
                     }
                 } catch (error) {
                     console.error('이미지 업로드 실패:', error);
-                    alert('이미지 업로드에 실패했습니다. 다른 정보는 저장됩니다.');
+                    console.error('에러 상세 정보:', {
+                        message: error.message,
+                        code: error.code,
+                        stack: error.stack,
+                        name: error.name
+                    });
+                    
+                    // Firebase Storage 권한 오류인지 확인
+                    if (error.code === 'storage/unauthorized' || error.code === 'permission-denied') {
+                        alert('⚠️ Firebase Storage 접근 권한 오류\n\nFirebase Console에서 Storage 보안 규칙을 확인하세요.\n\n필요한 규칙:\nallow write: if request.auth != null;\n또는\nallow write: if true; (임시 테스트용)\n\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.');
+                    } else if (error.code === 'storage/quota-exceeded') {
+                        alert('⚠️ Firebase Storage 용량 초과\n\n저장 공간이 부족합니다. Firebase Console에서 확인하세요.');
+                    } else {
+                        alert(`이미지 업로드에 실패했습니다.\n\n오류: ${error.message || error.code || '알 수 없는 오류'}\n\n다른 정보는 저장됩니다.\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.`);
+                    }
                 }
             }
 
@@ -9172,6 +9286,11 @@ window.submitEditPriceReport = async function(reportId) {
             try {
                 console.log('이미지 업로드 시작:', imageFiles.length, '개');
                 
+                const storageRef = window.firebaseStorage();
+                if (!storageRef) {
+                    throw new Error('Firebase Storage가 초기화되지 않았습니다.');
+                }
+                
                 for (let i = 0; i < imageFiles.length; i++) {
                     const imageFile = imageFiles[i];
                     
@@ -9182,16 +9301,36 @@ window.submitEditPriceReport = async function(reportId) {
                     }
                     
                     // Firebase Storage에 이미지 업로드
-                    const storageRef = window.firebaseStorage();
-                    const imageRef = window.firebaseStorageRef(storageRef, `products/${Date.now()}_${i}_${imageFile.name}`);
-                    const snapshot = await window.firebaseUploadBytes(imageRef, imageFile);
-                    const imageUrl = await window.firebaseGetDownloadURL(snapshot.ref);
-                    imageUrls.push(imageUrl);
-                    console.log(`이미지 ${i + 1}/${imageFiles.length} 업로드 완료:`, imageUrl);
+                    try {
+                        const imageRef = window.firebaseStorageRef(storageRef, `products/${Date.now()}_${i}_${imageFile.name}`);
+                        console.log(`이미지 ${i + 1}/${imageFiles.length} 업로드 시도:`, imageFile.name, `(${(imageFile.size / 1024).toFixed(1)}KB)`);
+                        
+                        const snapshot = await window.firebaseUploadBytes(imageRef, imageFile);
+                        const imageUrl = await window.firebaseGetDownloadURL(snapshot.ref);
+                        imageUrls.push(imageUrl);
+                        console.log(`이미지 ${i + 1}/${imageFiles.length} 업로드 완료:`, imageUrl);
+                    } catch (uploadError) {
+                        console.error(`이미지 ${i + 1} 업로드 실패:`, uploadError);
+                        throw new Error(`이미지 ${i + 1} 업로드 실패: ${uploadError.message || uploadError.code || '알 수 없는 오류'}`);
+                    }
                 }
             } catch (error) {
                 console.error('이미지 업로드 실패:', error);
-                alert('이미지 업로드에 실패했습니다.');
+                console.error('에러 상세 정보:', {
+                    message: error.message,
+                    code: error.code,
+                    stack: error.stack,
+                    name: error.name
+                });
+                
+                // Firebase Storage 권한 오류인지 확인
+                if (error.code === 'storage/unauthorized' || error.code === 'permission-denied') {
+                    alert('⚠️ Firebase Storage 접근 권한 오류\n\nFirebase Console에서 Storage 보안 규칙을 확인하세요.\n\n필요한 규칙:\nallow write: if request.auth != null;\n또는\nallow write: if true; (임시 테스트용)\n\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.');
+                } else if (error.code === 'storage/quota-exceeded') {
+                    alert('⚠️ Firebase Storage 용량 초과\n\n저장 공간이 부족합니다. Firebase Console에서 확인하세요.');
+                } else {
+                    alert(`이미지 업로드에 실패했습니다.\n\n오류: ${error.message || error.code || '알 수 없는 오류'}\n\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.`);
+                }
                 return;
             }
         }

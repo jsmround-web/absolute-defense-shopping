@@ -159,6 +159,7 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getFirestore, collection, addDoc, getDocs, getDoc, onSnapshot, orderBy, query, doc, updateDoc, where, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
         
         // Firebase 설정 (실제 프로젝트 설정으로 변경하세요)
         // 1. Firebase Console (https://console.firebase.google.com)에서 프로젝트 생성
@@ -178,6 +179,32 @@ const firebaseConfig = {
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const storage = getStorage(app);
+        const auth = getAuth(app);
+        
+        // 익명 인증 시도 (선택적 - Storage 보안 규칙이 "allow write: if request.auth != null;"인 경우에만 필요)
+        // 주의: 익명 인증이 실패해도 이미지 업로드는 Storage 보안 규칙이 "allow write: if true;"면 작동합니다.
+        // 추천: Firebase Console > Storage > Rules에서 "allow write: if true;"로 설정하는 것이 더 간단합니다.
+        signInAnonymously(auth)
+            .then(() => {
+                console.log('✅ Firebase 익명 인증 성공');
+                window.firebaseAuthReady = true;
+            })
+            .catch((error) => {
+                // 익명 인증 실패는 정상일 수 있음 (Storage 보안 규칙이 "allow write: if true;"인 경우)
+                console.log('ℹ️ Firebase 익명 인증 비활성화됨 (정상 - Storage 보안 규칙 확인 필요)');
+                console.log('Storage 보안 규칙이 "allow write: if true;"로 설정되어 있으면 이미지 업로드가 가능합니다.');
+                window.firebaseAuthReady = false;
+                window.firebaseAuthError = error;
+            });
+        
+        // 인증 상태 확인
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log('Firebase 인증 상태: 로그인됨 (익명)', user.uid);
+            } else {
+                console.log('Firebase 인증 상태: 로그아웃됨');
+            }
+        });
         
         // 전역 변수로 설정
         window.firebaseApp = app;
@@ -199,6 +226,7 @@ const firebaseConfig = {
         window.firebaseWhere = where;
         window.firebaseSetDoc = setDoc;
         window.firebaseDeleteDoc = deleteDoc;
+        window.firebaseAuth = auth;
     </script>
 </head>
 <body>
@@ -470,7 +498,6 @@ const firebaseConfig = {
                                 <span id="priceReportsBadge" class="admin-badge hidden">0</span>
                             </button>
                             <button id="loadOutOfStockSettings" class="admin-btn">품절설정</button>
-                            <button id="generateThumbnailsForAll" class="admin-btn" style="font-size: 0.85rem; padding: 6px 12px;">📸 썸네일</button>
                             <button id="adminLogout" class="admin-btn logout-btn">🚪 로그아웃</button>
                         </div>
                         

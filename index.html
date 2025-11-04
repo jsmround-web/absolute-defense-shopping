@@ -470,7 +470,27 @@ const firebaseConfig = {
                                 <span id="priceReportsBadge" class="admin-badge hidden">0</span>
                             </button>
                             <button id="loadOutOfStockSettings" class="admin-btn">품절설정</button>
+                            <button id="generateThumbnailsForAll" class="admin-btn" style="font-size: 0.85rem; padding: 6px 12px;">📸 썸네일</button>
                             <button id="adminLogout" class="admin-btn logout-btn">🚪 로그아웃</button>
+                        </div>
+                        
+                        <div id="thumbnailGenerationStatus" class="pending-products-list" style="display: none;">
+                            <div class="settings-section">
+                                <h3>썸네일 일괄 생성 진행 상황</h3>
+                                <div id="thumbnailProgress" style="margin: 20px 0;">
+                                    <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                            <span>진행률:</span>
+                                            <span id="thumbnailProgressText">0 / 0</span>
+                                        </div>
+                                        <div style="background: #e5e7eb; height: 24px; border-radius: 12px; overflow: hidden;">
+                                            <div id="thumbnailProgressBar" style="background: linear-gradient(135deg, #3b82f6, #2563eb); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600;">0%</div>
+                                        </div>
+                                    </div>
+                                    <div id="thumbnailStatusText" style="color: #6b7280; font-size: 0.9rem;">준비 중...</div>
+                                </div>
+                                <button id="cancelThumbnailGeneration" class="admin-btn" style="width: 100%; background: #ef4444;">취소</button>
+                            </div>
                         </div>
                         
                         <div id="outOfStockSettings" class="pending-products-list" style="display: none;">

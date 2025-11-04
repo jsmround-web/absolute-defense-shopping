@@ -326,7 +326,7 @@ function handleImageLoadError(imgElement, productId, imageUrl) {
     console.error('이미지 로드 실패:', {
         productId: productId,
         imageUrl: imageUrl,
-        error: 'Firebase Storage 접근 권한 또는 URL 만료 (412 Precondition Failed)'
+        error: 'Firebase Storage 접근 권한 또는 CORS 정책 문제 (412 Precondition Failed)'
     });
     
     // 이미지 요소를 "이미지 없음"으로 대체
@@ -338,9 +338,11 @@ function handleImageLoadError(imgElement, productId, imageUrl) {
     if (!window.imageLoadErrorShown) {
         // 단일 로그로 모든 정보 출력 (개별 console.error 호출 제거)
         const errorMessage = `
-⚠️ Firebase Storage 이미지 로드 실패 (412 Precondition Failed)
+⚠️ Firebase Storage 이미지 로드 실패 (CORS 정책 및 접근 권한 문제)
 ========================================
-원인: Firebase Storage 보안 규칙이 이미지 읽기를 허용하지 않습니다.
+원인: 
+1. Firebase Storage 보안 규칙이 이미지 읽기를 허용하지 않습니다.
+2. CORS 정책으로 인해 이미지 접근이 차단되었습니다.
 
 해결 방법:
 1. Firebase Console 접속: https://console.firebase.google.com
@@ -364,14 +366,23 @@ service firebase.storage {
 6. "Publish" 버튼 클릭하여 규칙 저장
 7. 페이지 새로고침 (F5 또는 Ctrl+R)
 
-⚠️ 중요: 규칙을 저장한 후 1-2분 정도 기다린 후 페이지를 새로고침하세요.
+⚠️ 중요: 
+- 규칙을 저장한 후 1-2분 정도 기다린 후 페이지를 새로고침하세요.
+- CORS 문제는 보안 규칙을 수정하면 자동으로 해결됩니다.
 ========================================
         `;
         
         console.error(errorMessage);
         
+        // Firebase Console 링크 제공
+        const consoleUrl = 'https://console.firebase.google.com/project/price-match-1f952/storage/price-match-1f952.firebasestorage.app/rules';
+        console.log(`🔗 Firebase Console Storage Rules 바로가기: ${consoleUrl}`);
+        
         // 사용자에게 알림 표시
-        if (window.confirm('⚠️ 이미지 로드 실패\n\nFirebase Storage 보안 규칙을 수정해야 합니다.\n\n브라우저 콘솔(F12)에서 자세한 해결 방법을 확인할 수 있습니다.\n\n확인을 클릭하면 콘솔에 해결 방법이 표시됩니다.')) {
+        const userMessage = `⚠️ 이미지 로드 실패\n\nFirebase Storage 보안 규칙을 수정해야 합니다.\n\n브라우저 콘솔(F12)에서 자세한 해결 방법을 확인할 수 있습니다.\n\nFirebase Console을 열어 규칙을 수정하시겠습니까?`;
+        if (window.confirm(userMessage)) {
+            // Firebase Console 열기
+            window.open(consoleUrl, '_blank');
             console.log('위의 해결 방법을 따라 Firebase Storage 규칙을 수정하세요.');
         }
         
@@ -1457,10 +1468,9 @@ class PriceComparisonSite {
             
             // 이미지 크기 힌트 추가 (레이아웃 시프트 방지)
             // PC: 80x80, 모바일: 120x120 (CSS에서 확인 필요하지만 일반적인 크기)
-            // file:/// 프로토콜에서는 CORS 문제가 발생하므로 crossorigin 속성 제거
-            const isFileProtocol = window.location.protocol === 'file:';
-            const crossOriginAttr = isFileProtocol ? '' : 'crossorigin="anonymous"';
-            thumbnailHtml = `<img src="${thumbnailUrl}" alt="${product.name || ''}" loading="lazy" decoding="${decoding}" fetchpriority="${fetchPriority}" ${crossOriginAttr} referrerpolicy="no-referrer" width="120" height="120" onerror="handleImageLoadError(this, '${safeProductId}', '${safeImageUrl}');" class="product-thumbnail-img">`;
+            // CORS 문제를 방지하기 위해 crossorigin 속성 제거 (Firebase Storage 보안 규칙 수정 필요)
+            // Firebase Storage 보안 규칙이 읽기를 허용하면 CORS 문제가 해결됩니다
+            thumbnailHtml = `<img src="${thumbnailUrl}" alt="${product.name || ''}" loading="lazy" decoding="${decoding}" fetchpriority="${fetchPriority}" referrerpolicy="no-referrer" width="120" height="120" onerror="handleImageLoadError(this, '${safeProductId}', '${safeImageUrl}');" class="product-thumbnail-img">`;
         } else {
             thumbnailHtml = `<div class="no-image">이미지 없음</div>`;
         }
@@ -8424,16 +8434,14 @@ window.showProductDetail = async function(productId) {
                         const safeProductId = (product.id || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
                         // 첫 번째 이미지는 높은 우선순위, 나머지는 낮은 우선순위
                         const fetchPriority = index === 0 ? 'high' : 'low';
-                        const isFileProtocol = window.location.protocol === 'file:';
-                        const crossOriginAttr = isFileProtocol ? '' : 'crossorigin="anonymous"';
-                        return `<div class="product-detail-image" style="margin-bottom: 16px;"><img src="${imgUrl}" alt="${product.name || ''}" style="max-width: 100%; border-radius: 8px;" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async" fetchpriority="${fetchPriority}" ${crossOriginAttr} referrerpolicy="no-referrer" onerror="handleImageLoadError(this, '${safeProductId}', '${safeImageUrl}');"></div>`;
+                        // CORS 문제를 방지하기 위해 crossorigin 속성 제거 (Firebase Storage 보안 규칙 수정 필요)
+                        return `<div class="product-detail-image" style="margin-bottom: 16px;"><img src="${imgUrl}" alt="${product.name || ''}" style="max-width: 100%; border-radius: 8px;" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async" fetchpriority="${fetchPriority}" referrerpolicy="no-referrer" onerror="handleImageLoadError(this, '${safeProductId}', '${safeImageUrl}');"></div>`;
                     }).join('');
                 } else if (product.imageUrl) {
                     const safeImageUrl = product.imageUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
                     const safeProductId = (product.id || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
-                    const isFileProtocol = window.location.protocol === 'file:';
-                    const crossOriginAttr = isFileProtocol ? '' : 'crossorigin="anonymous"';
-                    imagesHtml = `<div class="product-detail-image" style="margin-bottom: 16px;"><img src="${product.imageUrl}" alt="${product.name || ''}" style="max-width: 100%; border-radius: 8px;" loading="eager" decoding="async" fetchpriority="high" ${crossOriginAttr} referrerpolicy="no-referrer" onerror="handleImageLoadError(this, '${safeProductId}', '${safeImageUrl}');"></div>`;
+                    // CORS 문제를 방지하기 위해 crossorigin 속성 제거 (Firebase Storage 보안 규칙 수정 필요)
+                    imagesHtml = `<div class="product-detail-image" style="margin-bottom: 16px;"><img src="${product.imageUrl}" alt="${product.name || ''}" style="max-width: 100%; border-radius: 8px;" loading="eager" decoding="async" fetchpriority="high" referrerpolicy="no-referrer" onerror="handleImageLoadError(this, '${safeProductId}', '${safeImageUrl}');"></div>`;
                 }
                 
                 let descHtml = '';
@@ -8798,17 +8806,15 @@ async function loadProductDetailPosts(productId) {
                     // 첫 번째 이미지만 높은 우선순위, 나머지는 지연 로드
                     const fetchPriority = index === 0 ? 'high' : 'low';
                     const loading = index === 0 ? 'eager' : 'lazy';
-                    const isFileProtocol = window.location.protocol === 'file:';
-                    const crossOriginAttr = isFileProtocol ? '' : 'crossorigin="anonymous"';
-                    return `<div class="post-image-wrapper"><img src="${imgUrl}" class="post-image" alt="상품 이미지" loading="${loading}" decoding="async" fetchpriority="${fetchPriority}" ${crossOriginAttr} referrerpolicy="no-referrer" onerror="handleImageLoadError(this, '${safeProductId}', '${safeImageUrl}');" onclick="window.open('${imgUrl}')"></div>`;
+                    // CORS 문제를 방지하기 위해 crossorigin 속성 제거 (Firebase Storage 보안 규칙 수정 필요)
+                    return `<div class="post-image-wrapper"><img src="${imgUrl}" class="post-image" alt="상품 이미지" loading="${loading}" decoding="async" fetchpriority="${fetchPriority}" referrerpolicy="no-referrer" onerror="handleImageLoadError(this, '${safeProductId}', '${safeImageUrl}');" onclick="window.open('${imgUrl}')"></div>`;
                 }).join('');
             } else if (post.imageUrl) {
                 // 단일 이미지가 있는 경우 (하위 호환성)
                 const safeImageUrl = post.imageUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
                 const safeProductId = (productId || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
-                const isFileProtocol = window.location.protocol === 'file:';
-                const crossOriginAttr = isFileProtocol ? '' : 'crossorigin="anonymous"';
-                imagesHtml = `<div class="post-image-wrapper"><img src="${post.imageUrl}" class="post-image" alt="상품 이미지" loading="lazy" decoding="async" fetchpriority="low" ${crossOriginAttr} referrerpolicy="no-referrer" onerror="handleImageLoadError(this, '${safeProductId}', '${safeImageUrl}');" onclick="window.open('${post.imageUrl}')"></div>`;
+                // CORS 문제를 방지하기 위해 crossorigin 속성 제거 (Firebase Storage 보안 규칙 수정 필요)
+                imagesHtml = `<div class="post-image-wrapper"><img src="${post.imageUrl}" class="post-image" alt="상품 이미지" loading="lazy" decoding="async" fetchpriority="low" referrerpolicy="no-referrer" onerror="handleImageLoadError(this, '${safeProductId}', '${safeImageUrl}');" onclick="window.open('${post.imageUrl}')"></div>`;
             }
             
             // URL을 클릭 가능한 링크로 변환하는 함수

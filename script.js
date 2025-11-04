@@ -5888,32 +5888,135 @@ class PriceComparisonSite {
 
     async approveProduct(productId) {
         try {
+            console.log('=== 제품 승인 시작 ===', productId);
+            
             const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
             await window.firebaseUpdateDoc(productRef, {
                 status: 'approved'
             });
+            console.log('Firestore 업데이트 완료: status = "approved"');
             
-            // 로컬 데이터 업데이트
-            const productIndex = this.products.findIndex(p => p.id === productId);
-            if (productIndex !== -1) {
-                this.products[productIndex].status = 'approved';
+            // Firestore에서 승인된 제품을 다시 가져와서 로컬 데이터 업데이트
+            const productDoc = await window.firebaseGetDoc(productRef);
+            if (productDoc.exists()) {
+                const updatedProduct = { id: productDoc.id, ...productDoc.data() };
+                
+                // createdAt 필드 안전하게 처리
+                if (!updatedProduct.createdAt) {
+                    updatedProduct.createdAt = new Date().toISOString();
+                } else if (updatedProduct.createdAt instanceof Date) {
+                    updatedProduct.createdAt = updatedProduct.createdAt.toISOString();
+                }
+                
+                console.log('승인된 제품 데이터:', {
+                    id: updatedProduct.id,
+                    name: updatedProduct.name,
+                    status: updatedProduct.status,
+                    category: updatedProduct.category
+                });
+                
+                // 로컬 데이터 업데이트 또는 추가
+                const productIndex = this.products.findIndex(p => p.id === productId);
+                if (productIndex !== -1) {
+                    this.products[productIndex] = updatedProduct;
+                    console.log('로컬 제품 데이터 업데이트 완료:', updatedProduct.name, '(인덱스:', productIndex + ')');
+                } else {
+                    this.products.push(updatedProduct);
+                    console.log('로컬 제품 데이터 추가 완료:', updatedProduct.name);
+                }
+                
+                // 승인된 제품이 배열에 제대로 있는지 확인
+                const verifyProduct = this.products.find(p => p.id === productId);
+                if (verifyProduct) {
+                    console.log('검증 완료 - 승인된 제품이 배열에 있습니다:', {
+                        id: verifyProduct.id,
+                        name: verifyProduct.name,
+                        status: verifyProduct.status
+                    });
+                } else {
+                    console.error('검증 실패 - 승인된 제품이 배열에 없습니다!');
+                }
+            } else {
+                console.error('Firestore에서 제품을 찾을 수 없습니다:', productId);
+            }
+            
+            // 로컬 캐시 무효화 (선택적 - 다음 로드 시 최신 데이터 가져오기)
+            try {
+                const cacheKey = 'firebase_products_cache';
+                localStorage.removeItem(cacheKey);
+                console.log('로컬 캐시 무효화 완료');
+            } catch (cacheError) {
+                console.warn('캐시 무효화 실패 (무시 가능):', cacheError);
             }
             
             alert('제품이 승인되었습니다.');
-            this.loadPendingProducts();
+            
+            // 승인 대기 목록 새로고침
+            await this.loadPendingProducts();
             
             // 알림 업데이트
             this.updateAdminNotification();
             
-            // 메인 제품 리스트 즉시 업데이트
-            this.updateMainProductList();
+            // 승인된 제품 목록 확인
+            const approvedProducts = this.products.filter(p => p.status === 'approved');
+            console.log('승인된 제품 개수:', approvedProducts.length);
+            console.log('승인된 제품 목록:', approvedProducts.map(p => ({ id: p.id, name: p.name, status: p.status })));
+            
+            // 승인된 제품이 배열에 있는지 재확인
+            const approvedProductInArray = this.products.find(p => p.id === productId && p.status === 'approved');
+            if (!approvedProductInArray) {
+                console.error('⚠️ 승인된 제품이 배열에 없습니다! Firestore에서 다시 로드합니다...');
+                
+                // Firestore에서 승인된 제품만 다시 가져오기
+                const productsRef = window.firebaseCollection(window.firebaseDb, 'products');
+                const approvedQuery = window.firebaseQuery(
+                    productsRef,
+                    window.firebaseWhere('status', '==', 'approved')
+                );
+                const querySnapshot = await window.firebaseGetDocs(approvedQuery);
+                
+                // 기존 승인 제품 ID 목록 (중복 방지)
+                const existingApprovedIds = new Set(
+                    this.products.filter(p => p.status === 'approved').map(p => p.id)
+                );
+                
+                // 승인된 제품을 배열에 추가/업데이트
+                let reloadedCount = 0;
+                for (const doc of querySnapshot.docs) {
+                    const product = { id: doc.id, ...doc.data() };
+                    if (!product.createdAt) {
+                        product.createdAt = new Date().toISOString();
+                    } else if (product.createdAt instanceof Date) {
+                        product.createdAt = product.createdAt.toISOString();
+                    }
+                    
+                    // 기존 제품이 있으면 업데이트, 없으면 추가
+                    const existingIndex = this.products.findIndex(p => p.id === product.id);
+                    if (existingIndex !== -1) {
+                        this.products[existingIndex] = product;
+                    } else {
+                        this.products.push(product);
+                    }
+                    reloadedCount++;
+                }
+                
+                console.log('Firestore에서 승인된 제품 다시 로드 완료:', reloadedCount, '개');
+                console.log('전체 승인된 제품 개수:', this.products.filter(p => p.status === 'approved').length, '개');
+            }
+            
+            // 메인 제품 리스트 즉시 업데이트 (Firestore에서 최신 데이터 반영)
+            console.log('displayAllProducts 호출 전 - 승인된 제품 개수:', this.products.filter(p => p.status === 'approved').length);
+            await this.displayAllProducts();
+            console.log('displayAllProducts 호출 후');
             
             // 카테고리 개수 업데이트
             this.updateCategoryCounts();
             
+            console.log('=== 제품 승인 완료 ===');
+            
         } catch (error) {
             console.error('제품 승인 실패:', error);
-            alert('제품 승인에 실패했습니다.');
+            alert('제품 승인에 실패했습니다. 에러: ' + error.message);
         }
     }
 

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -501,25 +501,6 @@ const firebaseConfig = {
                             <button id="adminLogout" class="admin-btn logout-btn">🚪 로그아웃</button>
                         </div>
                         
-                        <div id="thumbnailGenerationStatus" class="pending-products-list" style="display: none;">
-                            <div class="settings-section">
-                                <h3>썸네일 일괄 생성 진행 상황</h3>
-                                <div id="thumbnailProgress" style="margin: 20px 0;">
-                                    <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                                            <span>진행률:</span>
-                                            <span id="thumbnailProgressText">0 / 0</span>
-                                        </div>
-                                        <div style="background: #e5e7eb; height: 24px; border-radius: 12px; overflow: hidden;">
-                                            <div id="thumbnailProgressBar" style="background: linear-gradient(135deg, #3b82f6, #2563eb); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600;">0%</div>
-                                        </div>
-                                    </div>
-                                    <div id="thumbnailStatusText" style="color: #6b7280; font-size: 0.9rem;">준비 중...</div>
-                                </div>
-                                <button id="cancelThumbnailGeneration" class="admin-btn" style="width: 100%; background: #ef4444;">취소</button>
-                            </div>
-                        </div>
-                        
                         <div id="outOfStockSettings" class="pending-products-list" style="display: none;">
                             <div class="settings-section">
                                 <h3>품절 단계 설정</h3>
@@ -594,7 +575,7 @@ const firebaseConfig = {
 
         <!-- 정렬 바 -->
         <div class="sort-bar">
-            <button class="sort-item active" data-sort="discount" onclick="sortProducts('discount')">
+            <button class="sort-item" data-sort="discount" onclick="sortProducts('discount')">
                 할인율순
             </button>
             <button class="sort-item" data-sort="newest" onclick="sortProducts('newest')">
@@ -609,8 +590,11 @@ const firebaseConfig = {
             <button class="sort-item" data-sort="clicks" onclick="sortProducts('clicks')">
                 클릭순
             </button>
-            <button class="sort-item" data-sort="purchases" onclick="sortProducts('purchases')">
+            <button class="sort-item active" data-sort="purchases" onclick="sortProducts('purchases')">
                 구매순
+            </button>
+            <button class="sort-item" data-sort="revenue" onclick="sortProducts('revenue')">
+                매출순
             </button>
         </div>
 

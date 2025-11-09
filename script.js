@@ -428,7 +428,7 @@ class PriceComparisonSite {
         this.priceReports = []; // 가격 변경 신고 배열 초기화
         this.currentCategory = '전체';
         this.currentSearchTerm = '';
-        this.currentSortType = 'discount'; // 기본값: 할인율순
+        this.currentSortType = 'purchases'; // 기본값: 구매순
         this.isSubmitting = false; // 중복 제출 방지 플래그
         this.isSubmittingComment = false; // 댓글 중복 제출 방지 플래그
         this.noticeListenersSetup = false; // 필독 패널 이벤트 리스너 중복 방지 플래그
@@ -1120,7 +1120,7 @@ class PriceComparisonSite {
         // 현재 정렬 타입에 따라 정렬
         await this.applyCurrentSort(approvedProducts);
         
-        console.log('정렬된 제품 목록 (할인율 높은 순, 동률 시 낮은 가격 순):', approvedProducts.map(p => ({
+        console.log('정렬된 제품 목록 (현재 정렬 적용):', approvedProducts.map(p => ({
             name: p.name,
             category: p.category,
             discountRate: this.calculateDiscountRate(p) + '%',
@@ -1224,7 +1224,7 @@ class PriceComparisonSite {
 
         await this.applyCurrentSort(products);
 
-        console.log('정렬 후 제품 목록 (할인율 높은 순, 동률 시 낮은 가격 순):', products.map((p, index) => ({ 
+        console.log('정렬 후 제품 목록 (현재 정렬 적용):', products.map((p, index) => ({
             순위: index + 1,
             name: p.name,
             category: p.category,
@@ -1420,95 +1420,44 @@ class PriceComparisonSite {
         
         // 이미지 URL 가져오기 (리스트용 썸네일 우선, 없으면 원본 사용)
         let thumbnailUrl = '';
-        let imageSource = '';
         
-        // 1. 썸네일 URL 우선 사용 (데이터 절약) - 실제 썸네일인지 확인
+        // 1. 썸네일 URL 우선 사용 (데이터 절약)
         if (product.thumbnailUrls && Array.isArray(product.thumbnailUrls) && product.thumbnailUrls.length > 0) {
-            const firstThumbnail = product.thumbnailUrls[0];
-            if (firstThumbnail && typeof firstThumbnail === 'string' && firstThumbnail.trim() !== '' && firstThumbnail !== 'null' && firstThumbnail !== 'undefined') {
-                const trimmedUrl = firstThumbnail.trim();
-                // 실제로 썸네일 폴더에 있는지 확인
-                if (trimmedUrl.includes('/thumbnails/') || trimmedUrl.includes('%2Fthumbnails%2F')) {
-                    thumbnailUrl = trimmedUrl;
-                    imageSource = 'thumbnailUrls';
-                    console.log(`✅ [진짜 썸네일 사용] ${product.name}:`, thumbnailUrl);
-                } else {
-                    // thumbnailUrls에 원본 이미지가 저장된 경우 - 원본 이미지로 처리
-                    console.warn(`⚠️ [썸네일이 아닌 원본 이미지] ${product.name} - thumbnailUrls에 원본이 저장됨:`, trimmedUrl);
-                    // 썸네일을 초기화하고 원본 이미지를 사용하도록 함
-                    thumbnailUrl = '';
-                    imageSource = '';
-                }
-            }
+            thumbnailUrl = product.thumbnailUrls[0];
+            console.log(`[썸네일 사용] ${product.name}:`, thumbnailUrl);
         }
-        
-        // 2. thumbnailUrl 필드에서 찾기 (하위 호환성) - 실제 썸네일인지 확인
-        if (!thumbnailUrl && product.thumbnailUrl && typeof product.thumbnailUrl === 'string' && product.thumbnailUrl.trim() !== '' && product.thumbnailUrl !== 'null' && product.thumbnailUrl !== 'undefined') {
-            const trimmedUrl = product.thumbnailUrl.trim();
-            // 실제로 썸네일 폴더에 있는지 확인
-            if (trimmedUrl.includes('/thumbnails/') || trimmedUrl.includes('%2Fthumbnails%2F')) {
-                thumbnailUrl = trimmedUrl;
-                imageSource = 'thumbnailUrl';
-                console.log(`✅ [진짜 썸네일 사용 - thumbnailUrl] ${product.name}:`, trimmedUrl);
-            } else {
-                // thumbnailUrl에 원본 이미지가 저장된 경우
-                console.warn(`⚠️ [썸네일이 아닌 원본 이미지] ${product.name} - thumbnailUrl에 원본이 저장됨:`, trimmedUrl);
-                // 썸네일을 초기화하고 원본 이미지를 사용하도록 함
-                thumbnailUrl = '';
-                imageSource = '';
-            }
+        // 2. thumbnailUrl 필드에서 찾기 (하위 호환성)
+        else if (product.thumbnailUrl && typeof product.thumbnailUrl === 'string' && product.thumbnailUrl.trim() !== '') {
+            thumbnailUrl = product.thumbnailUrl.trim();
+            console.log(`[썸네일 사용 - thumbnailUrl] ${product.name}:`, thumbnailUrl);
         }
-        
         // 3. 썸네일이 없으면 원본 이미지 사용 (하위 호환성)
-        if (!thumbnailUrl && product.imageUrls && Array.isArray(product.imageUrls) && product.imageUrls.length > 0) {
-            const firstImage = product.imageUrls[0];
-            if (firstImage && typeof firstImage === 'string' && firstImage.trim() !== '' && firstImage !== 'null' && firstImage !== 'undefined') {
-                thumbnailUrl = firstImage.trim();
-                imageSource = 'imageUrls';
-                console.log(`[원본 이미지 사용 - imageUrls] ${product.name}:`, thumbnailUrl);
-            }
+        else if (product.imageUrls && Array.isArray(product.imageUrls) && product.imageUrls.length > 0) {
+            thumbnailUrl = product.imageUrls[0];
+            console.log(`[원본 이미지 사용 - imageUrls] ${product.name}:`, thumbnailUrl);
         }
-        
         // 4. imageUrl 필드에서 찾기
-        if (!thumbnailUrl && product.imageUrl && typeof product.imageUrl === 'string' && product.imageUrl.trim() !== '' && product.imageUrl !== 'null' && product.imageUrl !== 'undefined') {
+        else if (product.imageUrl && typeof product.imageUrl === 'string' && product.imageUrl.trim() !== '') {
             thumbnailUrl = product.imageUrl.trim();
-            imageSource = 'imageUrl';
             console.log(`[원본 이미지 사용 - imageUrl] ${product.name}:`, thumbnailUrl);
         }
         
         // 5. 이미지가 없으면 게시글 이미지 맵에서 찾기
         if (!thumbnailUrl && product.id && imageMap[product.id]) {
-            const mapImage = imageMap[product.id];
-            if (mapImage && typeof mapImage === 'string' && mapImage.trim() !== '' && mapImage !== 'null' && mapImage !== 'undefined') {
-                thumbnailUrl = mapImage.trim();
-                imageSource = 'imageMap';
-                console.log(`[게시글 이미지 사용] ${product.name}:`, thumbnailUrl);
-            }
+            thumbnailUrl = imageMap[product.id];
+            console.log(`[게시글 이미지 사용] ${product.name}:`, thumbnailUrl);
         }
         
         // 이미지 URL 유효성 검증 (빈 문자열, null, undefined 체크)
         if (!thumbnailUrl || thumbnailUrl.trim() === '' || thumbnailUrl === 'null' || thumbnailUrl === 'undefined') {
             thumbnailUrl = '';
-            imageSource = 'none';
-            console.log(`[이미지 없음] ${product.name}:`, {
-                thumbnailUrls: product.thumbnailUrls,
-                thumbnailUrl: product.thumbnailUrl,
-                imageUrls: product.imageUrls,
-                imageUrl: product.imageUrl
-            });
-        } else {
-            // 썸네일 사용 여부를 콘솔에 표시
-            if (imageSource === 'thumbnailUrls' || imageSource === 'thumbnailUrl') {
-                console.log(`✅ [썸네일 표시됨] ${product.name} - 소스: ${imageSource}`);
-            } else {
-                console.log(`⚠️ [원본 이미지 표시됨] ${product.name} - 소스: ${imageSource} (썸네일 생성 필요)`);
-            }
+            console.log(`[이미지 없음] ${product.name}: product.imageUrls=${JSON.stringify(product.imageUrls)}, product.imageUrl=${product.imageUrl}`);
         }
         
         // 썸네일 이미지 HTML - 이미지 로드 실패 시 자동 처리 및 최적화
         // Firebase Storage URL이 만료되었거나 접근 권한이 없을 경우를 대비한 처리
         let thumbnailHtml = '';
-        if (thumbnailUrl && thumbnailUrl.trim() !== '') {
+        if (thumbnailUrl) {
             // URL을 안전하게 이스케이프 처리
             const safeImageUrl = thumbnailUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
             const safeProductId = (product.id || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
@@ -1517,23 +1466,13 @@ class PriceComparisonSite {
             const fetchPriority = rank && rank <= 3 ? 'high' : 'low';
             const decoding = 'async'; // 비동기 디코딩으로 메인 스레드 차단 방지
             
-            // Firebase Storage URL에 캐시 버스팅 추가 (필요시)
-            // 썸네일 URL이 Firebase Storage URL인 경우 강제로 최신 이미지 로드
-            let finalThumbnailUrl = thumbnailUrl;
-            if (thumbnailUrl.includes('firebasestorage.googleapis.com') || thumbnailUrl.includes('firebasestorage.app')) {
-                // Firebase Storage URL은 이미 토큰이 포함되어 있지만, 필요시 추가 파라미터 추가 가능
-                // 현재는 그대로 사용
-                console.log(`🔥 [썸네일 URL 확인] ${product.name}:`, thumbnailUrl);
-            }
-            
             // 이미지 크기 힌트 추가 (레이아웃 시프트 방지)
             // PC: 80x80, 모바일: 120x120 (CSS에서 확인 필요하지만 일반적인 크기)
             // CORS 문제를 방지하기 위해 crossorigin 속성 제거 (Firebase Storage 보안 규칙 수정 필요)
             // Firebase Storage 보안 규칙이 읽기를 허용하면 CORS 문제가 해결됩니다
-            thumbnailHtml = `<img src="${finalThumbnailUrl}" alt="${product.name || ''}" loading="lazy" decoding="${decoding}" fetchpriority="${fetchPriority}" referrerpolicy="no-referrer" width="120" height="120" onerror="handleImageLoadError(this, '${safeProductId}', '${safeImageUrl}');" onload="console.log('✅ 썸네일 이미지 로드 성공: ${product.name}');" class="product-thumbnail-img" style="object-fit: cover; max-width: 100%; height: auto;">`;
+            thumbnailHtml = `<img src="${thumbnailUrl}" alt="${product.name || ''}" loading="lazy" decoding="${decoding}" fetchpriority="${fetchPriority}" referrerpolicy="no-referrer" width="120" height="120" onerror="handleImageLoadError(this, '${safeProductId}', '${safeImageUrl}');" class="product-thumbnail-img">`;
         } else {
             thumbnailHtml = `<div class="no-image">이미지 없음</div>`;
-            console.warn(`❌ [이미지 없음] ${product.name} - 썸네일 URL이 비어있습니다.`);
         }
 
             const htmlElement = `
@@ -1696,6 +1635,24 @@ class PriceComparisonSite {
         });
     }
 
+    sortProductsByPurchases(productsArray) {
+        if (!Array.isArray(productsArray)) return;
+        productsArray.sort((a, b) => {
+            const purchasesA = a.purchaseCount || 0;
+            const purchasesB = b.purchaseCount || 0;
+            return purchasesB - purchasesA; // 구매수 높은 순
+        });
+    }
+
+    sortProductsByRevenue(productsArray) {
+        if (!Array.isArray(productsArray)) return;
+        productsArray.sort((a, b) => {
+            const revenueA = (a.purchaseCount || 0) * (this.calculateFinalPrice(a) || 0);
+            const revenueB = (b.purchaseCount || 0) * (this.calculateFinalPrice(b) || 0);
+            return revenueB - revenueA; // 매출 높은 순
+        });
+    }
+
     calculateDiscountRate(product) {
         try {
             const finalPrice = this.calculateFinalPrice(product);
@@ -1750,11 +1707,10 @@ class PriceComparisonSite {
                 });
                 break;
             case 'purchases':
-                productsArray.sort((a, b) => {
-                    const purchasesA = a.purchaseCount || 0;
-                    const purchasesB = b.purchaseCount || 0;
-                    return purchasesB - purchasesA; // 구매수 높은순
-                });
+                this.sortProductsByPurchases(productsArray);
+                break;
+            case 'revenue':
+                this.sortProductsByRevenue(productsArray);
                 break;
             case 'price-low':
                 productsArray.sort((a, b) => {
@@ -1771,7 +1727,7 @@ class PriceComparisonSite {
                 });
                 break;
             default:
-                this.sortProductsByDiscountThenPrice(productsArray);
+                this.sortProductsByPurchases(productsArray);
         }
     }
 
@@ -1847,11 +1803,10 @@ class PriceComparisonSite {
                 });
                 break;
             case 'purchases':
-                productsToSort.sort((a, b) => {
-                    const purchasesA = a.purchaseCount || 0;
-                    const purchasesB = b.purchaseCount || 0;
-                    return purchasesB - purchasesA; // 구매수 높은순
-                });
+                this.sortProductsByPurchases(productsToSort);
+                break;
+            case 'revenue':
+                this.sortProductsByRevenue(productsToSort);
                 break;
             case 'price-low':
                 productsToSort.sort((a, b) => {
@@ -2047,7 +2002,7 @@ class PriceComparisonSite {
         this.setupFormSubmitListener();
         
         // 관리자 버튼들 - 펼치기만 가능
-        document.getElementById('loadPendingProducts')?.addEventListener('click', () => {
+        document.getElementById('loadPendingProducts').addEventListener('click', () => {
             if (adminAuth.requireAuth()) {
                 const allList = document.getElementById('allProductsList');
                 const reportsList = document.getElementById('priceReportsList');
@@ -2066,7 +2021,7 @@ class PriceComparisonSite {
             }
         });
         
-        document.getElementById('loadAllProducts')?.addEventListener('click', () => {
+        document.getElementById('loadAllProducts').addEventListener('click', () => {
             if (adminAuth.requireAuth()) {
                 const allList = document.getElementById('allProductsList');
                 const pendingList = document.getElementById('pendingProductsList');
@@ -2086,6 +2041,17 @@ class PriceComparisonSite {
             }
         });
         
+        const generateThumbnailsButton = document.getElementById('generateThumbnailsForAll');
+        if (generateThumbnailsButton) {
+            generateThumbnailsButton.addEventListener('click', () => {
+                if (adminAuth.requireAuth()) {
+                    if (confirm('모든 기존 상품에 대해 썸네일을 생성하시겠습니까?\n\n이 작업은 시간이 걸릴 수 있습니다.')) {
+                        this.generateThumbnailsForAllProducts();
+                    }
+                }
+            });
+        }
+        
         document.getElementById('cancelThumbnailGeneration')?.addEventListener('click', () => {
             if (this.thumbnailGenerationCancelled !== undefined) {
                 this.thumbnailGenerationCancelled = true;
@@ -2093,7 +2059,7 @@ class PriceComparisonSite {
             }
         });
         
-        document.getElementById('loadPriceReports')?.addEventListener('click', () => {
+        document.getElementById('loadPriceReports').addEventListener('click', () => {
             if (adminAuth.requireAuth()) {
                 const reportsList = document.getElementById('priceReportsList');
                 const pendingList = document.getElementById('pendingProductsList');
@@ -2115,7 +2081,7 @@ class PriceComparisonSite {
             }
         });
         
-        document.getElementById('loadOutOfStockSettings')?.addEventListener('click', () => {
+        document.getElementById('loadOutOfStockSettings').addEventListener('click', () => {
             const thumbnailStatus = document.getElementById('thumbnailGenerationStatus');
             if (thumbnailStatus) thumbnailStatus.style.display = 'none';
             if (adminAuth.requireAuth()) {
@@ -2137,14 +2103,14 @@ class PriceComparisonSite {
             }
         });
         
-        document.getElementById('saveOutOfStockSettings')?.addEventListener('click', () => {
+        document.getElementById('saveOutOfStockSettings').addEventListener('click', () => {
             if (adminAuth.requireAuth()) {
                 this.saveOutOfStockSettings();
             }
         });
         
         // 관리자 로그아웃 버튼
-        document.getElementById('adminLogout')?.addEventListener('click', () => {
+        document.getElementById('adminLogout').addEventListener('click', () => {
             adminAuth.logout();
             alert('관리자 세션이 종료되었습니다.');
             // 관리자 패널 닫기
@@ -3500,7 +3466,7 @@ class PriceComparisonSite {
             form.parentNode.replaceChild(newForm, form);
             
             // 새 이벤트 리스너 추가
-            document.getElementById('productForm')?.addEventListener('submit', (e) => {
+            document.getElementById('productForm').addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.handleFormSubmission();
             });
@@ -4213,7 +4179,7 @@ class PriceComparisonSite {
         try {
             // 로컬 캐싱 확인 (5분 이내 캐시가 있으면 사용)
             if (useCache) {
-                const cacheKey = 'firebase_products_cache';
+                const cacheKey = 'firebase_products_cache_v2';
                 const cacheData = localStorage.getItem(cacheKey);
                 if (cacheData) {
                     try {
@@ -4241,13 +4207,9 @@ class PriceComparisonSite {
                 }
             }
             
-            // Firestore 쿼리 최적화: 승인된 상품만 가져오기 (status 필터)
+            // Firestore에서 모든 상품 데이터를 불러옵니다 (상태 포함)
             const productsRef = window.firebaseCollection(window.firebaseDb, 'products');
-            const approvedQuery = window.firebaseQuery(
-                productsRef,
-                window.firebaseWhere('status', '==', 'approved')
-            );
-            const querySnapshot = await window.firebaseGetDocs(approvedQuery);
+            const querySnapshot = await window.firebaseGetDocs(productsRef);
             const firebaseProducts = [];
             
             // forEach 대신 for...of 루프 사용 (비동기 처리)
@@ -4284,7 +4246,7 @@ class PriceComparisonSite {
                 //     console.log(`카테고리 변경 없음: ${product.id} (${product.name}) - ${product.category}`);
                 // }
                 
-                // 제품 상태 확인 및 로그 (이미지 필드 포함, 썸네일 정보 강조)
+                // 제품 상태 확인 및 로그 (이미지 필드 포함)
                 console.log(`Firebase에서 불러온 제품:`, {
                     name: product.name,
                     status: product.status,
@@ -4293,23 +4255,20 @@ class PriceComparisonSite {
                     store: product.store,
                     willShow: product.status === 'approved',
                     imageUrl: product.imageUrl,
-                    imageUrls: product.imageUrls,
-                    thumbnailUrl: product.thumbnailUrl || '❌ 없음',
-                    thumbnailUrls: product.thumbnailUrls || '❌ 없음',
-                    hasThumbnail: !!(product.thumbnailUrls && product.thumbnailUrls.length > 0) || !!(product.thumbnailUrl && product.thumbnailUrl.trim() !== '')
+                    imageUrls: product.imageUrls
                 });
-                
-                // 썸네일이 없는 경우 경고 로그
-                if (!product.thumbnailUrls && !product.thumbnailUrl) {
-                    console.warn(`⚠️ 썸네일 없음: ${product.name} - 원본 이미지를 사용합니다.`);
-                } else if (product.thumbnailUrls && product.thumbnailUrls.length > 0) {
-                    console.log(`✅ 썸네일 있음: ${product.name} - 썸네일 개수: ${product.thumbnailUrls.length}`);
-                } else if (product.thumbnailUrl) {
-                    console.log(`✅ 썸네일 있음: ${product.name} - thumbnailUrl 필드 사용`);
-                }
                 
                 firebaseProducts.push(product);
             }
+
+            // 생성일 기준으로 최신순 정렬 (createdAt이 없으면 가장 오래된 값으로 처리)
+            firebaseProducts.sort((a, b) => {
+                const timeA = new Date(a.createdAt || 0).getTime();
+                const timeB = new Date(b.createdAt || 0).getTime();
+                const safeTimeA = isNaN(timeA) ? 0 : timeA;
+                const safeTimeB = isNaN(timeB) ? 0 : timeB;
+                return safeTimeB - safeTimeA;
+            });
             
             // 테스트 데이터와 Firebase 데이터 병합 (중복 제거)
             const existingIds = new Set(this.products.map(p => p.id));
@@ -4319,7 +4278,7 @@ class PriceComparisonSite {
             // 로컬 캐시에 저장 (5분간 유효)
             if (useCache && firebaseProducts.length > 0) {
                 try {
-                    const cacheKey = 'firebase_products_cache';
+                    const cacheKey = 'firebase_products_cache_v2';
                     const cacheData = {
                         products: firebaseProducts,
                         timestamp: Date.now()
@@ -4330,12 +4289,12 @@ class PriceComparisonSite {
                     console.error('캐시 저장 오류:', cacheError);
                     // localStorage 용량 초과 시 오래된 캐시 삭제 시도
                     try {
-                        localStorage.removeItem('firebase_products_cache');
+                        localStorage.removeItem('firebase_products_cache_v2');
                         const cacheData = {
                             products: firebaseProducts,
                             timestamp: Date.now()
                         };
-                        localStorage.setItem('firebase_products_cache', JSON.stringify(cacheData));
+                        localStorage.setItem('firebase_products_cache_v2', JSON.stringify(cacheData));
                     } catch (retryError) {
                         console.error('캐시 재저장 실패:', retryError);
                     }
@@ -5094,7 +5053,7 @@ class PriceComparisonSite {
         }, 10);
 
         // 폼 제출 이벤트 리스너 추가
-        document.getElementById('productEditForm')?.addEventListener('submit', (e) => {
+        document.getElementById('productEditForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.updateProduct(product.id);
         });
@@ -5322,7 +5281,6 @@ class PriceComparisonSite {
             // 이미지 처리
             const product = this.products.find(p => p.id === productId);
             let imageUrls = product.imageUrls || (product.imageUrl ? [product.imageUrl] : []);
-            let thumbnailUrls = product.thumbnailUrls || (product.thumbnailUrl ? [product.thumbnailUrl] : []); // 기존 썸네일 유지
             
             // 삭제된 이미지 제거
             const existingImageList = document.getElementById('editExistingImageList');
@@ -5335,27 +5293,7 @@ class PriceComparisonSite {
                     }
                 });
                 // 남아있는 이미지만 유지
-                const originalImageUrls = product.imageUrls || (product.imageUrl ? [product.imageUrl] : []);
-                const originalThumbnailUrls = product.thumbnailUrls || (product.thumbnailUrl ? [product.thumbnailUrl] : []);
-                const filteredImageUrls = [];
-                const filteredThumbnailUrls = [];
-                
-                originalImageUrls.forEach((originalUrl, index) => {
-                    if (remainingImageUrls.includes(originalUrl)) {
-                        filteredImageUrls.push(originalUrl);
-                        // 썸네일도 같은 인덱스로 매칭
-                        if (originalThumbnailUrls[index]) {
-                            filteredThumbnailUrls.push(originalThumbnailUrls[index]);
-                        } else if (originalThumbnailUrls.length > 0 && index < originalThumbnailUrls.length) {
-                            filteredThumbnailUrls.push(originalThumbnailUrls[index]);
-                        } else {
-                            filteredThumbnailUrls.push(originalUrl); // 썸네일이 없으면 원본 사용
-                        }
-                    }
-                });
-                
-                imageUrls = filteredImageUrls;
-                thumbnailUrls = filteredThumbnailUrls;
+                imageUrls = imageUrls.filter(url => remainingImageUrls.includes(url));
             }
             
             // 새 이미지 업로드
@@ -5366,8 +5304,6 @@ class PriceComparisonSite {
                         throw new Error('Firebase Storage가 초기화되지 않았습니다.');
                     }
                     
-                    const timestamp = Date.now();
-                    
                     for (let i = 0; i < this.editProductImageOrder.length; i++) {
                         const imageFile = this.editProductImageOrder[i];
                         if (imageFile.size > 5 * 1024 * 1024) {
@@ -5376,33 +5312,13 @@ class PriceComparisonSite {
                         }
                         
                         try {
-                            const imageRef = window.firebaseStorageRef(storageRef, `products/${timestamp}_${i}_${imageFile.name}`);
+                            const imageRef = window.firebaseStorageRef(storageRef, `products/${Date.now()}_${i}_${imageFile.name}`);
                             console.log(`이미지 ${i + 1}/${this.editProductImageOrder.length} 업로드 시도:`, imageFile.name, `(${(imageFile.size / 1024).toFixed(1)}KB)`);
                             
                             const snapshot = await window.firebaseUploadBytes(imageRef, imageFile);
                             const imageUrl = await window.firebaseGetDownloadURL(snapshot.ref);
                             imageUrls.push(imageUrl);
                             console.log(`이미지 ${i + 1}/${this.editProductImageOrder.length} 업로드 완료:`, imageUrl);
-                            
-                            // 썸네일 생성 및 업로드
-                            try {
-                                const thumbnailFile = await this.createThumbnail(imageFile, 120, 120, 0.7);
-                                if (thumbnailFile === null) {
-                                    // 이미 작은 이미지인 경우 원본 URL 사용
-                                    thumbnailUrls.push(imageUrl);
-                                    console.log(`썸네일 생성 건너뜀 (이미 작은 이미지): ${i + 1}/${this.editProductImageOrder.length}`);
-                                } else {
-                                    const thumbnailRef = window.firebaseStorageRef(storageRef, `products/thumbnails/${timestamp}_${i}_thumb_${imageFile.name}`);
-                                    const thumbnailSnapshot = await window.firebaseUploadBytes(thumbnailRef, thumbnailFile);
-                                    const thumbnailUrl = await window.firebaseGetDownloadURL(thumbnailSnapshot.ref);
-                                    thumbnailUrls.push(thumbnailUrl);
-                                    console.log(`썸네일 ${i + 1}/${this.editProductImageOrder.length} 업로드 완료:`, thumbnailUrl, `(크기: ${(thumbnailFile.size / 1024).toFixed(1)}KB)`);
-                                }
-                            } catch (thumbnailError) {
-                                console.error(`썸네일 생성/업로드 실패 (${i + 1}):`, thumbnailError);
-                                // 썸네일 실패 시 원본 URL 사용 (하위 호환성)
-                                thumbnailUrls.push(imageUrl);
-                            }
                         } catch (uploadError) {
                             console.error(`이미지 ${i + 1} 업로드 실패:`, uploadError);
                             throw new Error(`이미지 ${i + 1} 업로드 실패: ${uploadError.message || uploadError.code || '알 수 없는 오류'}`);
@@ -5443,8 +5359,6 @@ class PriceComparisonSite {
                 lastUpdated: new Date().toISOString(),
                 imageUrls: imageUrls,
                 imageUrl: imageUrls.length > 0 ? imageUrls[0] : '',
-                thumbnailUrls: thumbnailUrls, // 썸네일 URL 배열 추가
-                thumbnailUrl: thumbnailUrls.length > 0 ? thumbnailUrls[0] : '', // 첫 번째 썸네일 (호환성)
                 description: description
             };
 
@@ -5456,97 +5370,38 @@ class PriceComparisonSite {
             await window.firebaseUpdateDoc(productRef, formData);
 
             console.log('Firebase 제품 수정 완료:', productId);
-            console.log('저장된 썸네일 정보:', {
-                thumbnailUrls: formData.thumbnailUrls,
-                thumbnailUrl: formData.thumbnailUrl,
-                imageUrls: formData.imageUrls
-            });
 
-            // Firestore에서 업데이트된 제품을 다시 불러와서 로컬 데이터 동기화
-            try {
-                const updatedProductDoc = await window.firebaseGetDoc(productRef);
-                if (updatedProductDoc.exists()) {
-                    const updatedProduct = { id: updatedProductDoc.id, ...updatedProductDoc.data() };
-                    
-                    // createdAt 필드 안전하게 처리
-                    if (!updatedProduct.createdAt) {
-                        updatedProduct.createdAt = new Date().toISOString();
-                    } else if (updatedProduct.createdAt instanceof Date) {
-                        updatedProduct.createdAt = updatedProduct.createdAt.toISOString();
-                    }
-                    
-                    // 로컬 데이터 업데이트
-                    const localProductIndex = this.products.findIndex(p => p.id === productId);
-                    if (localProductIndex !== -1) {
-                        const oldProduct = { ...this.products[localProductIndex] };
-                        this.products[localProductIndex] = updatedProduct;
-                        
-                        console.log('Firestore에서 불러온 업데이트된 제품 데이터:', updatedProduct);
-                        console.log('로컬 제품 데이터 업데이트 완료:');
-                        console.log('이전 데이터:', oldProduct);
-                        console.log('새 데이터:', this.products[localProductIndex]);
-                        console.log('썸네일 정보:', {
-                            thumbnailUrls: this.products[localProductIndex].thumbnailUrls,
-                            thumbnailUrl: this.products[localProductIndex].thumbnailUrl
-                        });
-                        
-                        // 카테고리 변경 확인
-                        if (oldProduct.category !== updatedProduct.category) {
-                            console.log(`카테고리 변경됨: ${oldProduct.category} → ${updatedProduct.category}`);
-                        }
-                        
-                        // 로컬 수정 플래그 설정
-                        this.localModifications.add(productId);
-                        console.log('로컬 수정 플래그 설정:', productId);
-                    } else {
-                        // 로컬에 없으면 추가
-                        this.products.push(updatedProduct);
-                        console.log('로컬 데이터에 제품 추가 완료:', updatedProduct);
-                    }
-                } else {
-                    console.warn('Firestore에서 업데이트된 제품을 찾을 수 없음:', productId);
-                    // Firestore에서 찾지 못한 경우 기존 방식으로 로컬 데이터 업데이트
-                    const localProductIndex = this.products.findIndex(p => p.id === productId);
-                    if (localProductIndex !== -1) {
-                        const oldProduct = { ...this.products[localProductIndex] };
-                        this.products[localProductIndex].name = formData.name;
-                        this.products[localProductIndex].originalPrice = formData.originalPrice;
-                        this.products[localProductIndex].finalPrice = formData.finalPrice;
-                        this.products[localProductIndex].deliveryFee = formData.deliveryFee;
-                        this.products[localProductIndex].link = formData.link;
-                        this.products[localProductIndex].store = formData.store;
-                        this.products[localProductIndex].category = formData.category;
-                        this.products[localProductIndex].status = formData.status;
-                        this.products[localProductIndex].lastUpdated = formData.lastUpdated;
-                        this.products[localProductIndex].imageUrls = formData.imageUrls;
-                        this.products[localProductIndex].imageUrl = formData.imageUrl;
-                        this.products[localProductIndex].thumbnailUrls = formData.thumbnailUrls;
-                        this.products[localProductIndex].thumbnailUrl = formData.thumbnailUrl;
-                        this.products[localProductIndex].description = formData.description;
-                        console.log('로컬 제품 데이터 업데이트 완료 (fallback):', this.products[localProductIndex]);
-                    }
+            // 로컬 데이터도 업데이트
+            const localProductIndex = this.products.findIndex(p => p.id === productId);
+            if (localProductIndex !== -1) {
+                const oldProduct = { ...this.products[localProductIndex] };
+                // originalPrice, finalPrice, deliveryFee 모두 업데이트
+                this.products[localProductIndex].name = formData.name;
+                this.products[localProductIndex].originalPrice = formData.originalPrice;
+                this.products[localProductIndex].finalPrice = formData.finalPrice;
+                this.products[localProductIndex].deliveryFee = formData.deliveryFee;
+                this.products[localProductIndex].link = formData.link;
+                this.products[localProductIndex].store = formData.store;
+                this.products[localProductIndex].category = formData.category;
+                this.products[localProductIndex].status = formData.status;
+                this.products[localProductIndex].lastUpdated = formData.lastUpdated;
+                this.products[localProductIndex].imageUrls = formData.imageUrls;
+                this.products[localProductIndex].imageUrl = formData.imageUrl;
+                this.products[localProductIndex].description = formData.description;
+                console.log('로컬 제품 데이터 업데이트 완료:');
+                console.log('이전 데이터:', oldProduct);
+                console.log('새 데이터:', this.products[localProductIndex]);
+                
+                // 카테고리 변경 확인
+                if (oldProduct.category !== formData.category) {
+                    console.log(`카테고리 변경됨: ${oldProduct.category} → ${formData.category}`);
                 }
-            } catch (syncError) {
-                console.error('Firestore에서 제품 데이터 동기화 실패:', syncError);
-                // 동기화 실패 시 기존 방식으로 로컬 데이터 업데이트
-                const localProductIndex = this.products.findIndex(p => p.id === productId);
-                if (localProductIndex !== -1) {
-                    this.products[localProductIndex].name = formData.name;
-                    this.products[localProductIndex].originalPrice = formData.originalPrice;
-                    this.products[localProductIndex].finalPrice = formData.finalPrice;
-                    this.products[localProductIndex].deliveryFee = formData.deliveryFee;
-                    this.products[localProductIndex].link = formData.link;
-                    this.products[localProductIndex].store = formData.store;
-                    this.products[localProductIndex].category = formData.category;
-                    this.products[localProductIndex].status = formData.status;
-                    this.products[localProductIndex].lastUpdated = formData.lastUpdated;
-                    this.products[localProductIndex].imageUrls = formData.imageUrls;
-                    this.products[localProductIndex].imageUrl = formData.imageUrl;
-                    this.products[localProductIndex].thumbnailUrls = formData.thumbnailUrls;
-                    this.products[localProductIndex].thumbnailUrl = formData.thumbnailUrl;
-                    this.products[localProductIndex].description = formData.description;
-                    console.log('로컬 제품 데이터 업데이트 완료 (error fallback):', this.products[localProductIndex]);
-                }
+                
+                // 로컬 수정 플래그 설정
+                this.localModifications.add(productId);
+                console.log('로컬 수정 플래그 설정:', productId);
+            } else {
+                console.warn('로컬 데이터에서 제품을 찾을 수 없음:', productId);
             }
 
             // 게시글이 있으면 productPosts에도 저장
@@ -5726,7 +5581,7 @@ class PriceComparisonSite {
         }, 10);
 
         // 폼 제출 이벤트 리스너 추가
-        document.getElementById('priceEditForm')?.addEventListener('submit', (e) => {
+        document.getElementById('priceEditForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.updatePriceReport(report.id);
         });
@@ -6065,135 +5920,32 @@ class PriceComparisonSite {
 
     async approveProduct(productId) {
         try {
-            console.log('=== 제품 승인 시작 ===', productId);
-            
             const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
             await window.firebaseUpdateDoc(productRef, {
                 status: 'approved'
             });
-            console.log('Firestore 업데이트 완료: status = "approved"');
             
-            // Firestore에서 승인된 제품을 다시 가져와서 로컬 데이터 업데이트
-            const productDoc = await window.firebaseGetDoc(productRef);
-            if (productDoc.exists()) {
-                const updatedProduct = { id: productDoc.id, ...productDoc.data() };
-                
-                // createdAt 필드 안전하게 처리
-                if (!updatedProduct.createdAt) {
-                    updatedProduct.createdAt = new Date().toISOString();
-                } else if (updatedProduct.createdAt instanceof Date) {
-                    updatedProduct.createdAt = updatedProduct.createdAt.toISOString();
-                }
-                
-                console.log('승인된 제품 데이터:', {
-                    id: updatedProduct.id,
-                    name: updatedProduct.name,
-                    status: updatedProduct.status,
-                    category: updatedProduct.category
-                });
-                
-                // 로컬 데이터 업데이트 또는 추가
-                const productIndex = this.products.findIndex(p => p.id === productId);
-                if (productIndex !== -1) {
-                    this.products[productIndex] = updatedProduct;
-                    console.log('로컬 제품 데이터 업데이트 완료:', updatedProduct.name, '(인덱스:', productIndex + ')');
-                } else {
-                    this.products.push(updatedProduct);
-                    console.log('로컬 제품 데이터 추가 완료:', updatedProduct.name);
-                }
-                
-                // 승인된 제품이 배열에 제대로 있는지 확인
-                const verifyProduct = this.products.find(p => p.id === productId);
-                if (verifyProduct) {
-                    console.log('검증 완료 - 승인된 제품이 배열에 있습니다:', {
-                        id: verifyProduct.id,
-                        name: verifyProduct.name,
-                        status: verifyProduct.status
-                    });
-                } else {
-                    console.error('검증 실패 - 승인된 제품이 배열에 없습니다!');
-                }
-            } else {
-                console.error('Firestore에서 제품을 찾을 수 없습니다:', productId);
-            }
-            
-            // 로컬 캐시 무효화 (선택적 - 다음 로드 시 최신 데이터 가져오기)
-            try {
-                const cacheKey = 'firebase_products_cache';
-                localStorage.removeItem(cacheKey);
-                console.log('로컬 캐시 무효화 완료');
-            } catch (cacheError) {
-                console.warn('캐시 무효화 실패 (무시 가능):', cacheError);
+            // 로컬 데이터 업데이트
+            const productIndex = this.products.findIndex(p => p.id === productId);
+            if (productIndex !== -1) {
+                this.products[productIndex].status = 'approved';
             }
             
             alert('제품이 승인되었습니다.');
-            
-            // 승인 대기 목록 새로고침
-            await this.loadPendingProducts();
+            this.loadPendingProducts();
             
             // 알림 업데이트
             this.updateAdminNotification();
             
-            // 승인된 제품 목록 확인
-            const approvedProducts = this.products.filter(p => p.status === 'approved');
-            console.log('승인된 제품 개수:', approvedProducts.length);
-            console.log('승인된 제품 목록:', approvedProducts.map(p => ({ id: p.id, name: p.name, status: p.status })));
-            
-            // 승인된 제품이 배열에 있는지 재확인
-            const approvedProductInArray = this.products.find(p => p.id === productId && p.status === 'approved');
-            if (!approvedProductInArray) {
-                console.error('⚠️ 승인된 제품이 배열에 없습니다! Firestore에서 다시 로드합니다...');
-                
-                // Firestore에서 승인된 제품만 다시 가져오기
-                const productsRef = window.firebaseCollection(window.firebaseDb, 'products');
-                const approvedQuery = window.firebaseQuery(
-                    productsRef,
-                    window.firebaseWhere('status', '==', 'approved')
-                );
-                const querySnapshot = await window.firebaseGetDocs(approvedQuery);
-                
-                // 기존 승인 제품 ID 목록 (중복 방지)
-                const existingApprovedIds = new Set(
-                    this.products.filter(p => p.status === 'approved').map(p => p.id)
-                );
-                
-                // 승인된 제품을 배열에 추가/업데이트
-                let reloadedCount = 0;
-                for (const doc of querySnapshot.docs) {
-                    const product = { id: doc.id, ...doc.data() };
-                    if (!product.createdAt) {
-                        product.createdAt = new Date().toISOString();
-                    } else if (product.createdAt instanceof Date) {
-                        product.createdAt = product.createdAt.toISOString();
-                    }
-                    
-                    // 기존 제품이 있으면 업데이트, 없으면 추가
-                    const existingIndex = this.products.findIndex(p => p.id === product.id);
-                    if (existingIndex !== -1) {
-                        this.products[existingIndex] = product;
-                    } else {
-                        this.products.push(product);
-                    }
-                    reloadedCount++;
-                }
-                
-                console.log('Firestore에서 승인된 제품 다시 로드 완료:', reloadedCount, '개');
-                console.log('전체 승인된 제품 개수:', this.products.filter(p => p.status === 'approved').length, '개');
-            }
-            
-            // 메인 제품 리스트 즉시 업데이트 (Firestore에서 최신 데이터 반영)
-            console.log('displayAllProducts 호출 전 - 승인된 제품 개수:', this.products.filter(p => p.status === 'approved').length);
-            await this.displayAllProducts();
-            console.log('displayAllProducts 호출 후');
+            // 메인 제품 리스트 즉시 업데이트
+            this.updateMainProductList();
             
             // 카테고리 개수 업데이트
             this.updateCategoryCounts();
             
-            console.log('=== 제품 승인 완료 ===');
-            
         } catch (error) {
             console.error('제품 승인 실패:', error);
-            alert('제품 승인에 실패했습니다. 에러: ' + error.message);
+            alert('제품 승인에 실패했습니다.');
         }
     }
 
@@ -6800,11 +6552,11 @@ class PriceComparisonSite {
         noBtn.replaceWith(noBtn.cloneNode(true));
         
         // 새로운 이벤트 리스너 추가
-        document.getElementById('deleteConfirmYes')?.addEventListener('click', () => {
+        document.getElementById('deleteConfirmYes').addEventListener('click', () => {
             this.confirmDelete(itemType, itemId);
         });
         
-        document.getElementById('deleteConfirmNo')?.addEventListener('click', () => {
+        document.getElementById('deleteConfirmNo').addEventListener('click', () => {
             this.cancelDelete();
         });
     }

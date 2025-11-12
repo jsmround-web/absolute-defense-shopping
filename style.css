@@ -3203,24 +3203,8 @@ body {
     }
 }
 
-/* 초특가(핫딜) 스타일을 상품 카드에도 식품/생활/가전/유아에 적용 */
-.product-item[data-category="특가"],
-.product-item[data-category="식품"],
-.product-item[data-category="생활"],
-.product-item[data-category="가전"],
-.product-item[data-category="유아"] {
-    background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%) !important;
-    border: 1px solid #fde047 !important;
-}
-
-.product-item[data-category="특가"]:hover,
-.product-item[data-category="식품"]:hover,
-.product-item[data-category="생활"]:hover,
-.product-item[data-category="가전"]:hover,
-.product-item[data-category="유아"]:hover {
-    background: linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%) !important;
-    border-color: #fbbf24 !important;
-}
+/* 초특가(핫딜) 스타일을 상품 카드에도 식품/생활/가전/유아에 적용 - 배경색 제거 */
+/* 연노랑 배경색 제거됨 */
 
 .product-item.info-card .info-text {
     font-size: 0.75rem;
@@ -3731,7 +3715,13 @@ body {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: break-word;
 }
 
 .product-store {
@@ -3844,8 +3834,9 @@ body {
     color: #39ff14;
     font-size: 0.85rem;
     font-weight: 700;
-    margin-right: 4px;
-    margin-left: 1em; /* 오른쪽으로 한 글자 이동 */
+    margin-right: 0px; /* 가격과의 간격 제거 (오른쪽으로 추가 이동) */
+    margin-left: auto; /* 오른쪽 끝으로 이동 (가격 바로 왼쪽) */
+    padding-left: 0.2em; /* 아주 조금 오른쪽으로 이동 */
     text-shadow: 0 0 3px rgba(57, 255, 20, 0.5);
 }
 
@@ -4628,8 +4619,9 @@ body {
     /* 모바일: 구매횟수 텍스트 스타일 */
     .purchase-count-text {
         font-size: 0.75rem;
-        margin-right: 3px;
-        margin-left: 4em; /* 왼쪽으로 두 글자 이동 (6em → 4em) */
+        margin-right: 0px; /* 가격과의 간격 제거 (오른쪽으로 추가 이동) */
+        margin-left: auto; /* 오른쪽 끝으로 이동 (가격 바로 왼쪽) */
+        padding-left: 1.7em; /* 한글 기준 1.5글자 + 아주 조금 추가 이동 */
     }
     
     .product-link-btn,
@@ -5102,7 +5094,13 @@ body {
     color: #1f2937;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: break-word;
     line-height: 1.3;
 }
 

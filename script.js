@@ -1363,7 +1363,6 @@ class PriceComparisonSite {
                         <div class="row-bottom">
                             <div class="store-time-info">
                                 <span class="product-store">쇼핑몰</span>
-                                <span class="update-time">갱신 시간</span>
                                 <span class="product-price">최종가</span>
                             </div>
                             <div class="product-buttons">
@@ -1498,7 +1497,6 @@ class PriceComparisonSite {
                             <div class="row-bottom">
                                 <div class="store-time-info">
                                     <span class="product-store">${this.getStoreDisplayName(product.store) || '미선택'}</span>
-                                    ${this.formatUpdateTime(product.lastUpdated || product.createdAt)}
                                     <span class="purchase-count-text">${(product.purchaseCount || 0)}구매</span>
                                     <span class="product-price">${finalPrice.toLocaleString()}원</span>
                                 </div>
@@ -4189,9 +4187,16 @@ class PriceComparisonSite {
                         
                         if (cacheAge < cacheMaxAge && products && products.length > 0) {
                             console.log('로컬 캐시에서 상품 데이터 로드:', products.length, '개 (캐시 나이:', Math.round(cacheAge / 1000), '초)');
-                            const existingIds = new Set(this.products.map(p => p.id));
-                            const newProducts = products.filter(p => !existingIds.has(p.id));
-                            this.products = [...this.products, ...newProducts];
+                            // 캐시 데이터로 기존 배열 업데이트 (같은 ID가 있으면 캐시 데이터로 덮어쓰기)
+                            const existingProductsMap = new Map(this.products.map(p => [p.id, p]));
+                            
+                            // 캐시에서 가져온 데이터로 기존 항목 업데이트
+                            products.forEach(cacheProduct => {
+                                existingProductsMap.set(cacheProduct.id, cacheProduct);
+                            });
+                            
+                            // Map을 배열로 변환
+                            this.products = Array.from(existingProductsMap.values());
                             
                             this.updateCategoryCounts();
                             await this.displayAllProducts();
@@ -4270,10 +4275,16 @@ class PriceComparisonSite {
                 return safeTimeB - safeTimeA;
             });
             
-            // 테스트 데이터와 Firebase 데이터 병합 (중복 제거)
-            const existingIds = new Set(this.products.map(p => p.id));
-            const newFirebaseProducts = firebaseProducts.filter(p => !existingIds.has(p.id));
-            this.products = [...this.products, ...newFirebaseProducts];
+            // Firebase 데이터로 기존 배열 업데이트 (같은 ID가 있으면 Firebase 데이터로 덮어쓰기)
+            const existingProductsMap = new Map(this.products.map(p => [p.id, p]));
+            
+            // Firebase에서 가져온 데이터로 기존 항목 업데이트
+            firebaseProducts.forEach(firebaseProduct => {
+                existingProductsMap.set(firebaseProduct.id, firebaseProduct);
+            });
+            
+            // Map을 배열로 변환 (Firebase 데이터가 최신 상태이므로 우선 사용)
+            this.products = Array.from(existingProductsMap.values());
             
             // 로컬 캐시에 저장 (5분간 유효)
             if (useCache && firebaseProducts.length > 0) {
@@ -4302,8 +4313,12 @@ class PriceComparisonSite {
             }
             
             console.log('Firebase에서 제품 데이터 불러오기 완료:', firebaseProducts.length, '개');
-            console.log('새로 추가된 Firebase 제품:', newFirebaseProducts.length, '개');
-            console.log('전체 제품 목록:', this.products.map(p => ({ name: p.name, category: p.category, status: p.status })));
+            console.log('전체 제품 목록:', this.products.length, '개');
+            console.log('제품 상태별 분류:', {
+                approved: this.products.filter(p => p.status === 'approved').length,
+                pending: this.products.filter(p => p.status === 'pending').length,
+                rejected: this.products.filter(p => p.status === 'rejected').length
+            });
             
             // 페이지 로드 시 로컬 수정 플래그 초기화
             this.localModifications.clear();
@@ -5931,17 +5946,20 @@ class PriceComparisonSite {
                 this.products[productIndex].status = 'approved';
             }
             
+            // 캐시 무효화 (승인 후 최신 데이터를 가져오기 위해)
+            const cacheKey = 'firebase_products_cache_v2';
+            localStorage.removeItem(cacheKey);
+            console.log('제품 승인 후 캐시 무효화 완료');
+            
+            // Firebase에서 최신 데이터 다시 로드 (캐시 없이)
+            // loadProductsFromFirebase는 이미 updateCategoryCounts()와 displayAllProducts()를 호출함
+            await this.loadProductsFromFirebase(false);
+            
             alert('제품이 승인되었습니다.');
             this.loadPendingProducts();
             
             // 알림 업데이트
             this.updateAdminNotification();
-            
-            // 메인 제품 리스트 즉시 업데이트
-            this.updateMainProductList();
-            
-            // 카테고리 개수 업데이트
-            this.updateCategoryCounts();
             
         } catch (error) {
             console.error('제품 승인 실패:', error);

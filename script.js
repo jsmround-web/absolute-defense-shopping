@@ -420,7 +420,7 @@ function trackPurchaseClick(productName, productCategory) {
 
 // 페이지가 로드되면 앱 실행
 document.addEventListener('DOMContentLoaded', function() {
-    const app = new PriceComparisonSite();
+    window.priceComparisonSite = new PriceComparisonSite();
 });
 class PriceComparisonSite {
     constructor() {
@@ -747,6 +747,29 @@ class PriceComparisonSite {
                 console.log('Firebase 후 관리 패널만 다시 숨겼습니다.');
             }
         }, 1000);
+        
+        // 상품 표시 보장 - 5초 후에도 상품이 없으면 강제로 표시 시도
+        setTimeout(async () => {
+            if (this.products.length === 0) {
+                console.warn('5초 후에도 상품이 없습니다. 강제로 로드 시도합니다...');
+                try {
+                    await this.loadProductsFromFirebase(false);
+                } catch (error) {
+                    console.error('강제 로드 실패:', error);
+                }
+            } else {
+                // 상품은 있지만 화면에 표시되지 않은 경우
+                const productList = document.getElementById('productList');
+                if (productList && (!productList.innerHTML || productList.innerHTML.trim() === '')) {
+                    console.warn('상품은 있지만 화면에 표시되지 않았습니다. displayAllProducts 호출...');
+                    try {
+                        await this.displayAllProducts();
+                    } catch (error) {
+                        console.error('displayAllProducts 호출 실패:', error);
+                    }
+                }
+            }
+        }, 5000);
         
         // Firebase 로드 완료 후 알림 업데이트 시작
         setTimeout(() => {
@@ -1099,48 +1122,85 @@ class PriceComparisonSite {
     }
 
     async displayAllProducts() {
-        console.log('=== displayAllProducts 시작 ===');
-        console.log('전체 제품 목록:', this.products);
-        console.log('제품 상태별 분류:', this.products.map(p => ({ name: p.name, status: p.status, id: p.id })));
-        
-        // 모든 제품의 상태 상세 로그
-        this.products.forEach(p => {
-            console.log(`제품 "${p.name}": status = "${p.status}", id = "${p.id}"`);
-        });
-        
-        // 승인된 제품만 표시
-        let approvedProducts = this.products.filter(p => {
-            const isApproved = p.status === 'approved';
-            console.log(`제품 "${p.name}": status="${p.status}", isApproved=${isApproved}`);
-            return isApproved;
-        });
-        console.log('표시할 제품 목록 (승인된 제품만):', approvedProducts);
-        console.log('표시할 제품 개수:', approvedProducts.length);
-        
-        // 현재 정렬 타입에 따라 정렬
-        await this.applyCurrentSort(approvedProducts);
-        
-        console.log('정렬된 제품 목록 (현재 정렬 적용):', approvedProducts.map(p => ({
-            name: p.name,
-            category: p.category,
-            discountRate: this.calculateDiscountRate(p) + '%',
-            price: this.calculateFinalPrice(p)
-        })));
-        
-        // 제품이 없으면 빈 화면 표시
-        if (approvedProducts.length === 0) {
-            console.log('승인된 제품이 없습니다.');
+        try {
+            console.log('=== displayAllProducts 시작 ===');
+            console.log('전체 제품 목록:', this.products);
+            console.log('제품 상태별 분류:', this.products.map(p => ({ name: p.name, status: p.status, id: p.id })));
+            
+            // 모든 제품의 상태 상세 로그
+            this.products.forEach(p => {
+                console.log(`제품 "${p.name}": status = "${p.status}", id = "${p.id}"`);
+            });
+            
+            // 승인된 제품만 표시
+            let approvedProducts = this.products.filter(p => {
+                const isApproved = p.status === 'approved';
+                console.log(`제품 "${p.name}": status="${p.status}", isApproved=${isApproved}`);
+                return isApproved;
+            });
+            console.log('표시할 제품 목록 (승인된 제품만):', approvedProducts);
+            console.log('표시할 제품 개수:', approvedProducts.length);
+            
+            // 현재 정렬 타입에 따라 정렬
+            try {
+                await this.applyCurrentSort(approvedProducts);
+            } catch (sortError) {
+                console.error('정렬 중 에러 발생:', sortError);
+                // 정렬 실패해도 계속 진행
+            }
+            
+            console.log('정렬된 제품 목록 (현재 정렬 적용):', approvedProducts.map(p => ({
+                name: p.name,
+                category: p.category,
+                discountRate: this.calculateDiscountRate(p) + '%',
+                price: this.calculateFinalPrice(p)
+            })));
+            
+            // 제품이 없으면 빈 화면 표시
+            if (approvedProducts.length === 0) {
+                console.log('승인된 제품이 없습니다.');
+            }
+            
+            console.log('renderProducts 호출 전');
+            try {
+                await this.renderProducts(approvedProducts);
+            } catch (renderError) {
+                console.error('renderProducts 중 에러 발생:', renderError);
+                // 렌더링 실패 시 재시도
+                setTimeout(async () => {
+                    try {
+                        console.log('renderProducts 재시도...');
+                        await this.renderProducts(approvedProducts);
+                    } catch (retryError) {
+                        console.error('renderProducts 재시도 실패:', retryError);
+                    }
+                }, 1000);
+            }
+            console.log('renderProducts 호출 후');
+            
+            // 전체 탭 활성 상태 표시
+            this.currentCategory = '전체';
+            try {
+                this.updateCategoryActiveState();
+            } catch (updateError) {
+                console.error('updateCategoryActiveState 중 에러 발생:', updateError);
+            }
+            
+            console.log('=== displayAllProducts 완료 ===');
+        } catch (error) {
+            console.error('displayAllProducts 중 에러 발생:', error);
+            console.error('에러 상세:', error.message, error.stack);
+            
+            // 에러 발생 시 재시도
+            setTimeout(async () => {
+                try {
+                    console.log('displayAllProducts 재시도...');
+                    await this.displayAllProducts();
+                } catch (retryError) {
+                    console.error('displayAllProducts 재시도 실패:', retryError);
+                }
+            }, 2000);
         }
-        
-        console.log('renderProducts 호출 전');
-        await this.renderProducts(approvedProducts);
-        console.log('renderProducts 호출 후');
-        
-        // 전체 탭 활성 상태 표시
-        this.currentCategory = '전체';
-        this.updateCategoryActiveState();
-        
-        console.log('=== displayAllProducts 완료 ===');
     }
 
     async displayCategoryResults(category) {
@@ -3621,8 +3681,19 @@ class PriceComparisonSite {
             this.currentThumbnailUrls = [];
         }
         
+        // 제품명 가져오기 - 안전하게 처리
+        const productNameInput = document.getElementById('productName');
+        let productName = '';
+        if (productNameInput) {
+            productName = productNameInput.value || '';
+            // trim() 전에 원본 값 확인
+            console.log('제품명 원본 값 (길이):', productName.length, productName);
+            productName = productName.trim();
+            console.log('제품명 trim 후 (길이):', productName.length, productName);
+        }
+        
         const formData = {
-            name: document.getElementById('productName').value.trim() || '제품명 미입력',
+            name: productName || '제품명 미입력',
             originalPrice: parseInt(document.getElementById('productOriginalPrice').value) || 0,
             price: parseInt(document.getElementById('productPrice').value) || 0, // 최종가
             link: document.getElementById('productLink').value.trim() || '링크 미입력',
@@ -3792,7 +3863,40 @@ class PriceComparisonSite {
     }
 
     clearForm() {
+        // 폼 리셋
         document.getElementById('productForm').reset();
+        
+        // 이미지 관련 상태 초기화
+        if (this.selectedImageOrder) {
+            this.selectedImageOrder = [];
+        }
+        
+        // 썸네일 URL 배열도 초기화
+        if (this.currentThumbnailUrls) {
+            this.currentThumbnailUrls = [];
+        }
+        
+        // 이미지 미리보기 컨테이너 초기화
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        if (imagePreviewContainer) {
+            imagePreviewContainer.innerHTML = '';
+            imagePreviewContainer.style.display = 'none';
+        }
+        
+        // 이미지 input 초기화
+        const productImageInput = document.getElementById('productImage');
+        if (productImageInput) {
+            // input의 files를 빈 DataTransfer로 초기화
+            const dataTransfer = new DataTransfer();
+            productImageInput.files = dataTransfer.files;
+        }
+        
+        // 이미지 미리보기 업데이트 (빈 상태로)
+        if (typeof window.handleImageSelection === 'function') {
+            window.handleImageSelection();
+        }
+        
+        console.log('폼 초기화 완료 - 이미지 상태도 모두 초기화됨');
     }
 
     closeForm() {
@@ -4122,15 +4226,57 @@ class PriceComparisonSite {
                 }
             }
         
-        // 상품 로딩 상태 확인
+        // 상품 로딩 상태 확인 및 재시도
         console.log('현재 로드된 상품 개수:', this.products.length);
         if (this.products.length === 0) {
-            console.log('상품이 로드되지 않았습니다. Firebase 연결을 확인하세요.');
+            console.warn('상품이 로드되지 않았습니다. 3초 후 재시도합니다...');
+            // 3초 후 재시도
+            setTimeout(async () => {
+                try {
+                    console.log('initFirebase에서 상품 로드 재시도 시작...');
+                    await this.loadProductsFromFirebase(false); // 캐시 없이 재시도
+                    
+                    // 재시도 후에도 상품이 없으면 한 번 더 시도
+                    if (this.products.length === 0) {
+                        console.warn('재시도 후에도 상품이 없습니다. 5초 후 다시 시도합니다...');
+                        setTimeout(async () => {
+                            try {
+                                console.log('initFirebase에서 상품 로드 두 번째 재시도 시작...');
+                                await this.loadProductsFromFirebase(false);
+                            } catch (secondRetryError) {
+                                console.error('두 번째 재시도 실패:', secondRetryError);
+                            }
+                        }, 5000);
+                    }
+                } catch (retryError) {
+                    console.error('재시도 실패:', retryError);
+                }
+            }, 3000);
         }
         } catch (error) {
             console.error('Firebase 초기화 실패:', error);
             gaTracker.trackError('firebase_init_error', error.message);
-            alert('Firebase 연결에 실패했습니다. 페이지를 새로고침해주세요.');
+            
+            // 에러 발생 시에도 재시도
+            console.log('Firebase 초기화 실패 후 5초 뒤 재시도합니다...');
+            setTimeout(async () => {
+                try {
+                    console.log('Firebase 초기화 재시도 시작...');
+                    await this.initFirebase();
+                } catch (retryError) {
+                    console.error('Firebase 초기화 재시도 실패:', retryError);
+                    // 두 번째 재시도 (10초 후)
+                    setTimeout(async () => {
+                        try {
+                            console.log('Firebase 초기화 두 번째 재시도 시작...');
+                            await this.initFirebase();
+                        } catch (secondRetryError) {
+                            console.error('Firebase 초기화 두 번째 재시도 실패:', secondRetryError);
+                            alert('Firebase 연결에 실패했습니다. 페이지를 새로고침해주세요.');
+                        }
+                    }, 10000);
+                }
+            }, 5000);
         }
     }
 
@@ -4153,7 +4299,7 @@ class PriceComparisonSite {
     async waitForFirebase() {
         return new Promise((resolve, reject) => {
             let attempts = 0;
-            const maxAttempts = 50; // 5초 대기 (50 * 100ms)
+            const maxAttempts = 100; // 10초 대기 (100 * 100ms) - 시간 증가
             
             const checkFirebase = () => {
                 attempts++;
@@ -4163,8 +4309,12 @@ class PriceComparisonSite {
                     console.log('Firebase DB 발견됨');
                     resolve();
                 } else if (attempts >= maxAttempts) {
-                    console.error('Firebase 초기화 타임아웃');
-                    reject(new Error('Firebase 초기화 타임아웃'));
+                    console.error('Firebase 초기화 타임아웃 - 재시도합니다');
+                    // 타임아웃 시에도 재시도하도록 resolve (reject 대신)
+                    setTimeout(() => {
+                        console.log('Firebase 재시도 중...');
+                        resolve(); // reject 대신 resolve로 변경하여 재시도 가능하도록
+                    }, 1000);
                 } else {
                     setTimeout(checkFirebase, 100);
                 }
@@ -4332,8 +4482,38 @@ class PriceComparisonSite {
             await this.displayAllProducts();
             console.log('displayAllProducts 호출 후');
             
+            // 상품이 로드되지 않았는지 확인하고 재시도
+            if (this.products.length === 0) {
+                console.warn('상품이 로드되지 않았습니다. 2초 후 재시도합니다...');
+                setTimeout(async () => {
+                    console.log('상품 로드 재시도 시작...');
+                    await this.loadProductsFromFirebase(false); // 캐시 없이 재시도
+                }, 2000);
+            }
+            
         } catch (error) {
             console.error('Firebase에서 제품 데이터 불러오기 실패:', error);
+            console.error('에러 상세:', error.message, error.stack);
+            
+            // 에러 발생 시 3초 후 재시도
+            console.log('3초 후 상품 로드 재시도합니다...');
+            setTimeout(async () => {
+                try {
+                    console.log('상품 로드 재시도 시작 (에러 후)...');
+                    await this.loadProductsFromFirebase(false); // 캐시 없이 재시도
+                } catch (retryError) {
+                    console.error('재시도도 실패:', retryError);
+                    // 두 번째 재시도 (5초 후)
+                    setTimeout(async () => {
+                        try {
+                            console.log('상품 로드 두 번째 재시도 시작...');
+                            await this.loadProductsFromFirebase(false);
+                        } catch (secondRetryError) {
+                            console.error('두 번째 재시도도 실패:', secondRetryError);
+                        }
+                    }, 5000);
+                }
+            }, 3000);
         }
     }
 
@@ -7917,10 +8097,7 @@ function refreshProductTime(productId) {
     }
 }
 
-// 페이지 로드 시 초기화
-document.addEventListener('DOMContentLoaded', () => {
-    window.priceComparisonSite = new PriceComparisonSite();
-});
+// 중복된 DOMContentLoaded 리스너 제거됨 (위쪽에 이미 정의됨)
 
 // 숫자별 댓글 시스템의 추가 함수들
 PriceComparisonSite.prototype.editComment = async function(commentId) {

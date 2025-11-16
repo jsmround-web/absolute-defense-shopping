@@ -418,6 +418,48 @@ function trackPurchaseClick(productName, productCategory) {
     }
 }
 
+function approvePriceChange(reportId, productId, newPrice) {
+    if (adminAuth.requireAuth() && window.priceComparisonSite) {
+        window.priceComparisonSite.approvePriceChange(reportId, productId, newPrice);
+    }
+}
+
+function rejectPriceChange(reportId) {
+    if (adminAuth.requireAuth() && window.priceComparisonSite) {
+        // 신고 정보 찾기
+        const report = window.priceComparisonSite.priceReports ? 
+            window.priceComparisonSite.priceReports.find(r => r.id === reportId) : null;
+        
+        if (!report) {
+            alert('신고를 찾을 수 없습니다.');
+            return;
+        }
+        
+        window.priceComparisonSite.rejectPriceChange(reportId);
+    }
+}
+
+// 품절 신고 승인(상품 숨김) 함수
+function approveOutOfStockReport(reportId, productId) {
+    if (adminAuth.requireAuth() && window.priceComparisonSite) {
+        window.priceComparisonSite.approveOutOfStockReport(reportId, productId);
+    }
+}
+
+// 숨김 상품 복원
+function restoreProduct(productId) {
+    if (adminAuth.requireAuth() && window.priceComparisonSite) {
+        window.priceComparisonSite.restoreProduct(productId);
+    }
+}
+
+// 숨김 상품 완전 삭제
+function hardDeleteProduct(productId) {
+    if (adminAuth.requireAuth() && window.priceComparisonSite) {
+        window.priceComparisonSite.hardDeleteProduct(productId);
+    }
+}
+
 // 페이지가 로드되면 앱 실행
 document.addEventListener('DOMContentLoaded', function() {
     window.priceComparisonSite = new PriceComparisonSite();
@@ -2153,19 +2195,19 @@ class PriceComparisonSite {
                 if (allList) allList.innerHTML = '';
                 if (reportsList) reportsList.innerHTML = '';
                 
-                // 설정 표시
+                // 숨김 상품 리스트 표시
                 if (settingsDiv) settingsDiv.style.display = 'block';
                 
-                // 현재 설정값 로드
-                this.loadOutOfStockSettings();
+                // 숨김 상품 로드
+                this.loadHiddenProducts();
             }
         });
         
-        document.getElementById('saveOutOfStockSettings').addEventListener('click', () => {
-            if (adminAuth.requireAuth()) {
-                this.saveOutOfStockSettings();
-            }
-        });
+        // 기존 품절 설정 저장 버튼은 더 이상 사용하지 않으므로 안전하게 무시
+        const saveOutOfStockSettingsBtn = document.getElementById('saveOutOfStockSettings');
+        if (saveOutOfStockSettingsBtn) {
+            saveOutOfStockSettingsBtn.addEventListener('click', () => {});
+        }
         
         // 관리자 로그아웃 버튼
         document.getElementById('adminLogout').addEventListener('click', () => {
@@ -4010,36 +4052,35 @@ class PriceComparisonSite {
             return '가전';
         }
         
-        // 유아 카테고리
-        else if (name.includes('기저귀') || name.includes('diaper') ||
-                 name.includes('분유') || name.includes('formula') ||
-                 name.includes('물티슈') || name.includes('wet wipe') ||
-                 name.includes('이유식') || name.includes('baby food') ||
-                 name.includes('유아용') || name.includes('baby') || name.includes('아기') || name.includes('infant') ||
-                 name.includes('아동') || name.includes('child') || name.includes('키즈') || name.includes('kids') ||
-                 name.includes('유모차') || name.includes('stroller') || name.includes('카시트') || name.includes('car seat') ||
-                 name.includes('유아복') || name.includes('baby clothes') || name.includes('아기옷') ||
-                 name.includes('장난감') || name.includes('toy') || name.includes('완구') ||
-                 name.includes('유아식품') || name.includes('baby food') || name.includes('아기음식') ||
-                 name.includes('수유') || name.includes('feeding') || name.includes('젖병') || name.includes('bottle') ||
-                 name.includes('유아용품') || name.includes('baby products') || name.includes('아기용품') ||
-                 name.includes('육아') || name.includes('parenting') || name.includes('육아용품') ||
-                 name.includes('아기침대') || name.includes('baby bed') || name.includes('유아침대') ||
-                 name.includes('아기욕조') || name.includes('baby bathtub') || name.includes('유아욕조') ||
-                 name.includes('트루맘') || name.includes('일동') || name.includes('프리미엄') ||
-                 name.includes('베이비') || name.includes('신생아') || name.includes('영아') ||
-                 name.includes('유아식품') || name.includes('아기용품') || name.includes('육아용품') ||
-                 name.includes('임신') || name.includes('출산') || name.includes('수유') ||
-                 name.includes('젖병') || name.includes('이유식') || name.includes('유아장난감') ||
-                 name.includes('아기옷') || name.includes('유아의류') || name.includes('아기용품')) {
-            console.log('→ 유아 카테고리로 분류');
-            return '유아';
+        // 의류 카테고리
+        else if (name.includes('티셔츠') || name.includes('셔츠') || name.includes('t-shirt') ||
+                 name.includes('맨투맨') || name.includes('후드티') || name.includes('후드') ||
+                 name.includes('패딩') || name.includes('코트') || name.includes('자켓') || name.includes('재킷') ||
+                 name.includes('점퍼') || name.includes('jumper') ||
+                 name.includes('청바지') || name.includes('바지') || name.includes('팬츠') || name.includes('jeans') ||
+                 name.includes('슬랙스') || name.includes('반바지') ||
+                 name.includes('원피스') || name.includes('dress') ||
+                 name.includes('스커트') || name.includes('치마') ||
+                 name.includes('니트') || name.includes('가디건') ||
+                 name.includes('트레이닝') || name.includes('조거') ||
+                 name.includes('양말') || name.includes('삭스') || name.includes('socks') ||
+                 name.includes('언더웨어') || name.includes('속옷') || name.includes('브라') || name.includes('팬티') ||
+                 name.includes('잠옷') || name.includes('파자마') || name.includes('pajama') ||
+                 name.includes('운동화') || name.includes('스니커즈') || name.includes('구두') || name.includes('shoes') ||
+                 name.includes('샌들') || name.includes('슬리퍼') ||
+                 name.includes('모자') || name.includes('캡') || name.includes('비니') ||
+                 name.includes('목도리') || name.includes('머플러') ||
+                 name.includes('아우터') || name.includes('outer') ||
+                 name.includes('상의') || name.includes('하의') ||
+                 name.includes('의류') || name.includes('clothes') || name.includes('패션')) {
+            console.log('→ 의류 카테고리로 분류');
+            return '의류';
         }
         
-        // 기타 카테고리 (위에 해당하지 않는 모든 상품)
+        // ETC 카테고리 (위에 해당하지 않는 모든 상품)
         else {
-            console.log('→ 기타 카테고리로 분류 (기본값)');
-            return '기타';
+            console.log('→ ETC 카테고리로 분류 (기본값)');
+            return 'ETC';
         }
     }
 
@@ -4327,7 +4368,7 @@ class PriceComparisonSite {
         try {
             // 로컬 캐싱 확인 (5분 이내 캐시가 있으면 사용)
             if (useCache) {
-                const cacheKey = 'firebase_products_cache_v2';
+                const cacheKey = 'firebase_products_cache_v3';
                 const cacheData = localStorage.getItem(cacheKey);
                 if (cacheData) {
                     try {
@@ -4439,23 +4480,23 @@ class PriceComparisonSite {
             // 로컬 캐시에 저장 (5분간 유효)
             if (useCache && firebaseProducts.length > 0) {
                 try {
-                    const cacheKey = 'firebase_products_cache_v2';
+                    const cacheKey = 'firebase_products_cache_v3';
                     const cacheData = {
                         products: firebaseProducts,
                         timestamp: Date.now()
                     };
                     localStorage.setItem(cacheKey, JSON.stringify(cacheData));
                     console.log('상품 데이터를 로컬 캐시에 저장했습니다.');
-                } catch (cacheError) {
+                    } catch (cacheError) {
                     console.error('캐시 저장 오류:', cacheError);
                     // localStorage 용량 초과 시 오래된 캐시 삭제 시도
                     try {
-                        localStorage.removeItem('firebase_products_cache_v2');
+                        localStorage.removeItem('firebase_products_cache_v3');
                         const cacheData = {
                             products: firebaseProducts,
                             timestamp: Date.now()
                         };
-                        localStorage.setItem('firebase_products_cache_v2', JSON.stringify(cacheData));
+                        localStorage.setItem('firebase_products_cache_v3', JSON.stringify(cacheData));
                     } catch (retryError) {
                         console.error('캐시 재저장 실패:', retryError);
                     }
@@ -4960,8 +5001,11 @@ class PriceComparisonSite {
     }
 
     displayAllProductsAdmin(products) {
+        // 숨김(soft delete) 처리된 상품은 제외
+        const visibleProducts = (products || []).filter(p => p.status !== 'hidden' && !p.hidden);
+        
         // 가격순으로 정렬 (낮은 가격이 위로)
-        const sortedProducts = [...products].sort((a, b) => {
+        const sortedProducts = [...visibleProducts].sort((a, b) => {
             const priceA = this.calculateFinalPrice(a) || 0;
             const priceB = this.calculateFinalPrice(b) || 0;
             return priceA - priceB; // 낮은 가격이 위에
@@ -4969,7 +5013,7 @@ class PriceComparisonSite {
         
         const adminContent = document.getElementById('allProductsList');
         console.log('=== displayAllProductsAdmin 출력 대상:', adminContent);
-        console.log('출력할 내용:', sortedProducts.length, '개 제품');
+        console.log('출력할 내용:', sortedProducts.length, '개 제품 (hidden 제외)');
         adminContent.innerHTML = `
             <h3>전체 제품 관리 (${sortedProducts.length}개)</h3>
             <div class="all-products">
@@ -4982,6 +5026,77 @@ class PriceComparisonSite {
         
         // 드래그 스크롤 설정
         this.setupDragScroll();
+    }
+
+    // 숨김 상품 리스트 표시
+    displayHiddenProducts(products) {
+        const settingsDiv = document.getElementById('outOfStockSettings');
+        const hiddenList = document.getElementById('hiddenProductsList');
+        if (!settingsDiv || !hiddenList) {
+            console.warn('숨김 상품 리스트 요소를 찾을 수 없습니다.');
+            return;
+        }
+
+        const hiddenProducts = (products || []).filter(p => p.status === 'hidden' || p.hidden);
+        console.log('숨김 상품 개수:', hiddenProducts.length);
+
+        if (hiddenProducts.length === 0) {
+            hiddenList.innerHTML = `
+                <div class="no-products">
+                    현재 숨김 처리된 상품이 없습니다.
+                </div>
+            `;
+            return;
+        }
+
+        hiddenList.innerHTML = `
+            <h3>숨김 상품 (${hiddenProducts.length}개)</h3>
+            <div class="all-products">
+                ${hiddenProducts.map(product => `
+                    <div class="admin-product-item hidden-product-item" data-product-id="${product.id}" draggable="true">
+                        <div class="product-info">
+                            <h4>${product.name}</h4>
+                            <p><strong>쇼핑몰:</strong> ${this.getStoreDisplayName(product.store)}</p>
+                            <p><strong>정가:</strong> ${product.originalPrice ? product.originalPrice.toLocaleString() + '원' : '미입력'}</p>
+                            <p><strong>최종가:</strong> ${this.calculateFinalPrice(product).toLocaleString()}원</p>
+                            <p><strong>카테고리:</strong> ${product.category || '기타'}</p>
+                            <p><strong>상태:</strong> 숨김</p>
+                        </div>
+                        <div class="admin-controls">
+                            <button class="edit-btn" onclick="editProduct('${product.id}')">수정</button>
+                            <button class="approve-btn" onclick="restoreProduct('${product.id}')">복원</button>
+                            <button class="reject-btn" onclick="hardDeleteProduct('${product.id}')">삭제</button>
+                            <a href="${product.link || '#'}" target="_blank" class="link-btn">연결</a>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        // 휠 네비게이션 & 드래그 스크롤 재사용
+        this.setupWheelNavigation(hiddenProducts, 'hidden');
+        this.setupDragScroll();
+    }
+
+    // 숨김 상품 로드
+    async loadHiddenProducts() {
+        try {
+            console.log('숨김 상품 로드 시작');
+            
+            // Firebase에서 최신 제품 데이터 로드 (캐시 사용 안 함)
+            await this.loadProductsFromFirebase(false);
+
+            const hiddenProducts = (this.products || []).filter(p => p.status === 'hidden' || p.hidden);
+            console.log('숨김 상품 목록:', hiddenProducts.map(p => ({ id: p.id, name: p.name })));
+
+            this.displayHiddenProducts(hiddenProducts);
+
+            // 현재 관리자 뷰 상태 저장
+            sessionStorage.setItem('currentAdminView', 'hidden');
+        } catch (error) {
+            console.error('숨김 상품 로드 실패:', error);
+            alert('숨김 상품 목록을 불러오는데 실패했습니다.');
+        }
     }
 
     createPendingProductElement(product) {
@@ -5001,7 +5116,7 @@ class PriceComparisonSite {
                 <div class="admin-controls">
                     <button class="approve-btn" onclick="approveProduct('${product.id}')">승인</button>
                     <button class="edit-btn" onclick="editProduct('${product.id}')">수정</button>
-                    <button class="reject-btn" onclick="showDeleteConfirmation('product', '${product.id}', '${product.name}')">삭제</button>
+                    <button class="reject-btn" onclick="showDeleteConfirmation('product', '${product.id}', '${product.name}')">숨김</button>
                     <a href="${product.link || '#'}" target="_blank" class="link-btn">연결</a>
                 </div>
             </div>
@@ -5034,7 +5149,7 @@ class PriceComparisonSite {
                     ${product.status !== 'approved' ? `<button class="approve-btn" onclick="approveProduct('${product.id}')">승인</button>` : ''}
                     <button class="edit-btn" onclick="editProduct('${product.id}')">수정</button>
                     <button class="refresh-btn" onclick="refreshProductTime('${product.id}')">🔄 갱신</button>
-                    ${product.status !== 'rejected' ? `<button class="reject-btn" onclick="showDeleteConfirmation('product', '${product.id}', '${product.name}')">삭제</button>` : ''}
+                    ${product.status !== 'rejected' ? `<button class="reject-btn" onclick="showDeleteConfirmation('product', '${product.id}', '${product.name}')">숨김</button>` : ''}
                     <a href="${product.link || '#'}" target="_blank" class="link-btn">연결</a>
                 </div>
             </div>
@@ -5073,6 +5188,9 @@ class PriceComparisonSite {
             } else if (currentAdminView === 'reports') {
                 console.log('가격 변경 신고 뷰 감지 - 로드 중');
                 this.loadPriceReports();
+            } else if (currentAdminView === 'hidden') {
+                console.log('숨김 상품 뷰 감지 - 로드 중');
+                this.loadHiddenProducts();
             }
         }
         
@@ -5202,10 +5320,10 @@ class PriceComparisonSite {
                                 <select id="editProductCategory">
                                     <option value="">카테고리를 선택하세요</option>
                                     <option value="식품" ${product.category === '식품' ? 'selected' : ''}>식품</option>
+                                    <option value="의류" ${product.category === '의류' ? 'selected' : ''}>의류</option>
                                     <option value="생활" ${product.category === '생활' ? 'selected' : ''}>생활</option>
                                     <option value="가전" ${product.category === '가전' ? 'selected' : ''}>가전</option>
-                                    <option value="유아" ${product.category === '유아' ? 'selected' : ''}>유아</option>
-                                    <option value="기타" ${product.category === '기타' ? 'selected' : ''}>일반딜</option>
+                                    <option value="ETC" ${product.category === 'ETC' ? 'selected' : ''}>ETC</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -5599,6 +5717,14 @@ class PriceComparisonSite {
                 console.warn('로컬 데이터에서 제품을 찾을 수 없음:', productId);
             }
 
+            // 제품 캐시 무효화 (다른 기기에서도 최신 카테고리를 보이게 하기 위함)
+            try {
+                localStorage.removeItem('firebase_products_cache_v3');
+                console.log('제품 수정 후 캐시 무효화 완료');
+            } catch (e) {
+                console.warn('제품 수정 캐시 무효화 중 오류 (무시 가능):', e);
+            }
+
             // 게시글이 있으면 productPosts에도 저장
             if (description) {
                 try {
@@ -5649,6 +5775,145 @@ class PriceComparisonSite {
         } catch (error) {
             console.error('제품 수정 실패:', error);
             alert('제품 수정에 실패했습니다.');
+        }
+    }
+
+    // 숨김 상품 복원 (상품 리스트에 재노출)
+    async restoreProduct(productId) {
+        try {
+            console.log('숨김 상품 복원 시작:', productId);
+
+            const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
+            await window.firebaseUpdateDoc(productRef, {
+                status: 'approved',
+                hidden: false,
+                lastUpdated: new Date().toISOString()
+            });
+
+            // 로컬 데이터 갱신
+            const idx = this.products.findIndex(p => p.id === productId);
+            if (idx !== -1) {
+                this.products[idx].status = 'approved';
+                this.products[idx].hidden = false;
+                this.products[idx].lastUpdated = new Date().toISOString();
+                console.log('로컬 데이터에서 숨김 복원 반영 완료:', this.products[idx]);
+            }
+
+            // 제품 캐시 무효화
+            try {
+                localStorage.removeItem('firebase_products_cache_v3');
+                console.log('숨김 복원 후 캐시 무효화 완료');
+            } catch (e) {
+                console.warn('숨김 복원 캐시 무효화 중 오류 (무시 가능):', e);
+            }
+
+            // Firebase에서 최신 데이터 재로드
+            await this.loadProductsFromFirebase(false);
+
+            // UI 갱신
+            this.forceUIUpdate();
+            this.loadHiddenProducts();
+
+            alert('상품이 복원되어 리스트에 다시 노출됩니다.');
+        } catch (error) {
+            console.error('숨김 상품 복원 실패:', error);
+            alert('숨김 상품 복원에 실패했습니다.');
+        }
+    }
+
+    // 완전 삭제 (Firebase에서 실제 삭제)
+    async hardDeleteProduct(productId) {
+        try {
+            console.log('상품 완전 삭제 시작:', productId);
+
+            let firebaseDeleteSuccess = false;
+
+            // 방법 1: 전역 Firebase 함수 사용
+            if (window.firebaseDeleteDoc && window.firebaseDoc && window.firebaseDb) {
+                try {
+                    const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
+                    await window.firebaseDeleteDoc(productRef);
+                    console.log('Firebase에서 제품 삭제 완료 (방법 1):', productId);
+                    firebaseDeleteSuccess = true;
+                } catch (firebaseError) {
+                    console.error('Firebase 삭제 방법 1 실패:', firebaseError);
+                }
+            }
+
+            // 방법 2: REST API 사용
+            if (!firebaseDeleteSuccess) {
+                try {
+                    const response = await fetch(`https://firestore.googleapis.com/v1/projects/price-match-1f952/databases/(default)/documents/products/${productId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+
+                    if (response.ok) {
+                        console.log('Firebase에서 제품 삭제 완료 (방법 2):', productId);
+                        firebaseDeleteSuccess = true;
+                    } else {
+                        console.error('Firebase 삭제 방법 2 실패:', response.status, response.statusText);
+                    }
+                } catch (fetchError) {
+                    console.error('Firebase 삭제 방법 2 실패:', fetchError);
+                }
+            }
+
+            // 방법 3: 존재 확인 후 삭제
+            if (!firebaseDeleteSuccess && window.firebaseGetDoc && window.firebaseDoc && window.firebaseDb && window.firebaseDeleteDoc) {
+                try {
+                    console.log('방법 3: 문서 존재 확인 후 삭제 시도');
+                    const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
+                    const docSnapshot = await window.firebaseGetDoc(productRef);
+                    if (docSnapshot.exists()) {
+                        await window.firebaseDeleteDoc(productRef);
+                        console.log('Firebase에서 제품 삭제 완료 (방법 3):', productId);
+                        firebaseDeleteSuccess = true;
+                    } else {
+                        console.log('문서가 이미 존재하지 않음:', productId);
+                        firebaseDeleteSuccess = true;
+                    }
+                } catch (error) {
+                    console.error('Firebase 삭제 방법 3 실패:', error);
+                }
+            }
+
+            if (!firebaseDeleteSuccess) {
+                console.error('모든 Firebase 삭제 방법이 실패했습니다!');
+                alert('Firebase에서 제품 삭제에 실패했습니다. 관리자에게 문의하세요.');
+                return;
+            }
+
+            // 로컬 데이터에서 제거
+            const originalLength = this.products.length;
+            this.products = this.products.filter(p => p.id !== productId);
+            console.log(`로컬 데이터에서 제품 제거 완료 (완전 삭제): ${originalLength} → ${this.products.length}`);
+
+            // DOM에서도 제거
+            const productElement = document.querySelector(`[data-product-id="${productId}"]`);
+            if (productElement) {
+                productElement.remove();
+            }
+
+            // 제품 캐시 무효화
+            try {
+                localStorage.removeItem('firebase_products_cache_v3');
+                console.log('상품 완전 삭제 후 캐시 무효화 완료');
+            } catch (e) {
+                console.warn('완전 삭제 캐시 무효화 중 오류 (무시 가능):', e);
+            }
+
+            // Firebase에서 최신 데이터 재로드 및 UI 갱신
+            await this.loadProductsFromFirebase(false);
+            this.forceUIUpdate();
+            this.loadHiddenProducts();
+
+            alert('상품이 Firebase에서 완전히 삭제되었습니다.');
+        } catch (error) {
+            console.error('상품 완전 삭제 실패:', error);
+            alert('상품 완전 삭제에 실패했습니다.');
         }
     }
 
@@ -5722,10 +5987,10 @@ class PriceComparisonSite {
                                 <label for="editCategory">카테고리</label>
                                 <select id="editCategory">
                                     <option value="식품" ${product && product.category === '식품' ? 'selected' : ''}>식품</option>
+                                    <option value="의류" ${product && product.category === '의류' ? 'selected' : ''}>의류</option>
                                     <option value="생활" ${product && product.category === '생활' ? 'selected' : ''}>생활</option>
                                     <option value="가전" ${product && product.category === '가전' ? 'selected' : ''}>가전</option>
-                                    <option value="유아" ${product && product.category === '유아' ? 'selected' : ''}>유아</option>
-                                    <option value="기타" ${product && product.category === '기타' ? 'selected' : (!product ? 'selected' : '')}>일반딜</option>
+                                    <option value="ETC" ${product && product.category === 'ETC' ? 'selected' : (!product ? 'selected' : '')}>ETC</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -5753,6 +6018,15 @@ class PriceComparisonSite {
                                     <option value="approved" ${report.status === 'approved' ? 'selected' : ''}>승인됨</option>
                                     <option value="rejected" ${report.status === 'rejected' ? 'selected' : ''}>거부됨</option>
                                 </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="editProductHidden" style="font-weight:600;">숨김</label>
+                                <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                                    <input type="checkbox" id="editProductHidden" ${product && (product.status === 'hidden' || product.hidden) ? 'checked' : ''}>
+                                    <span style="font-size:0.85rem; color:#4b5563;">
+                                        체크하면 이 상품이 <strong>숨김 처리</strong>되어 메인/전체 리스트에서 사라지고, 관리 ➜ 숨김 탭에서만 보입니다.
+                                    </span>
+                                </div>
                             </div>
                             <div class="form-actions">
                                 <button type="button" class="cancel-btn" onclick="closeEditPopup()">취소</button>
@@ -5981,6 +6255,7 @@ class PriceComparisonSite {
                 reporter: document.getElementById('editReporter').value.trim() || '신고자 미입력',
                 status: document.getElementById('editReportStatus').value
             };
+            const hiddenChecked = document.getElementById('editProductHidden')?.checked || false;
 
             // 이미지 처리
             let imageUrls = product ? (product.imageUrls || (product.imageUrl ? [product.imageUrl] : [])) : [];
@@ -6063,7 +6338,10 @@ class PriceComparisonSite {
                 imageUrls: imageUrls,
                 imageUrl: imageUrls.length > 0 ? imageUrls[0] : (directImageUrl || ''),
                 description: description,
-                lastUpdated: new Date().toISOString()
+                lastUpdated: new Date().toISOString(),
+                // 숨김 여부는 여기서만 컨트롤 (상품 상태)
+                status: hiddenChecked ? 'hidden' : (product ? (product.status || 'approved') : 'approved'),
+                hidden: hiddenChecked
             };
 
             // Firebase 신고 업데이트
@@ -6127,7 +6405,7 @@ class PriceComparisonSite {
             }
             
             // 캐시 무효화 (승인 후 최신 데이터를 가져오기 위해)
-            const cacheKey = 'firebase_products_cache_v2';
+            const cacheKey = 'firebase_products_cache_v3';
             localStorage.removeItem(cacheKey);
             console.log('제품 승인 후 캐시 무효화 완료');
             
@@ -6820,71 +7098,30 @@ class PriceComparisonSite {
         try {
             console.log('제품 삭제 시작:', productId);
             
-            // Firebase에서 제품 삭제 - 여러 방법 시도
-            let firebaseDeleteSuccess = false;
+            // 실제 삭제 대신 "숨김(soft delete)" 처리
+            const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
+            await window.firebaseUpdateDoc(productRef, {
+                status: 'hidden',
+                hidden: true,
+                lastUpdated: new Date().toISOString()
+            });
+            console.log('Firebase에서 제품을 hidden 상태로 소프트 삭제 처리 완료:', productId);
             
-            // 방법 1: 전역 Firebase 함수 사용 (모듈식 SDK)
-            if (window.firebaseDeleteDoc && window.firebaseDoc && window.firebaseDb) {
-                try {
-                    const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
-                    await window.firebaseDeleteDoc(productRef);
-                    console.log('Firebase에서 제품 삭제 완료 (방법 1):', productId);
-                    firebaseDeleteSuccess = true;
-                } catch (firebaseError) {
-                    console.error('Firebase 삭제 방법 1 실패:', firebaseError);
-                }
+            // 로컬 데이터에서도 상태를 hidden 으로 변경 (배열에서는 제거하지 않고 숨김 플래그만 변경)
+            const localIndex = this.products.findIndex(p => p.id === productId);
+            if (localIndex !== -1) {
+                this.products[localIndex].status = 'hidden';
+                this.products[localIndex].hidden = true;
+                console.log('로컬 데이터에서 제품 hidden 상태 반영 완료:', this.products[localIndex]);
             }
-            
-            // 방법 2: fetch API로 직접 삭제
-            if (!firebaseDeleteSuccess) {
-                try {
-                    const response = await fetch(`https://firestore.googleapis.com/v1/projects/price-match-1f952/databases/(default)/documents/products/${productId}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        console.log('Firebase에서 제품 삭제 완료 (방법 2):', productId);
-                        firebaseDeleteSuccess = true;
-                    } else {
-                        console.error('Firebase 삭제 방법 2 실패:', response.status, response.statusText);
-                    }
-                } catch (fetchError) {
-                    console.error('Firebase 삭제 방법 2 실패:', fetchError);
-                }
+
+            // 제품 캐시 무효화
+            try {
+                localStorage.removeItem('firebase_products_cache_v3');
+                console.log('제품 숨김 후 캐시 무효화 완료');
+            } catch (e) {
+                console.warn('제품 숨김 캐시 무효화 중 오류 (무시 가능):', e);
             }
-            
-            // 방법 3: 문서 존재 확인 후 삭제 시도
-            if (!firebaseDeleteSuccess && window.firebaseGetDoc && window.firebaseDoc && window.firebaseDb && window.firebaseDeleteDoc) {
-                try {
-                    console.log('방법 3: 문서 존재 확인 후 삭제 시도');
-                    const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
-                    const docSnapshot = await window.firebaseGetDoc(productRef);
-                    if (docSnapshot.exists()) {
-                        await window.firebaseDeleteDoc(productRef);
-                        console.log('Firebase에서 제품 삭제 완료 (방법 3):', productId);
-                        firebaseDeleteSuccess = true;
-                    } else {
-                        console.log('문서가 이미 존재하지 않음:', productId);
-                        firebaseDeleteSuccess = true; // 이미 삭제된 것으로 간주
-                    }
-                } catch (error) {
-                    console.error('Firebase 삭제 방법 3 실패:', error);
-                }
-            }
-            
-            if (!firebaseDeleteSuccess) {
-                console.error('모든 Firebase 삭제 방법이 실패했습니다!');
-                alert('Firebase에서 제품 삭제에 실패했습니다. 관리자에게 문의하세요.');
-                return;
-            }
-            
-            // 로컬 데이터에서 제품 제거
-            const originalLength = this.products.length;
-            this.products = this.products.filter(p => p.id !== productId);
-            console.log(`로컬 데이터에서 제품 제거 완료: ${originalLength} → ${this.products.length}`);
             
             // DOM에서도 제거
             const productElement = document.querySelector(`[data-product-id="${productId}"]`);
@@ -7065,8 +7302,11 @@ class PriceComparisonSite {
                     </div>
                     <div class="admin-controls">
                         ${report.status === 'pending' ? `
-                            <button class="reject-btn" onclick="showDeleteConfirmation('report', '${report.id}', '${productName}')">삭제</button>
+                            <button class="approve-btn" onclick="approveOutOfStockReport('${report.id}', '${report.productId}')">품절 승인(상품 삭제)</button>
+                            <button class="reject-btn" onclick="showDeleteConfirmation('report', '${report.id}', '${productName}')">신고 삭제</button>
                             ${report.productLink ? `<a href="${report.productLink}" target="_blank" class="link-btn">연결</a>` : ''}
+                        ` : report.status === 'approved' && report.productLink ? `
+                            <a href="${report.productLink}" target="_blank" class="link-btn">확인</a>
                         ` : ''}
                     </div>
                 </div>
@@ -7103,6 +7343,67 @@ class PriceComparisonSite {
                 </div>
             </div>
         `;
+    }
+
+    async approveOutOfStockReport(reportId, productId) {
+        try {
+            console.log('품절 신고 승인 시작 (소프트 삭제 처리):', { reportId, productId });
+            
+            // 1) Firebase에서 해당 제품을 "숨김" 상태로 업데이트 (실제 삭제 X)
+            const productRef = window.firebaseDoc(window.firebaseDb, 'products', productId);
+            await window.firebaseUpdateDoc(productRef, {
+                status: 'hidden',
+                hidden: true,
+                lastUpdated: new Date().toISOString()
+            });
+            console.log('Firebase 제품 상태를 hidden 으로 변경 완료:', productId);
+
+            // 2) 로컬 products 배열에서도 상태 변경
+            const localProductIndex = this.products.findIndex(p => p.id === productId);
+            if (localProductIndex !== -1) {
+                this.products[localProductIndex].status = 'hidden';
+                this.products[localProductIndex].hidden = true;
+                console.log('로컬 제품 상태 hidden 반영 완료:', this.products[localProductIndex]);
+            }
+
+            // 3) 신고 상태를 approved 로 변경
+            const reportRef = window.firebaseDoc(window.firebaseDb, 'priceReports', reportId);
+            await window.firebaseUpdateDoc(reportRef, { status: 'approved' });
+
+            if (this.priceReports) {
+                const idx = this.priceReports.findIndex(r => r.id === reportId);
+                if (idx !== -1) {
+                    this.priceReports[idx].status = 'approved';
+                    console.log('로컬 품절 신고 상태 업데이트 완료:', this.priceReports[idx]);
+                }
+            }
+
+            // 제품 캐시 무효화
+            try {
+                localStorage.removeItem('firebase_products_cache_v3');
+                console.log('품절 신고 승인 후 제품 캐시 무효화 완료');
+            } catch (e) {
+                console.warn('품절 승인 캐시 무효화 중 오류 (무시 가능):', e);
+            }
+
+            alert('품절 신고가 승인되어 해당 상품이 숨김 처리되었습니다.');
+
+            // 4) Firebase에서 최신 데이터 재로드 후 메인 / 관리자 UI 새로고침
+            await this.loadProductsFromFirebase(false);
+            this.forceUIUpdate();
+
+            // 5) 신고 목록이 열려 있으면 새로고침
+            const reportsList = document.getElementById('priceReportsList');
+            if (reportsList && reportsList.innerHTML.trim() !== '') {
+                this.loadPriceReports();
+            }
+
+            // 6) 알림 업데이트
+            this.updateAdminNotification();
+        } catch (error) {
+            console.error('품절 신고 승인 실패:', error);
+            alert('품절 신고 승인에 실패했습니다. 다시 시도해주세요.');
+        }
     }
 
     async approvePriceChange(reportId, productId, newPrice) {
@@ -7178,16 +7479,28 @@ class PriceComparisonSite {
                 localProduct.link = newLink;
             }
             
-            // UI 강제 업데이트
+            // 3) 캐시 무효화 후 Firebase에서 최신 제품 데이터 다시 로드
+            const cacheKey = 'firebase_products_cache_v2';
+            try {
+                localStorage.removeItem(cacheKey);
+                console.log('가격 변경 승인 후 제품 캐시 무효화 완료');
+            } catch (e) {
+                console.warn('제품 캐시 무효화 중 오류 (무시 가능):', e);
+            }
+
+            await this.loadProductsFromFirebase(false); // 캐시 사용하지 않고 강제 재로드
+            console.log('가격 변경 승인 후 Firebase에서 최신 제품 데이터 재로드 완료');
+
+            // 4) 메인 / 관리자 UI 강제 업데이트
             this.forceUIUpdate();
-            
-            // UI 새로고침 - 리스트가 펼쳐져 있을 때만
+
+            // 5) 신고 목록이 열려 있으면 새로고침
             const reportsList = document.getElementById('priceReportsList');
             if (reportsList && reportsList.innerHTML.trim() !== '') {
                 this.loadPriceReports();
             }
             
-            // 알림 업데이트
+            // 6) 알림 업데이트
             this.updateAdminNotification();
             
         } catch (error) {
@@ -7410,10 +7723,10 @@ class PriceComparisonSite {
         const categoryCounts = {
             '특가': approvedProducts.filter(p => p.category === '특가').length,
             '식품': approvedProducts.filter(p => p.category === '식품').length,
+            '의류': approvedProducts.filter(p => p.category === '의류').length,
             '생활': approvedProducts.filter(p => p.category === '생활').length,
             '가전': approvedProducts.filter(p => p.category === '가전').length,
-            '유아': approvedProducts.filter(p => p.category === '유아').length,
-            '기타': approvedProducts.filter(p => p.category === '기타').length
+            'ETC': approvedProducts.filter(p => p.category === 'ETC').length
         };
         
         console.log('카테고리별 제품 수:', categoryCounts);
@@ -7427,14 +7740,14 @@ class PriceComparisonSite {
         if (specialEl) specialEl.textContent = categoryCounts['특가'];
         const foodEl = document.getElementById('foodCount');
         if (foodEl) foodEl.textContent = categoryCounts['식품'];
+        const clothesEl = document.getElementById('clothesCount');
+        if (clothesEl) clothesEl.textContent = categoryCounts['의류'];
         const dailyEl = document.getElementById('dailyCount');
         if (dailyEl) dailyEl.textContent = categoryCounts['생활'];
         const elecEl = document.getElementById('electronicsCount');
         if (elecEl) elecEl.textContent = categoryCounts['가전'];
-        const babyEl = document.getElementById('babyCount');
-        if (babyEl) babyEl.textContent = categoryCounts['유아'];
         const etcEl = document.getElementById('etcCount');
-        if (etcEl) etcEl.textContent = categoryCounts['기타'];
+        if (etcEl) etcEl.textContent = categoryCounts['ETC'];
         
         console.log('=== 카테고리 카운트 업데이트 완료 ===');
     }
@@ -7445,10 +7758,10 @@ class PriceComparisonSite {
         const icons = {
             '특가': '',
             '식품': '🍚',
+            '의류': '👕',
             '생활': '🏠',
             '가전': '🌀',
-            '유아': '🍼',
-            '기타': ''
+            'ETC': '🎸'
         };
         return icons[category] || '';
     }
@@ -7459,10 +7772,10 @@ class PriceComparisonSite {
         const displayNames = {
             '특가': '초특가',
             '식품': '식품',
+            '의류': '의류',
             '생활': '생활',
             '가전': '가전',
-            '유아': '유아',
-            '기타': '일반딜'
+            'ETC': 'ETC'
         };
         const name = displayNames[category] || category;
         return icon ? `<span style="font-size: 0.7em; vertical-align: middle;">${icon}</span> ${name}` : name;
@@ -7473,10 +7786,10 @@ class PriceComparisonSite {
         const displayNames = {
             '특가': '핫딜',
             '식품': '식품',
+            '의류': '의류',
             '생활': '생활',
             '가전': '가전',
-            '유아': '유아',
-            '기타': '일반딜'
+            'ETC': 'ETC'
         };
         const name = displayNames[category] || category;
         // 특가(핫딜)인 경우 노란색 번개 아이콘 추가 (세로로 길고 가로로 짧게)
@@ -7495,7 +7808,7 @@ class PriceComparisonSite {
                     </span><span class=\"discount-rate-high\">핫딜</span>`;
         const icon = this.getCategoryIcon(category);
         const categoryLabel = icon ? `<span style="font-size: 0.85em; vertical-align: middle;">${icon}</span> ${name}` : name;
-        if (['식품','생활','가전','유아'].includes(category)) {
+        if (['식품','생활','가전','의류','ETC'].includes(category)) {
             return `${hotdealLabel} ${categoryLabel}`;
         }
         return categoryLabel;
@@ -8533,16 +8846,29 @@ window.showPriceChangeModal = function(productId, currentPrice, currentLink) {
         <div id="priceChangeModal" class="modal-overlay" onclick="if(event.target.id === 'priceChangeModal') closePriceChangeModal()">
             <div class="modal-content-small" style="position: relative;">
                 <div class="modal-header-small" style="position: relative;">
-                    ${isAdmin ? `
-                        <button onclick="event.stopPropagation(); if(window.priceComparisonSite) { window.priceComparisonSite.editProduct('${productId}'); closePriceChangeModal(); } else { alert('관리자 수정 기능을 사용할 수 없습니다.'); }" 
-                                style="position: absolute; top: 60px; right: 4px; background: #3b82f6; color: white; border: none; border-radius: 3px; padding: 2px 6px; font-size: 9px; cursor: pointer; z-index: 1000; font-weight: bold; opacity: 0.85; line-height: 1.2;">
-                            관리자<br>수정
-                        </button>
-                    ` : ''}
                     <h3>가격 변동 신고</h3>
                     <button onclick="closePriceChangeModal()" class="close-btn-small">&times;</button>
                 </div>
                 <div class="modal-body-small">
+                    ${isAdmin ? `
+                        <div style="display:flex; justify-content:flex-end; gap:4px; margin-bottom:8px;">
+                            <button 
+                                onclick="event.stopPropagation(); if(window.priceComparisonSite) { window.priceComparisonSite.editProduct('${productId}'); closePriceChangeModal(); } else { alert('관리자 수정 기능을 사용할 수 없습니다.'); }"
+                                style="background:#3b82f6; color:white; border:none; border-radius:3px; padding:2px 6px; font-size:9px; cursor:pointer; font-weight:bold; opacity:0.9; line-height:1.4;">
+                                관리자수정
+                            </button>
+                            <button 
+                                onclick="event.stopPropagation(); if(window.priceComparisonSite) { window.priceComparisonSite.deleteProduct('${productId}'); closePriceChangeModal(); } else { alert('숨김 기능을 사용할 수 없습니다.'); }"
+                                style="background:#6b7280; color:white; border:none; border-radius:3px; padding:2px 6px; font-size:9px; cursor:pointer; font-weight:bold; opacity:0.9; line-height:1.4;">
+                                숨김
+                            </button>
+                            <button 
+                                onclick="event.stopPropagation(); const linkInput = document.getElementById('priceChangeLink'); const url = (linkInput && linkInput.value) ? linkInput.value : '${currentLink || ''}'; if(url){ window.open(url, '_blank'); } else { alert('연결할 링크가 없습니다.'); }"
+                                style="background:#10b981; color:white; border:none; border-radius:3px; padding:2px 6px; font-size:9px; cursor:pointer; font-weight:bold; opacity:0.9; line-height:1.4;">
+                                연결
+                            </button>
+                        </div>
+                    ` : ''}
                     <div class="form-group">
                         <label for="priceChangeLink">상품 링크</label>
                         <input type="url" id="priceChangeLink" value="${currentLink || ''}" placeholder="https://example.com" style="width: 100%; padding: 8px;">

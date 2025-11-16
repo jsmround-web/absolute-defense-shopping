@@ -1838,27 +1838,30 @@ body {
 /* 초특가(핫딜) 스타일을 식품/생활/가전/유아에도 적용 */
 .category-item[data-category="특가"],
 .category-item[data-category="식품"],
+.category-item[data-category="의류"],
 .category-item[data-category="생활"],
 .category-item[data-category="가전"],
-.category-item[data-category="유아"] {
+.category-item[data-category="ETC"] {
     background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
     border: 1px solid #fde047;
 }
 
 .category-item[data-category="특가"] .category-name,
 .category-item[data-category="식품"] .category-name,
+.category-item[data-category="의류"] .category-name,
 .category-item[data-category="생활"] .category-name,
 .category-item[data-category="가전"] .category-name,
-.category-item[data-category="유아"] .category-name {
+.category-item[data-category="ETC"] .category-name {
     color: #854d0e;
     font-weight: 600;
 }
 
 .category-item[data-category="특가"] .category-count,
 .category-item[data-category="식품"] .category-count,
+.category-item[data-category="의류"] .category-count,
 .category-item[data-category="생활"] .category-count,
 .category-item[data-category="가전"] .category-count,
-.category-item[data-category="유아"] .category-count {
+.category-item[data-category="ETC"] .category-count {
     background: #fde047;
     color: #854d0e;
     font-weight: 700;
@@ -1866,9 +1869,10 @@ body {
 
 .category-item[data-category="특가"]:hover,
 .category-item[data-category="식품"]:hover,
+.category-item[data-category="의류"]:hover,
 .category-item[data-category="생활"]:hover,
 .category-item[data-category="가전"]:hover,
-.category-item[data-category="유아"]:hover {
+.category-item[data-category="ETC"]:hover {
     background: linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%);
     border-color: #fbbf24;
     transform: translateY(-1px);
@@ -1876,9 +1880,10 @@ body {
 
 .category-item[data-category="특가"].active,
 .category-item[data-category="식품"].active,
+.category-item[data-category="의류"].active,
 .category-item[data-category="생활"].active,
 .category-item[data-category="가전"].active,
-.category-item[data-category="유아"].active {
+.category-item[data-category="ETC"].active {
     background: linear-gradient(135deg, #fde047, #fbbf24);
     color: #854d0e;
     border-color: #f59e0b;
@@ -1886,17 +1891,19 @@ body {
 
 .category-item[data-category="특가"].active .category-name,
 .category-item[data-category="식품"].active .category-name,
+.category-item[data-category="의류"].active .category-name,
 .category-item[data-category="생활"].active .category-name,
 .category-item[data-category="가전"].active .category-name,
-.category-item[data-category="유아"].active .category-name {
+.category-item[data-category="ETC"].active .category-name {
     color: #854d0e;
 }
 
 .category-item[data-category="특가"].active .category-count,
 .category-item[data-category="식품"].active .category-count,
+.category-item[data-category="의류"].active .category-count,
 .category-item[data-category="생활"].active .category-count,
 .category-item[data-category="가전"].active .category-count,
-.category-item[data-category="유아"].active .category-count {
+.category-item[data-category="ETC"].active .category-count {
     background: #fef3c7;
     color: #854d0e;
 }

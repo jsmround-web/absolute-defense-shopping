@@ -1579,11 +1579,11 @@ class PriceComparisonSite {
         const lastPurchaseDateText = formatDateForBadge(product.lastPurchaseAt || product.lastPurchaseDate);
 
         const createdBadge = createdDateText
-            ? `<span class="product-created-date" style="font-size:0.65rem; color:#111827; margin-left:4px;">${createdDateText} 등록</span>`
+            ? `<span class="product-created-date" style="font-size:0.65rem; color:#111827; margin-left:4px;">(${createdDateText} 업뎃)</span>`
             : '';
-        // 최근 구매일은 "최근 : MM/DD" 형식으로, 값이 있을 때만 표시
+        // 최근 구매일은 "(최근 : MM/DD)" 형식으로, 값이 있을 때만 표시
         const lastPurchaseBadge = lastPurchaseDateText
-            ? `<span class="product-last-purchase-date" style="font-size:0.65rem; color:#111827; margin-left:4px;">최근 : ${lastPurchaseDateText}</span>`
+            ? `<span class="product-last-purchase-date" style="font-size:0.65rem; color:#111827; margin-left:4px;">(최근 : ${lastPurchaseDateText})</span>`
             : '';
 
         // 썸네일 이미지 HTML - 이미지 로드 실패 시 자동 처리 및 최적화

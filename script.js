@@ -1579,11 +1579,13 @@ class PriceComparisonSite {
         const lastPurchaseDateText = formatDateForBadge(product.lastPurchaseAt || product.lastPurchaseDate);
 
         const createdBadge = createdDateText
-            ? `<span class="product-created-date" style="font-size:0.65rem; color:#111827; margin-left:4px;">(${createdDateText} 업뎃)</span>`
+            ? `<span class="product-created-date" style="font-size:0.65rem; color:#111827;">(${createdDateText} 업뎃)</span>`
             : '';
-        // 최근 구매일은 "(최근 : MM/DD)" 형식으로, 값이 있을 때만 표시
+        // PC/모바일에 따라 최근 구매일 표시 형식을 다르게 적용
+        const isMobileView = window.innerWidth <= 768;
+        // 모바일: (최근 : MM/DD) / PC: (MM/DD)
         const lastPurchaseBadge = lastPurchaseDateText
-            ? `<span class="product-last-purchase-date" style="font-size:0.65rem; color:#111827; margin-left:4px;">(최근 : ${lastPurchaseDateText})</span>`
+            ? `<span class="product-last-purchase-date" style="font-size:0.65rem; color:#111827;">${isMobileView ? `(최근 : ${lastPurchaseDateText})` : `(${lastPurchaseDateText})`}</span>`
             : '';
 
         // 썸네일 이미지 HTML - 이미지 로드 실패 시 자동 처리 및 최적화
@@ -1630,12 +1632,10 @@ class PriceComparisonSite {
                             <div class="row-bottom">
                                 <div class="store-time-info">
                                     <span class="product-store">
-                                        ${this.getStoreDisplayName(product.store) || '미선택'}
-                                        ${createdBadge}
-                                    </span>
-                                    <span class="purchase-count-text">
-                                        ${(product.purchaseCount || 0)}구매
-                                        ${lastPurchaseBadge}
+                                        ${this.getStoreDisplayName(product.store) || '미선택'}${createdBadge}
+                                        <span class="purchase-count-text">
+                                            ${(product.purchaseCount || 0)}구매${lastPurchaseBadge}
+                                        </span>
                                     </span>
                                     <span class="product-price">${finalPrice.toLocaleString()}원</span>
                                 </div>
@@ -1709,10 +1709,12 @@ class PriceComparisonSite {
                             </div>
                             <div class="row-bottom">
                                 <div class="store-time-info">
-                                    <span class="product-store">${this.getStoreDisplayName(product.store) || '미선택'}</span>
-                                    <span class="purchase-count-text">
-                                        ${(product.purchaseCount || 0)}구매
-                                        <span class="product-last-purchase-date" style="font-size:0.65rem; color:#111827; margin-left:4px;">최근 : 11/16</span>
+                                    <span class="product-store">
+                                        ${this.getStoreDisplayName(product.store) || '미선택'}
+                                        <span class="purchase-count-text">
+                                            ${(product.purchaseCount || 0)}구매
+                                            <span class="product-last-purchase-date" style="font-size:0.65rem; color:#111827; margin-left:4px;">(최근 : 11/16)</span>
+                                        </span>
                                     </span>
                                 </div>
                                 <div class="product-buttons">

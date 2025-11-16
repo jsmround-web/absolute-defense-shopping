@@ -1554,7 +1554,38 @@ class PriceComparisonSite {
             thumbnailUrl = '';
             console.log(`[이미지 없음] ${product.name}: product.imageUrls=${JSON.stringify(product.imageUrls)}, product.imageUrl=${product.imageUrl}`);
         }
-        
+
+        // 등록일 / 최근 구매일 포맷팅
+        const formatDateForBadge = (date) => {
+            try {
+                if (!date) return '';
+                let d;
+                if (date.toDate) {
+                    d = date.toDate();
+                } else {
+                    d = new Date(date);
+                }
+                if (isNaN(d.getTime())) return '';
+                const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                const day = d.getDate().toString().padStart(2, '0');
+                return `${month}/${day}`;
+            } catch (e) {
+                console.error('날짜 포맷팅 오류:', e, date);
+                return '';
+            }
+        };
+
+        const createdDateText = formatDateForBadge(product.createdAt);
+        const lastPurchaseDateText = formatDateForBadge(product.lastPurchaseAt || product.lastPurchaseDate);
+
+        const createdBadge = createdDateText
+            ? `<span class="product-created-date" style="font-size:0.65rem; color:#111827; margin-left:4px;">${createdDateText} 등록</span>`
+            : '';
+        // 최근 구매일은 "최근 : MM/DD" 형식으로, 값이 있을 때만 표시
+        const lastPurchaseBadge = lastPurchaseDateText
+            ? `<span class="product-last-purchase-date" style="font-size:0.65rem; color:#111827; margin-left:4px;">최근 : ${lastPurchaseDateText}</span>`
+            : '';
+
         // 썸네일 이미지 HTML - 이미지 로드 실패 시 자동 처리 및 최적화
         // Firebase Storage URL이 만료되었거나 접근 권한이 없을 경우를 대비한 처리
         let thumbnailHtml = '';
@@ -1598,8 +1629,14 @@ class PriceComparisonSite {
                             </div>
                             <div class="row-bottom">
                                 <div class="store-time-info">
-                                    <span class="product-store">${this.getStoreDisplayName(product.store) || '미선택'}</span>
-                                    <span class="purchase-count-text">${(product.purchaseCount || 0)}구매</span>
+                                    <span class="product-store">
+                                        ${this.getStoreDisplayName(product.store) || '미선택'}
+                                        ${createdBadge}
+                                    </span>
+                                    <span class="purchase-count-text">
+                                        ${(product.purchaseCount || 0)}구매
+                                        ${lastPurchaseBadge}
+                                    </span>
                                     <span class="product-price">${finalPrice.toLocaleString()}원</span>
                                 </div>
                                 <div class="product-buttons">
@@ -1673,7 +1710,10 @@ class PriceComparisonSite {
                             <div class="row-bottom">
                                 <div class="store-time-info">
                                     <span class="product-store">${this.getStoreDisplayName(product.store) || '미선택'}</span>
-                                    <span class="purchase-count-text">${(product.purchaseCount || 0)}구매</span>
+                                    <span class="purchase-count-text">
+                                        ${(product.purchaseCount || 0)}구매
+                                        <span class="product-last-purchase-date" style="font-size:0.65rem; color:#111827; margin-left:4px;">최근 : 11/16</span>
+                                    </span>
                                 </div>
                                 <div class="product-buttons">
                                     <button class="price-report-btn" onclick="event.stopPropagation(); showPriceChangeModal('${product.id}', ${finalPrice}, '${product.link || ''}')">바뀜신고</button>
@@ -1951,26 +1991,31 @@ class PriceComparisonSite {
         }
     }
 
-    // 구매 카운트 증가
+    // 구매 카운트 증가 + 최근 구매일 기록
     async incrementPurchaseCount(productId) {
         try {
             const productRef = window.firebaseDoc(window.firestoreDB, 'products', productId);
             const productSnap = await window.firebaseGetDoc(productRef);
             
             if (productSnap.exists()) {
-                const currentCount = productSnap.data().purchaseCount || 0;
+                const data = productSnap.data();
+                const currentCount = data.purchaseCount || 0;
+                const now = new Date();
+
                 await window.firebaseUpdateDoc(productRef, {
-                    purchaseCount: currentCount + 1
+                    purchaseCount: currentCount + 1,
+                    lastPurchaseAt: now.toISOString()
                 });
                 
                 // 로컬 products 배열도 업데이트
                 const product = this.products.find(p => p.id === productId);
                 if (product) {
                     product.purchaseCount = currentCount + 1;
+                    product.lastPurchaseAt = now.toISOString();
                 }
             }
         } catch (error) {
-            console.error('구매 카운트 증가 오류:', error);
+            console.error('구매 카운트 증가/최근 구매일 기록 오류:', error);
         }
     }
 

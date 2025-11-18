@@ -121,6 +121,68 @@ body {
     padding: 0 !important;
     line-height: 1.2 !important;
     font-weight: 600 !important;
+    position: relative !important;
+    display: inline-block !important;
+}
+
+/* 방문자 카운터 배지 (로고 우측) */
+.visitor-counter-badge {
+    position: absolute !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    left: calc(100% + 8px) !important;
+    font-size: 0.7rem !important;
+    font-weight: 400 !important;
+    color: #666 !important;
+    background: rgba(255, 255, 255, 0.85) !important;
+    padding: 2px 6px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    line-height: 1.2 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+}
+
+.visitor-counter-badge .visitor-line-1,
+.visitor-counter-badge .visitor-line-2 {
+    display: block !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+}
+
+.visitor-counter-badge .visitor-line-2 {
+    margin-top: 1px !important;
+}
+
+.visitor-counter-badge .visitor-text {
+    font-size: 0.7rem !important;
+    color: #666 !important;
+}
+
+.visitor-counter-badge .visitor-count {
+    font-weight: 700 !important;
+    color: #2563eb !important;
+    margin: 0 2px !important;
+}
+
+/* 모바일에서 방문자 카운터 크기 조정 */
+@media screen and (max-width: 768px) {
+    .visitor-counter-badge {
+        font-size: 0.65rem !important;
+        left: calc(100% + 6px) !important;
+        padding: 2px 5px !important;
+    }
+    
+    .visitor-counter-badge .visitor-text {
+        font-size: 0.65rem !important;
+    }
+    
+    .visitor-counter-badge .visitor-line-1,
+    .visitor-counter-badge .visitor-line-2 {
+        line-height: 1.1 !important;
+    }
 }
 
 /* PC용 버튼 그룹 스타일 */
@@ -351,7 +413,7 @@ body {
         align-items: center !important;
         gap: 0px !important;
         padding: 0px 4px !important; /* 패딩 최소화 - 로고를 좌측 모서리에 가깝게 */
-        margin: 0px !important;
+        margin: 0px 0px 0px -8px !important; /* 모바일에서 로고를 더 왼쪽으로 이동 */
         height: auto !important;
         min-height: auto !important;
         flex: 0 0 auto !important;

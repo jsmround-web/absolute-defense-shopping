@@ -157,7 +157,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getFirestore, collection, addDoc, getDocs, getDoc, onSnapshot, orderBy, query, doc, updateDoc, where, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, getDocs, getDoc, onSnapshot, orderBy, query, doc, updateDoc, where, setDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
         
@@ -227,6 +227,7 @@ const firebaseConfig = {
         window.firebaseSetDoc = setDoc;
         window.firebaseDeleteDoc = deleteDoc;
         window.firebaseAuth = auth;
+        window.firebaseServerTimestamp = serverTimestamp;
     </script>
 </head>
 <body>
@@ -252,7 +253,19 @@ const firebaseConfig = {
             </div>
 
             <div class="header-center">
-                <h1 class="logo" onclick="goToHome()" style="cursor: pointer;">절대방어 쇼핑</h1>
+                <h1 class="logo" onclick="goToHome()" style="cursor: pointer;">
+                    절대방어 쇼핑
+                    <span class="visitor-counter-badge" id="dailyVisitorBadge">
+                        <span class="visitor-line-1">
+                            <span class="visitor-text">오늘</span>
+                            <span id="dailyVisitors" class="visitor-count">0</span>
+                            <span class="visitor-text">명</span>
+                        </span>
+                        <span class="visitor-line-2">
+                            <span class="visitor-text">방문</span>
+                        </span>
+                    </span>
+                </h1>
             </div>
 
             <div class="header-right">

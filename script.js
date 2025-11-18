@@ -320,71 +320,192 @@ class GoogleAnalyticsTracker {
 // 전역 추적기 인스턴스
 const gaTracker = new GoogleAnalyticsTracker();
 
+// 방문자 통계 관리 클래스
+class VisitorCounter {
+    constructor() {
+        this.db = null;
+        this.statsDocId = 'visitor_stats';
+        this.init();
+    }
+
+    async init() {
+        // Firebase가 준비될 때까지 대기
+        const checkFirebase = setInterval(() => {
+            if (window.firestoreDB) {
+                clearInterval(checkFirebase);
+                this.db = window.firestoreDB;
+                
+                // 방문 기록 및 통계 업데이트
+                this.recordVisit();
+                this.updateStats();
+                
+                // 주기적으로 통계 업데이트 (30초마다)
+                setInterval(() => this.updateStats(), 30000);
+                
+                console.log('방문자 카운터 초기화 완료');
+            }
+        }, 100);
+    }
+
+    // 방문 기록 (일일 방문자는 중복 카운트)
+    async recordVisit() {
+        try {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            
+            // 오늘 날짜 키 (YYYY-MM-DD)
+            const todayKey = today.toISOString().split('T')[0];
+            
+            // 이번 달 키 (YYYY-MM)
+            const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            
+            const visitsRef = window.firebaseCollection(this.db, 'visits');
+            
+            // 방문 기록 문서 추가 (같은 사람이 여러 번 방문하면 여러 번 카운트)
+            await window.firebaseAddDoc(visitsRef, {
+                timestamp: window.firebaseServerTimestamp ? window.firebaseServerTimestamp() : new Date(),
+                date: todayKey,
+                month: monthKey,
+                userAgent: navigator.userAgent.substring(0, 100), // 너무 길면 잘라냄
+                referrer: (document.referrer || '').substring(0, 200)
+            });
+            
+            console.log('방문 기록 저장 완료');
+        } catch (error) {
+            console.error('방문 기록 저장 실패:', error);
+        }
+    }
+
+    // 통계 업데이트 및 표시
+    async updateStats() {
+        try {
+            if (!this.db) return;
+            
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const todayKey = today.toISOString().split('T')[0];
+            const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            
+            const visitsRef = window.firebaseCollection(this.db, 'visits');
+            
+            // 오늘 방문자수 계산 (일일은 중복 카운트)
+            const todayQuery = window.firebaseQuery(
+                visitsRef,
+                window.firebaseWhere('date', '==', todayKey)
+            );
+            const todaySnapshot = await window.firebaseGetDocs(todayQuery);
+            const dailyCount = todaySnapshot.size;
+            
+            // 이번 달 누적 방문자수 계산
+            const monthQuery = window.firebaseQuery(
+                visitsRef,
+                window.firebaseWhere('month', '==', monthKey)
+            );
+            const monthSnapshot = await window.firebaseGetDocs(monthQuery);
+            const monthlyCount = monthSnapshot.size;
+            
+            // 총 누적 방문자수 계산
+            const allSnapshot = await window.firebaseGetDocs(visitsRef);
+            const totalCount = allSnapshot.size;
+            
+            // UI 업데이트
+            this.updateUI(dailyCount, monthlyCount, totalCount);
+            
+            // Firestore에 통계 저장 (캐시용)
+            await this.saveStatsToFirestore(dailyCount, monthlyCount, totalCount);
+            
+        } catch (error) {
+            console.error('통계 업데이트 실패:', error);
+        }
+    }
+
+    // Firestore에 통계 저장 (캐시용)
+    async saveStatsToFirestore(daily, monthly, total) {
+        try {
+            if (!this.db) return;
+            
+            const statsRef = window.firebaseDoc(this.db, 'visitor_stats', this.statsDocId);
+            
+            await window.firebaseSetDoc(statsRef, {
+                daily: daily,
+                monthly: monthly,
+                total: total,
+                lastUpdated: window.firebaseServerTimestamp ? window.firebaseServerTimestamp() : new Date(),
+                todayDate: new Date().toISOString().split('T')[0],
+                currentMonth: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+            }, { merge: true });
+            
+        } catch (error) {
+            console.error('통계 저장 실패:', error);
+        }
+    }
+
+    // UI 업데이트
+    updateUI(daily, monthly, total) {
+        const dailyEl = document.getElementById('dailyVisitors');
+        
+        if (dailyEl) {
+            dailyEl.textContent = daily.toLocaleString();
+        }
+        
+        // 콘솔에 모든 통계 출력
+        console.log('방문자 통계:', {
+            일일: daily.toLocaleString(),
+            월간: monthly.toLocaleString(),
+            총누적: total.toLocaleString()
+        });
+    }
+}
+
+// 방문자 카운터 초기화 (DOMContentLoaded 후)
+document.addEventListener('DOMContentLoaded', function() {
+    // 약간의 지연 후 초기화 (Firebase가 완전히 로드될 시간 확보)
+    setTimeout(() => {
+        window.visitorCounter = new VisitorCounter();
+    }, 500);
+});
+
 // 전역 추적 함수들
 // 이미지 로드 실패 처리 함수 (동기 함수로 변경 - onerror 핸들러에서 호출되므로)
 function handleImageLoadError(imgElement, productId, imageUrl) {
-    console.error('이미지 로드 실패:', {
-        productId: productId,
-        imageUrl: imageUrl,
-        error: 'Firebase Storage 접근 권한 또는 CORS 정책 문제 (412 Precondition Failed)'
-    });
+    // 이미지 로드 실패를 조용히 처리 (사용자에게는 표시하지 않음)
     
-    // 이미지 요소를 "이미지 없음"으로 대체
-    if (imgElement && imgElement.parentElement) {
-        imgElement.parentElement.innerHTML = '<div class="no-image">이미지 없음</div>';
-    }
-    
-    // Firebase Storage 규칙 확인 안내 (최초 1회만)
-    if (!window.imageLoadErrorShown) {
-        // 단일 로그로 모든 정보 출력 (개별 console.error 호출 제거)
-        const errorMessage = `
-⚠️ Firebase Storage 이미지 로드 실패 (CORS 정책 및 접근 권한 문제)
-========================================
-원인: 
-1. Firebase Storage 보안 규칙이 이미지 읽기를 허용하지 않습니다.
-2. CORS 정책으로 인해 이미지 접근이 차단되었습니다.
-
-해결 방법:
-1. Firebase Console 접속: https://console.firebase.google.com
-2. 프로젝트 선택: price-match-1f952
-3. 왼쪽 메뉴에서 "Storage" 클릭
-4. 상단 "Rules" 탭 클릭
-5. 현재 규칙을 다음으로 교체:
-
-rules_version = "2";
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /{allPaths=**} {
-      // 읽기는 모든 사용자에게 허용
-      allow read: if true;
-      // 쓰기는 인증된 사용자만 허용
-      allow write: if request.auth != null;
-    }
-  }
-}
-
-6. "Publish" 버튼 클릭하여 규칙 저장
-7. 페이지 새로고침 (F5 또는 Ctrl+R)
-
-⚠️ 중요: 
-- 규칙을 저장한 후 1-2분 정도 기다린 후 페이지를 새로고침하세요.
-- CORS 문제는 보안 규칙을 수정하면 자동으로 해결됩니다.
-========================================
-        `;
+    // 이미지 요소를 기본 이미지나 빈 상태로 대체
+    if (imgElement) {
+        // 이미지 요소에 에러 클래스 추가 (필요시 스타일 적용)
+        imgElement.classList.add('image-load-failed');
         
-        console.error(errorMessage);
+        // 이미지 대체 또는 숨김 처리
+        imgElement.style.display = 'none';
         
-        // Firebase Console 링크 제공
-        const consoleUrl = 'https://console.firebase.google.com/project/price-match-1f952/storage/price-match-1f952.firebasestorage.app/rules';
-        console.log(`🔗 Firebase Console Storage Rules 바로가기: ${consoleUrl}`);
-        
-        // 사용자에게 알림 표시
-        const userMessage = `⚠️ 이미지 로드 실패\n\nFirebase Storage 보안 규칙을 수정해야 합니다.\n\n브라우저 콘솔(F12)에서 자세한 해결 방법을 확인할 수 있습니다.\n\nFirebase Console을 열어 규칙을 수정하시겠습니까?`;
-        if (window.confirm(userMessage)) {
-            // Firebase Console 열기
-            window.open(consoleUrl, '_blank');
-            console.log('위의 해결 방법을 따라 Firebase Storage 규칙을 수정하세요.');
+        // 부모 요소에 대체 콘텐츠 표시
+        if (imgElement.parentElement) {
+            // 이미 "no-image" 클래스가 없으면 추가
+            const noImageDiv = imgElement.parentElement.querySelector('.no-image');
+            if (!noImageDiv) {
+                const placeholder = document.createElement('div');
+                placeholder.className = 'no-image';
+                placeholder.textContent = '이미지 없음';
+                placeholder.style.cssText = 'display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f3f4f6; color: #9ca3af; font-size: 0.85rem; min-height: 120px;';
+                imgElement.parentElement.appendChild(placeholder);
+            }
         }
+    }
+    
+    // 관리자용 콘솔 로그만 출력 (최초 1회만, 사용자에게는 표시하지 않음)
+    if (!window.imageLoadErrorShown) {
+        // 콘솔에만 로그 출력 (팝업 없음)
+        console.warn('⚠️ 일부 이미지 로드 실패 (Firebase Storage 접근 문제)');
+        console.log('이미지 로드 실패 상세:', {
+            productId: productId,
+            imageUrl: imageUrl,
+            error: 'Firebase Storage 접근 권한 또는 CORS 정책 문제'
+        });
+        
+        // 관리자에게만 상세 정보 제공 (콘솔에만)
+        const consoleUrl = 'https://console.firebase.google.com/project/price-match-1f952/storage/price-match-1f952.firebasestorage.app/rules';
+        console.log('🔧 관리자용: Firebase Storage 규칙 확인 ->', consoleUrl);
+        console.log('💡 Firebase Storage 보안 규칙에서 "allow read: if true;" 설정 필요');
         
         window.imageLoadErrorShown = true;
     }
@@ -774,7 +895,14 @@ class PriceComparisonSite {
         console.log('임시 테스트 데이터 로드 완료:', this.products.length, '개');
         
         await this.setupEventListeners();
+        
+        // Firebase 초기화 (에러 처리 강화)
+        try {
         await this.initFirebase();
+        } catch (initError) {
+            console.error('initFirebase 초기 호출 실패:', initError);
+            // 실패해도 재시도는 initFirebase 내부에서 처리됨
+        }
         
         // Firebase 초기화 후 관리 패널만 다시 숨기기 (혹시 모를 경우 대비)
         setTimeout(() => {
@@ -790,19 +918,28 @@ class PriceComparisonSite {
             }
         }, 1000);
         
-        // 상품 표시 보장 - 5초 후에도 상품이 없으면 강제로 표시 시도
-        setTimeout(async () => {
-            if (this.products.length === 0) {
-                console.warn('5초 후에도 상품이 없습니다. 강제로 로드 시도합니다...');
+        // 상품 표시 보장 - 여러 단계로 확인 및 재시도
+        const ensureProductsDisplayed = async () => {
+            const productList = document.getElementById('productList');
+            const hasProducts = this.products.length > 0;
+            const isDisplayed = productList && productList.innerHTML && productList.innerHTML.trim() !== '';
+            
+            console.log('상품 표시 확인:', {
+                productsCount: this.products.length,
+                hasProducts: hasProducts,
+                isDisplayed: isDisplayed,
+                productListExists: !!productList
+            });
+            
+            if (!hasProducts) {
+                console.warn('상품이 로드되지 않았습니다. 강제로 로드 시도합니다...');
                 try {
                     await this.loadProductsFromFirebase(false);
                 } catch (error) {
                     console.error('강제 로드 실패:', error);
                 }
-            } else {
+            } else if (!isDisplayed) {
                 // 상품은 있지만 화면에 표시되지 않은 경우
-                const productList = document.getElementById('productList');
-                if (productList && (!productList.innerHTML || productList.innerHTML.trim() === '')) {
                     console.warn('상품은 있지만 화면에 표시되지 않았습니다. displayAllProducts 호출...');
                     try {
                         await this.displayAllProducts();
@@ -810,8 +947,16 @@ class PriceComparisonSite {
                         console.error('displayAllProducts 호출 실패:', error);
                     }
                 }
-            }
-        }, 5000);
+        };
+        
+        // 3초 후 첫 확인
+        setTimeout(ensureProductsDisplayed, 3000);
+        
+        // 5초 후 두 번째 확인
+        setTimeout(ensureProductsDisplayed, 5000);
+        
+        // 8초 후 세 번째 확인 (최종)
+        setTimeout(ensureProductsDisplayed, 8000);
         
         // Firebase 로드 완료 후 알림 업데이트 시작
         setTimeout(() => {
@@ -4316,31 +4461,45 @@ class PriceComparisonSite {
         
         // 상품 로딩 상태 확인 및 재시도
         console.log('현재 로드된 상품 개수:', this.products.length);
-        if (this.products.length === 0) {
-            console.warn('상품이 로드되지 않았습니다. 3초 후 재시도합니다...');
-            // 3초 후 재시도
-            setTimeout(async () => {
+        
+        const checkAndRetryProducts = async () => {
+            const productList = document.getElementById('productList');
+            const hasProducts = this.products.length > 0;
+            const isDisplayed = productList && productList.innerHTML && productList.innerHTML.trim() !== '';
+            
+            if (!hasProducts || !isDisplayed) {
+                console.warn('상품이 로드되지 않았거나 표시되지 않았습니다. 재시도합니다...');
                 try {
                     console.log('initFirebase에서 상품 로드 재시도 시작...');
                     await this.loadProductsFromFirebase(false); // 캐시 없이 재시도
                     
-                    // 재시도 후에도 상품이 없으면 한 번 더 시도
-                    if (this.products.length === 0) {
-                        console.warn('재시도 후에도 상품이 없습니다. 5초 후 다시 시도합니다...');
-                        setTimeout(async () => {
-                            try {
-                                console.log('initFirebase에서 상품 로드 두 번째 재시도 시작...');
-                                await this.loadProductsFromFirebase(false);
-                            } catch (secondRetryError) {
-                                console.error('두 번째 재시도 실패:', secondRetryError);
-                            }
-                        }, 5000);
+                    // 재시도 후에도 확인
+                    const retryHasProducts = this.products.length > 0;
+                    const retryProductList = document.getElementById('productList');
+                    const retryIsDisplayed = retryProductList && retryProductList.innerHTML && retryProductList.innerHTML.trim() !== '';
+                    
+                    if (!retryHasProducts || !retryIsDisplayed) {
+                        console.warn('재시도 후에도 실패. displayAllProducts 강제 호출...');
+                        try {
+                            await this.displayAllProducts();
+                        } catch (displayError) {
+                            console.error('displayAllProducts 강제 호출 실패:', displayError);
+                        }
                     }
                 } catch (retryError) {
                     console.error('재시도 실패:', retryError);
                 }
-            }, 3000);
-        }
+            }
+        };
+        
+        // 즉시 확인
+        setTimeout(checkAndRetryProducts, 1000);
+        
+        // 3초 후 재확인
+        setTimeout(checkAndRetryProducts, 3000);
+        
+        // 5초 후 최종 확인
+        setTimeout(checkAndRetryProducts, 5000);
         } catch (error) {
             console.error('Firebase 초기화 실패:', error);
             gaTracker.trackError('firebase_init_error', error.message);
@@ -4387,23 +4546,35 @@ class PriceComparisonSite {
     async waitForFirebase() {
         return new Promise((resolve, reject) => {
             let attempts = 0;
-            const maxAttempts = 100; // 10초 대기 (100 * 100ms) - 시간 증가
+            const maxAttempts = 150; // 15초 대기 (150 * 100ms) - 시간 증가
             
             const checkFirebase = () => {
                 attempts++;
-                console.log(`Firebase 대기 중... (${attempts}/${maxAttempts})`);
                 
-                if (window.firebaseDb) {
-                    console.log('Firebase DB 발견됨');
+                // Firebase DB와 필수 함수들이 모두 준비되었는지 확인
+                const isFirebaseReady = window.firebaseDb && 
+                                      window.firebaseCollection && 
+                                      window.firebaseGetDocs &&
+                                      window.firebaseDoc;
+                
+                if (isFirebaseReady) {
+                    console.log('Firebase 완전히 준비됨 (시도 횟수:', attempts, ')');
                     resolve();
                 } else if (attempts >= maxAttempts) {
-                    console.error('Firebase 초기화 타임아웃 - 재시도합니다');
-                    // 타임아웃 시에도 재시도하도록 resolve (reject 대신)
-                    setTimeout(() => {
-                        console.log('Firebase 재시도 중...');
-                        resolve(); // reject 대신 resolve로 변경하여 재시도 가능하도록
-                    }, 1000);
+                    console.warn('Firebase 초기화 타임아웃 (시도 횟수:', attempts, ')');
+                    console.log('Firebase 상태:', {
+                        firebaseDb: !!window.firebaseDb,
+                        firebaseCollection: !!window.firebaseCollection,
+                        firebaseGetDocs: !!window.firebaseGetDocs,
+                        firebaseDoc: !!window.firebaseDoc
+                    });
+                    // 타임아웃 시에도 계속 진행 (재시도는 상위에서 처리)
+                    resolve();
                 } else {
+                    // 10회마다 로그 출력 (너무 많은 로그 방지)
+                    if (attempts % 10 === 0) {
+                        console.log(`Firebase 대기 중... (${attempts}/${maxAttempts})`);
+                    }
                     setTimeout(checkFirebase, 100);
                 }
             };
@@ -4570,13 +4741,48 @@ class PriceComparisonSite {
             await this.displayAllProducts();
             console.log('displayAllProducts 호출 후');
             
-            // 상품이 로드되지 않았는지 확인하고 재시도
-            if (this.products.length === 0) {
-                console.warn('상품이 로드되지 않았습니다. 2초 후 재시도합니다...');
+            // 상품 표시 확인 및 재시도
+            const productList = document.getElementById('productList');
+            const hasProducts = this.products.length > 0;
+            const isDisplayed = productList && productList.innerHTML && productList.innerHTML.trim() !== '';
+            
+            console.log('상품 로드 상태 확인:', {
+                productsCount: this.products.length,
+                hasProducts: hasProducts,
+                isDisplayed: isDisplayed,
+                productListExists: !!productList
+            });
+            
+            // 상품이 로드되지 않았거나 표시되지 않은 경우 재시도
+            if (!hasProducts || !isDisplayed) {
+                console.warn('상품이 로드되지 않았거나 표시되지 않았습니다. 재시도합니다...');
+                
+                // 즉시 재시도 (캐시 없이)
                 setTimeout(async () => {
-                    console.log('상품 로드 재시도 시작...');
-                    await this.loadProductsFromFirebase(false); // 캐시 없이 재시도
+                    try {
+                        console.log('상품 로드 재시도 시작 (1차)...');
+                        await this.loadProductsFromFirebase(false);
+                        
+                        // 재시도 후에도 확인
+                        const retryProductList = document.getElementById('productList');
+                        const retryIsDisplayed = retryProductList && retryProductList.innerHTML && retryProductList.innerHTML.trim() !== '';
+                        
+                        if (this.products.length === 0 || !retryIsDisplayed) {
+                            console.warn('1차 재시도 후에도 실패. 2차 재시도합니다...');
+                            setTimeout(async () => {
+                                try {
+                                    console.log('상품 로드 재시도 시작 (2차)...');
+                                    await this.loadProductsFromFirebase(false);
+                                    await this.displayAllProducts(); // 강제로 표시 시도
+                                } catch (error) {
+                                    console.error('2차 재시도 실패:', error);
+                                }
                 }, 2000);
+                        }
+                    } catch (error) {
+                        console.error('1차 재시도 실패:', error);
+                    }
+                }, 1000);
             }
             
         } catch (error) {

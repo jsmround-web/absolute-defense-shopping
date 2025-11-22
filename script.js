@@ -364,47 +364,82 @@ class VisitorCounter {
             // 이번 달 키 (YYYY-MM)
             const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
             
-            // 방문 기록을 로컬 스토리지에 먼저 저장 (권한 오류 시에도 카운트 가능)
+            // 고유 방문 ID 생성 (타임스탬프 + 랜덤)
+            const visitId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+            
+            // 방문 기록 데이터
             const visitData = {
+                id: visitId,
                 timestamp: new Date().toISOString(),
                 date: todayKey,
                 month: monthKey,
                 userAgent: navigator.userAgent.substring(0, 100),
-                referrer: (document.referrer || '').substring(0, 200)
+                referrer: (document.referrer || '').substring(0, 200),
+                savedToFirestore: false // Firestore 저장 여부
             };
             
-            // 로컬 스토리지에 방문 기록 저장
-            const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
-            localVisits.push(visitData);
-            // 최근 1000개만 저장 (용량 제한 방지)
-            if (localVisits.length > 1000) {
-                localVisits.splice(0, localVisits.length - 1000);
+            // Firestore에 먼저 저장 시도
+            if (this.db) {
+                try {
+                    const visitsRef = window.firebaseCollection(this.db, 'visits');
+                    
+                    // 방문 기록 문서 추가 (같은 사람이 여러 번 방문하면 여러 번 카운트)
+                    await window.firebaseAddDoc(visitsRef, {
+                        timestamp: window.firebaseServerTimestamp ? window.firebaseServerTimestamp() : new Date(),
+                        date: todayKey,
+                        month: monthKey,
+                        userAgent: navigator.userAgent.substring(0, 100),
+                        referrer: (document.referrer || '').substring(0, 200),
+                        visitId: visitId
+                    });
+                    
+                    // Firestore 저장 성공
+                    visitData.savedToFirestore = true;
+                    console.log('방문 기록 Firestore 저장 완료');
+                    
+                } catch (firestoreError) {
+                    // Firestore 저장 실패 시 로컬 스토리지에 임시 저장
+                    const isPermissionError = firestoreError.code === 'permission-denied' || 
+                                             firestoreError.code === 'PERMISSION_DENIED' ||
+                                             firestoreError.message.includes('Missing or insufficient permissions');
+                    
+                    if (isPermissionError) {
+                        // 권한 오류: 로컬 스토리지에 임시 저장
+                        const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
+                        localVisits.push(visitData);
+                        // 최근 1000개만 저장 (용량 제한 방지)
+                        if (localVisits.length > 1000) {
+                            localVisits.splice(0, localVisits.length - 1000);
+                        }
+                        localStorage.setItem('visitor_visits', JSON.stringify(localVisits));
+                        console.log('방문 기록 로컬 스토리지 임시 저장 (Firestore 권한 오류)');
+                        return;
+                    }
+                    
+                    // 다른 오류는 로그 출력
+                    console.error('방문 기록 Firestore 저장 실패:', firestoreError);
+                    
+                    // 다른 오류도 로컬 스토리지에 임시 저장
+                    const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
+                    localVisits.push(visitData);
+                    if (localVisits.length > 1000) {
+                        localVisits.splice(0, localVisits.length - 1000);
+                    }
+                    localStorage.setItem('visitor_visits', JSON.stringify(localVisits));
+                    return;
+                }
+            } else {
+                // Firestore가 없는 경우 로컬 스토리지에 임시 저장
+                const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
+                localVisits.push(visitData);
+                if (localVisits.length > 1000) {
+                    localVisits.splice(0, localVisits.length - 1000);
+                }
+                localStorage.setItem('visitor_visits', JSON.stringify(localVisits));
+                console.log('방문 기록 로컬 스토리지 임시 저장 (Firestore 미준비)');
             }
-            localStorage.setItem('visitor_visits', JSON.stringify(localVisits));
             
-            const visitsRef = window.firebaseCollection(this.db, 'visits');
-            
-            // 방문 기록 문서 추가 (같은 사람이 여러 번 방문하면 여러 번 카운트)
-            await window.firebaseAddDoc(visitsRef, {
-                timestamp: window.firebaseServerTimestamp ? window.firebaseServerTimestamp() : new Date(),
-                date: todayKey,
-                month: monthKey,
-                userAgent: navigator.userAgent.substring(0, 100), // 너무 길면 잘라냄
-                referrer: (document.referrer || '').substring(0, 200)
-            });
-            
-            console.log('방문 기록 저장 완료');
         } catch (error) {
-            // 권한 오류 발생 시에도 로컬 스토리지에 저장되었으므로 카운트는 정상 작동
-            const isPermissionError = error.code === 'permission-denied' || 
-                                     error.code === 'PERMISSION_DENIED' ||
-                                     error.message.includes('Missing or insufficient permissions');
-            
-            if (isPermissionError) {
-                // 로컬 스토리지에 이미 저장되었으므로 조용히 처리
-                return;
-            }
-            
             console.error('방문 기록 저장 실패:', error);
         }
     }
@@ -417,18 +452,11 @@ class VisitorCounter {
             const todayKey = today.toISOString().split('T')[0];
             const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
             
-            // 로컬 스토리지에서 방문 기록 가져오기 (주 데이터 소스)
-            const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
+            // Firestore에서 전체 방문 기록 가져오기 (모든 사용자의 공유 데이터)
+            let firestoreDailyCount = 0;
+            let firestoreMonthlyCount = 0;
+            let firestoreTotalCount = 0;
             
-            // 로컬 스토리지 기반 통계 계산
-            let localDailyCount = localVisits.filter(v => v.date === todayKey).length;
-            let localMonthlyCount = localVisits.filter(v => v.month === monthKey).length;
-            let localTotalCount = localVisits.length;
-            
-            // 로컬 스토리지가 주 데이터 소스이므로 먼저 UI 업데이트
-            this.updateUI(localDailyCount, localMonthlyCount, localTotalCount);
-            
-            // Firestore에서도 통계 가져오기 (백업/동기화 용도)
             if (this.db) {
                 try {
                     const visitsRef = window.firebaseCollection(this.db, 'visits');
@@ -439,7 +467,7 @@ class VisitorCounter {
                         window.firebaseWhere('date', '==', todayKey)
                     );
                     const todaySnapshot = await window.firebaseGetDocs(todayQuery);
-                    const firestoreDailyCount = todaySnapshot.size;
+                    firestoreDailyCount = todaySnapshot.size;
                     
                     // 이번 달 누적 방문자수 계산
                     const monthQuery = window.firebaseQuery(
@@ -447,37 +475,44 @@ class VisitorCounter {
                         window.firebaseWhere('month', '==', monthKey)
                     );
                     const monthSnapshot = await window.firebaseGetDocs(monthQuery);
-                    const firestoreMonthlyCount = monthSnapshot.size;
+                    firestoreMonthlyCount = monthSnapshot.size;
                     
                     // 총 누적 방문자수 계산
                     const allSnapshot = await window.firebaseGetDocs(visitsRef);
-                    const firestoreTotalCount = allSnapshot.size;
+                    firestoreTotalCount = allSnapshot.size;
                     
-                    // Firestore 데이터가 로컬 스토리지보다 크면 Firestore 데이터 사용 (동기화)
-                    // 하지만 로컬 스토리지가 더 크거나 같으면 로컬 스토리지 우선
-                    const dailyCount = firestoreDailyCount > localDailyCount ? firestoreDailyCount : localDailyCount;
-                    const monthlyCount = firestoreMonthlyCount > localMonthlyCount ? firestoreMonthlyCount : localMonthlyCount;
-                    const totalCount = firestoreTotalCount > localTotalCount ? firestoreTotalCount : localTotalCount;
-                    
-                    // Firestore 데이터가 더 큰 경우에만 UI 업데이트
-                    if (firestoreDailyCount > localDailyCount || firestoreMonthlyCount > localMonthlyCount || firestoreTotalCount > localTotalCount) {
-                        this.updateUI(dailyCount, monthlyCount, totalCount);
-                    }
-                    
-                    // Firestore에 통계 저장 (캐시용)
-                    await this.saveStatsToFirestore(dailyCount, monthlyCount, totalCount);
                 } catch (firestoreError) {
-                    // Firestore 오류는 무시하고 로컬 스토리지 데이터 사용
+                    // Firestore 오류는 무시하고 계속 진행
                     const isPermissionError = firestoreError.code === 'permission-denied' || 
                                              firestoreError.code === 'PERMISSION_DENIED' ||
                                              firestoreError.message.includes('Missing or insufficient permissions');
                     
                     if (!isPermissionError) {
-                        // 권한 오류가 아닌 다른 오류만 로그 출력
                         console.error('Firestore 통계 조회 실패:', firestoreError);
                     }
                 }
             }
+            
+            // 로컬 스토리지에서 Firestore에 저장되지 않은 방문 기록만 가져오기
+            const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
+            // 기존 데이터 호환성: savedToFirestore 플래그가 없으면 false로 간주
+            const unsavedVisits = localVisits.filter(v => v.savedToFirestore !== true);
+            
+            // 로컬 스토리지의 미저장 방문 기록 통계
+            const localDailyCount = unsavedVisits.filter(v => v.date === todayKey).length;
+            const localMonthlyCount = unsavedVisits.filter(v => v.month === monthKey).length;
+            const localTotalCount = unsavedVisits.length;
+            
+            // 최종 통계 = Firestore (모든 사용자) + 로컬 스토리지 (현재 사용자의 미저장 방문)
+            const dailyCount = firestoreDailyCount + localDailyCount;
+            const monthlyCount = firestoreMonthlyCount + localMonthlyCount;
+            const totalCount = firestoreTotalCount + localTotalCount;
+            
+            // UI 업데이트
+            this.updateUI(dailyCount, monthlyCount, totalCount);
+            
+            // Firestore에 통계 저장 (캐시용)
+            await this.saveStatsToFirestore(dailyCount, monthlyCount, totalCount);
             
         } catch (error) {
             console.error('통계 업데이트 실패:', error);
@@ -485,13 +520,14 @@ class VisitorCounter {
             // 오류 발생 시에도 로컬 스토리지 데이터로 표시
             try {
                 const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
+                const unsavedVisits = localVisits.filter(v => v.savedToFirestore !== true);
                 const now = new Date();
                 const todayKey = now.toISOString().split('T')[0];
                 const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
                 
-                const localDailyCount = localVisits.filter(v => v.date === todayKey).length;
-                const localMonthlyCount = localVisits.filter(v => v.month === monthKey).length;
-                const localTotalCount = localVisits.length;
+                const localDailyCount = unsavedVisits.filter(v => v.date === todayKey).length;
+                const localMonthlyCount = unsavedVisits.filter(v => v.month === monthKey).length;
+                const localTotalCount = unsavedVisits.length;
                 
                 this.updateUI(localDailyCount, localMonthlyCount, localTotalCount);
             } catch (fallbackError) {

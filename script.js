@@ -1076,24 +1076,40 @@ class PriceComparisonSite {
             }
         }, 1000);
         
-        // Firebase가 준비될 때까지 기다린 후 제품 로드
+        // Firebase가 준비될 때까지 기다린 후 제품 로드 (강화된 버전)
         const waitForFirebaseAndLoad = async () => {
             let attempts = 0;
-            const maxAttempts = 20; // 최대 10초 대기 (500ms * 20)
+            const maxAttempts = 40; // 최대 20초 대기 (500ms * 40)
             
             while (attempts < maxAttempts) {
                 if (window.firestoreDB) {
-                    console.log('Firebase 준비 확인, 제품 로드 시작');
+                    console.log('Firebase 준비 확인, 제품 로드 시작 (시도:', attempts + 1, ')');
                     try {
                         await this.loadProductsFromFirebase(true); // 캐시 사용
                         
                         // 제품이 로드되었는지 확인
                         if (this.products.length > 0) {
                             console.log('초기 제품 로드 성공:', this.products.length, '개');
+                            // 강제로 표시
+                            await this.displayAllProducts();
                             return;
+                        } else {
+                            console.warn('제품이 로드되지 않음, 캐시 없이 재시도');
+                            // 캐시 없이 재시도
+                            await this.loadProductsFromFirebase(false);
+                            if (this.products.length > 0) {
+                                await this.displayAllProducts();
+                                return;
+                            }
                         }
                     } catch (error) {
                         console.error('초기 제품 로드 실패:', error);
+                        // 에러 발생 시에도 재시도
+                        if (attempts < maxAttempts - 1) {
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                            attempts++;
+                            continue;
+                        }
                     }
                     break; // Firebase는 준비되었지만 로드 실패, 재시도 로직으로 넘어감
                 }
@@ -1102,17 +1118,40 @@ class PriceComparisonSite {
                 attempts++;
             }
             
-            // Firebase가 준비되지 않았거나 제품 로드 실패 시 재시도
-            console.log('Firebase 준비 대기 완료 또는 로드 실패, 재시도 로직 시작');
+            // Firebase가 준비되지 않았거나 제품 로드 실패 시 강제 재시도
+            console.log('Firebase 준비 대기 완료 또는 로드 실패, 강제 재시도 시작');
+            // 강제 재시도 (여러 번)
+            for (let i = 0; i < 5; i++) {
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+                    if (window.firestoreDB) {
+                        console.log('강제 재시도', i + 1, '회');
+                        await this.loadProductsFromFirebase(false);
+                        if (this.products.length > 0) {
+                            await this.displayAllProducts();
+                            console.log('강제 재시도 성공:', this.products.length, '개');
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    console.error('강제 재시도 실패:', i + 1, error);
+                }
+            }
         };
         
         // Firebase 준비 대기 및 초기 로드
         waitForFirebaseAndLoad();
         
-        // 상품 표시 보장 - 여러 단계로 확인 및 재시도
+        // 상품 표시 보장 - 여러 단계로 확인 및 재시도 (강화된 버전)
         const ensureProductsDisplayed = async () => {
             // 권한 오류가 발생했으면 재시도하지 않음
             if (window.firebasePermissionDenied) {
+                return;
+            }
+            
+            // DOM 준비 상태 확인
+            if (!document.getElementById('productList')) {
+                console.warn('productList 요소가 아직 준비되지 않음');
                 return;
             }
             
@@ -1130,9 +1169,17 @@ class PriceComparisonSite {
             });
             
             if (!hasProducts) {
-                console.log('제품이 없음, Firebase에서 로드 시도');
+                console.log('제품이 없음, Firebase에서 강제 로드 시도');
                 try {
-                    await this.loadProductsFromFirebase(false); // 캐시 없이 재시도
+                    if (window.firestoreDB) {
+                        await this.loadProductsFromFirebase(false); // 캐시 없이 재시도
+                        // 로드 후 강제 표시
+                        if (this.products.length > 0) {
+                            await this.displayAllProducts();
+                        }
+                    } else {
+                        console.warn('Firebase가 아직 준비되지 않음');
+                    }
                 } catch (error) {
                     // 권한 오류는 조용히 처리
                     const isPermissionError = error.code === 'permission-denied' || 
@@ -1144,29 +1191,33 @@ class PriceComparisonSite {
                 }
             } else if (!isDisplayed) {
                 // 상품은 있지만 화면에 표시되지 않은 경우
-                console.log('제품은 있지만 표시되지 않음, displayAllProducts 호출');
+                console.log('제품은 있지만 표시되지 않음, displayAllProducts 강제 호출');
                 try {
                     await this.displayAllProducts();
+                    // 표시 후 다시 확인
+                    const retryProductList = document.getElementById('productList');
+                    const retryIsDisplayed = retryProductList && retryProductList.innerHTML && retryProductList.innerHTML.trim() !== '';
+                    if (!retryIsDisplayed) {
+                        console.warn('displayAllProducts 호출 후에도 표시되지 않음, 재시도');
+                        setTimeout(async () => {
+                            await this.displayAllProducts();
+                        }, 500);
+                    }
                 } catch (error) {
                     console.error('displayAllProducts 호출 실패:', error);
                 }
             }
         };
         
-        // 1초 후 첫 확인
+        // 더 자주, 더 오래 확인 (강화된 재시도)
+        setTimeout(ensureProductsDisplayed, 500);
         setTimeout(ensureProductsDisplayed, 1000);
-        
-        // 2초 후 두 번째 확인
         setTimeout(ensureProductsDisplayed, 2000);
-        
-        // 3초 후 세 번째 확인
         setTimeout(ensureProductsDisplayed, 3000);
-        
-        // 5초 후 네 번째 확인
         setTimeout(ensureProductsDisplayed, 5000);
-        
-        // 8초 후 다섯 번째 확인 (최종)
         setTimeout(ensureProductsDisplayed, 8000);
+        setTimeout(ensureProductsDisplayed, 12000);
+        setTimeout(ensureProductsDisplayed, 15000);
         
         // Firebase 로드 완료 후 알림 업데이트 시작
         setTimeout(() => {
@@ -1433,17 +1484,47 @@ class PriceComparisonSite {
     performSearch() {
         console.log('=== performSearch 시작 ===');
         
-        const searchInput = document.getElementById('searchInput');
+        // PC용 또는 모바일용 검색 입력 필드 확인 (둘 다 확인)
+        const searchInputPC = document.getElementById('searchInputPC');
+        const searchInputMobile = document.getElementById('searchInput');
+        const searchInput = searchInputPC || searchInputMobile;
         console.log('검색 입력 요소:', searchInput);
         
-        const searchTerm = searchInput ? searchInput.value.trim() : '';
-        console.log('검색어:', searchTerm);
+        // 검색어 가져오기 (실제 입력 필드의 값을 직접 가져오기)
+        let searchTerm = '';
+        // PC와 모바일 중 실제로 입력된 값을 찾기 (둘 다 확인)
+        const pcValue = searchInputPC ? searchInputPC.value.trim() : '';
+        const mobileValue = searchInputMobile ? searchInputMobile.value.trim() : '';
+        
+        // 둘 중 하나라도 값이 있으면 사용 (PC 우선)
+        searchTerm = pcValue || mobileValue;
+        console.log('검색어:', searchTerm, '(PC:', pcValue, ', Mobile:', mobileValue, ')');
+        
+        // 두 입력 필드 동기화 (실제 입력된 값으로 동기화)
+        if (searchInputPC && searchInputMobile) {
+            // 실제 입력된 값으로 동기화 (빈 값이어도 동기화)
+            const syncValue = searchTerm || '';
+            searchInputPC.value = syncValue;
+            searchInputMobile.value = syncValue;
+        }
         
         // 검색어가 없으면 빈 검색으로 처리
         const finalSearchTerm = searchTerm;
         console.log('최종 검색어:', finalSearchTerm);
         
-        this.currentSearchTerm = finalSearchTerm;
+        // 검색어가 비어있으면 입력 필드와 currentSearchTerm도 확실히 비우기
+        if (!finalSearchTerm) {
+            if (searchInputPC) {
+                searchInputPC.value = '';
+            }
+            if (searchInputMobile) {
+                searchInputMobile.value = '';
+            }
+            // currentSearchTerm도 확실히 비우기
+            this.currentSearchTerm = '';
+        } else {
+            this.currentSearchTerm = finalSearchTerm;
+        }
         
         console.log('현재 제품 목록:', this.products);
         console.log('현재 제품 개수:', this.products.length);
@@ -1453,6 +1534,16 @@ class PriceComparisonSite {
         
         if (!finalSearchTerm) {
             console.log('검색어가 없어서 전체 제품 표시');
+            // currentSearchTerm도 확실히 비우기 (먼저)
+            this.currentSearchTerm = '';
+            // 입력 필드도 확실히 비우기
+            if (searchInputPC) {
+                searchInputPC.value = '';
+            }
+            if (searchInputMobile) {
+                searchInputMobile.value = '';
+            }
+            // 전체 제품 표시
             this.displayAllProducts();
             resultsCount = this.products.filter(p => p.status === 'approved').length;
         } else {
@@ -1521,6 +1612,20 @@ class PriceComparisonSite {
     async displayAllProducts() {
         try {
             console.log('=== displayAllProducts 시작 ===');
+            
+            // 검색어 확실히 초기화
+            this.currentSearchTerm = '';
+            
+            // 입력 필드도 확실히 비우기
+            const searchInputPC = document.getElementById('searchInputPC');
+            const searchInputMobile = document.getElementById('searchInput');
+            if (searchInputPC) {
+                searchInputPC.value = '';
+            }
+            if (searchInputMobile) {
+                searchInputMobile.value = '';
+            }
+            
             console.log('전체 제품 목록:', this.products);
             console.log('제품 상태별 분류:', this.products.map(p => ({ name: p.name, status: p.status, id: p.id })));
             
@@ -1537,6 +1642,21 @@ class PriceComparisonSite {
             });
             console.log('표시할 제품 목록 (승인된 제품만):', approvedProducts);
             console.log('표시할 제품 개수:', approvedProducts.length);
+            
+            // 검색어가 비어있는지 다시 한 번 확인하고 확실히 비우기
+            if (this.currentSearchTerm && this.currentSearchTerm.trim()) {
+                console.warn('displayAllProducts 호출 시 검색어가 남아있음:', this.currentSearchTerm);
+                this.currentSearchTerm = '';
+                // 입력 필드도 다시 확인
+                const searchInputPC = document.getElementById('searchInputPC');
+                const searchInputMobile = document.getElementById('searchInput');
+                if (searchInputPC) {
+                    searchInputPC.value = '';
+                }
+                if (searchInputMobile) {
+                    searchInputMobile.value = '';
+                }
+            }
             
             // 현재 정렬 타입에 따라 정렬
             try {
@@ -1560,7 +1680,8 @@ class PriceComparisonSite {
             
             console.log('renderProducts 호출 전');
             try {
-                await this.renderProducts(approvedProducts);
+                // 검색어 없이 렌더링 (빈 문자열 전달)
+                await this.renderProducts(approvedProducts, '');
             } catch (renderError) {
                 console.error('renderProducts 중 에러 발생:', renderError);
                 // 렌더링 실패 시 재시도
@@ -2258,12 +2379,15 @@ class PriceComparisonSite {
         }
         
         // 검색어가 있으면 추가 필터링
-        if (this.currentSearchTerm) {
-            const searchTerm = this.currentSearchTerm.toLowerCase();
-            productsToSort = productsToSort.filter(product => {
-                const name = (product.name || '').toLowerCase();
-                return name.includes(searchTerm);
-            });
+        // currentSearchTerm이 있고 비어있지 않을 때만 필터링
+        if (this.currentSearchTerm && this.currentSearchTerm.trim()) {
+            const searchTerm = this.currentSearchTerm.toLowerCase().trim();
+            if (searchTerm) {
+                productsToSort = productsToSort.filter(product => {
+                    const name = (product.name || '').toLowerCase();
+                    return name.includes(searchTerm);
+                });
+            }
         }
         
         // 정렬 타입에 따라 정렬
@@ -2321,8 +2445,9 @@ class PriceComparisonSite {
                 break;
         }
         
-        // 정렬된 상품 다시 표시
-        await this.renderProducts(productsToSort, this.currentSearchTerm);
+        // 정렬된 상품 다시 표시 (검색어가 비어있으면 빈 문자열 전달)
+        const searchTermForRender = (this.currentSearchTerm && this.currentSearchTerm.trim()) ? this.currentSearchTerm : '';
+        await this.renderProducts(productsToSort, searchTermForRender);
     }
 
     // 클릭 카운트 증가
@@ -4991,7 +5116,7 @@ class PriceComparisonSite {
             await this.displayAllProducts();
             console.log('displayAllProducts 호출 후');
             
-            // 상품 표시 확인 및 재시도
+            // 상품 표시 확인 및 재시도 (강화된 버전)
             const productList = document.getElementById('productList');
             const hasProducts = this.products.length > 0;
             const isDisplayed = productList && productList.innerHTML && productList.innerHTML.trim() !== '';
@@ -5003,36 +5128,41 @@ class PriceComparisonSite {
                 productListExists: !!productList
             });
             
-            // 상품이 로드되지 않았거나 표시되지 않은 경우 재시도
+            // 상품이 로드되지 않았거나 표시되지 않은 경우 강력한 재시도
             if (!hasProducts || !isDisplayed) {
-                console.warn('상품이 로드되지 않았거나 표시되지 않았습니다. 재시도합니다...');
+                console.warn('상품이 로드되지 않았거나 표시되지 않았습니다. 강력한 재시도를 시작합니다...');
                 
-                // 즉시 재시도 (캐시 없이)
-                setTimeout(async () => {
+                // 즉시 재시도 (캐시 없이) - 여러 번
+                const retryLoad = async (attempt) => {
                     try {
-                        console.log('상품 로드 재시도 시작 (1차)...');
+                        console.log('상품 로드 재시도 시작 (' + attempt + '차)...');
                         await this.loadProductsFromFirebase(false);
+                        await this.displayAllProducts(); // 강제로 표시
                         
                         // 재시도 후에도 확인
                         const retryProductList = document.getElementById('productList');
                         const retryIsDisplayed = retryProductList && retryProductList.innerHTML && retryProductList.innerHTML.trim() !== '';
                         
                         if (this.products.length === 0 || !retryIsDisplayed) {
-                            console.warn('1차 재시도 후에도 실패. 2차 재시도합니다...');
-                            setTimeout(async () => {
-                                try {
-                                    console.log('상품 로드 재시도 시작 (2차)...');
-                                    await this.loadProductsFromFirebase(false);
-                                    await this.displayAllProducts(); // 강제로 표시 시도
-                                } catch (error) {
-                                    console.error('2차 재시도 실패:', error);
-                                }
-                }, 2000);
+                            if (attempt < 5) {
+                                console.warn(attempt + '차 재시도 후에도 실패. ' + (attempt + 1) + '차 재시도합니다...');
+                                setTimeout(() => retryLoad(attempt + 1), 1000 * attempt);
+                            } else {
+                                console.error('모든 재시도 실패');
+                            }
+                        } else {
+                            console.log(attempt + '차 재시도 성공!');
                         }
                     } catch (error) {
-                        console.error('1차 재시도 실패:', error);
+                        console.error(attempt + '차 재시도 실패:', error);
+                        if (attempt < 5) {
+                            setTimeout(() => retryLoad(attempt + 1), 1000 * attempt);
+                        }
                     }
-                }, 1000);
+                };
+                
+                // 첫 재시도 시작
+                setTimeout(() => retryLoad(1), 500);
             }
             
         } catch (error) {
@@ -9256,6 +9386,19 @@ function goToHome() {
             }
         });
         
+        // 검색 입력 필드 초기화
+        const searchInputPC = document.getElementById('searchInputPC');
+        const searchInputMobile = document.getElementById('searchInput');
+        if (searchInputPC) {
+            searchInputPC.value = '';
+        }
+        if (searchInputMobile) {
+            searchInputMobile.value = '';
+        }
+        
+        // 검색어 초기화
+        window.priceComparisonSite.currentSearchTerm = '';
+        
         // 상품리스트 화면으로 복귀 (전체 카테고리로 필터)
         window.priceComparisonSite.filterByCategory('전체');
         
@@ -9276,6 +9419,92 @@ function sortProducts(sortType) {
         window.priceComparisonSite.sortProducts(sortType);
     } else {
         console.error('priceComparisonSite가 초기화되지 않았습니다.');
+    }
+}
+
+function performSearch() {
+    if (window.priceComparisonSite) {
+        window.priceComparisonSite.performSearch();
+    } else {
+        console.error('priceComparisonSite가 초기화되지 않았습니다.');
+    }
+}
+
+function handleSearchKeyPress(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        performSearch();
+    }
+}
+
+// debounce를 위한 타이머
+let searchDebounceTimer = null;
+
+function syncSearchInputs(event) {
+    // 이벤트 객체 확인
+    if (!event) {
+        return; // 이벤트가 없으면 동기화하지 않음
+    }
+    
+    const targetInput = event.target;
+    if (!targetInput || targetInput.value === undefined) {
+        return; // 타겟이 없거나 value 속성이 없으면 동기화하지 않음
+    }
+    
+    const searchInputPC = document.getElementById('searchInputPC');
+    const searchInputMobile = document.getElementById('searchInput');
+    
+    // 현재 입력된 값 가져오기
+    const currentValue = targetInput.value || '';
+    const searchTerm = currentValue.trim();
+    
+    // 두 입력 필드 동기화 (빈 값이어도 동기화)
+    if (searchInputPC && searchInputMobile) {
+        if (targetInput.id === 'searchInputPC') {
+            searchInputMobile.value = currentValue;
+        } else if (targetInput.id === 'searchInput') {
+            searchInputPC.value = currentValue;
+        }
+    }
+    
+    // 현재 입력 필드의 값으로 currentSearchTerm 업데이트 (즉시)
+    if (window.priceComparisonSite) {
+        // currentSearchTerm을 즉시 업데이트
+        window.priceComparisonSite.currentSearchTerm = searchTerm;
+        
+        // 이전 타이머 취소
+        if (searchDebounceTimer) {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = null;
+        }
+        
+        // 검색어가 비어있으면 확실히 초기화 (즉시 처리)
+        if (!searchTerm) {
+            // currentSearchTerm도 확실히 비우기
+            window.priceComparisonSite.currentSearchTerm = '';
+            // 입력 필드도 확실히 비우기 (동기화 후)
+            if (searchInputPC) {
+                searchInputPC.value = '';
+            }
+            if (searchInputMobile) {
+                searchInputMobile.value = '';
+            }
+            
+            // performSearch를 직접 호출하여 확실히 초기화
+            setTimeout(() => {
+                if (window.priceComparisonSite) {
+                    window.priceComparisonSite.performSearch();
+                }
+            }, 0);
+        } else {
+            // 검색어가 있으면 debounce 적용하여 검색 수행
+            searchDebounceTimer = setTimeout(() => {
+                if (window.priceComparisonSite && window.priceComparisonSite.currentSearchTerm === searchTerm) {
+                    window.priceComparisonSite.performSearch();
+                }
+                searchDebounceTimer = null;
+            }, 500);
+        }
     }
 }
 

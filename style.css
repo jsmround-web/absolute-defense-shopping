@@ -209,6 +209,25 @@ body {
     display: none !important; /* 기본적으로 숨김 */
 }
 
+/* 모바일/PC 표시 제어 */
+.mobile-only {
+    display: block !important;
+}
+
+.mobile-hidden {
+    display: none !important;
+}
+
+@media screen and (min-width: 769px) {
+    .mobile-only {
+        display: none !important;
+    }
+    
+    .mobile-hidden {
+        display: block !important;
+    }
+}
+
 /* PC 버전 - 헤더 안의 버튼들 표시 */
 @media screen and (min-width: 769px) {
     /* 관리자 패널 내부 제품 카드 너비 제한 */
@@ -512,6 +531,68 @@ body {
         border-radius: 3px !important; /* 카테고리 아이템과 동일한 border-radius */
     }
     
+    .sort-buttons {
+        display: flex !important;
+        gap: 2px !important;
+        flex: 1 !important;
+        overflow-x: auto !important;
+        min-width: 0 !important;
+    }
+    
+    .search-bar-container {
+        display: flex !important;
+        gap: 2px !important;
+        align-items: center !important;
+        flex-shrink: 0 !important;
+        margin-left: auto !important;
+    }
+    
+    .search-input {
+        padding: 2px 4px !important;
+        font-size: 0.75rem !important;
+        line-height: 1.2 !important;
+        height: auto !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 3px !important;
+        background: white !important;
+        color: #374151 !important;
+        min-width: 80px !important;
+        max-width: 120px !important;
+        box-sizing: border-box !important;
+    }
+    
+    .search-input:focus {
+        outline: none !important;
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
+    }
+    
+    .search-btn {
+        padding: 2px 3px !important;
+        font-size: 0.65rem !important;
+        line-height: 1.2 !important;
+        height: auto !important;
+        min-height: auto !important;
+        max-height: none !important;
+        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 3px !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+        touch-action: manipulation !important;
+    }
+    
+    .search-btn:hover {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    }
+    
     /* 모바일: 상품리스트가 정렬바 바로 아래 오도록 (여백 0) */
     #productList {
         margin-top: 0 !important;
@@ -719,6 +800,34 @@ body {
         right: auto !important;
         transform: translateX(-50%) !important;
         width: calc(100% - 4px) !important; /* 좌우 2px씩 여백 */
+        justify-content: flex-start !important; /* PC에서는 검색바가 없으므로 */
+    }
+    
+    .search-input {
+        min-width: 120px !important;
+        max-width: 200px !important;
+    }
+    
+    /* PC용 검색바 (카테고리바와 정렬바 사이) */
+    .search-bar-between {
+        position: fixed !important;
+        top: 60px !important; /* 카테고리바(42px + 18px) 바로 아래 */
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        max-width: 1200px !important;
+        width: calc(100% - 4px) !important;
+        z-index: 99999 !important; /* 정렬바(9998)보다 높게 */
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        padding-right: 4px !important;
+    }
+    
+    .search-bar-between .search-bar-container {
+        display: flex !important;
+        gap: 2px !important;
+        align-items: center !important;
     }
     
     /* PC에서 상세보기 전체화면 */
@@ -2014,6 +2123,66 @@ body {
     box-sizing: border-box;
     align-items: center; /* 카테고리 바와 동일하게 중앙 정렬 */
     min-height: auto; /* 카테고리 바와 동일한 높이 */
+    justify-content: space-between; /* 좌우 배치 */
+}
+
+.sort-buttons {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+    overflow-x: auto;
+    min-width: 0;
+}
+
+.search-bar-container {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.search-input {
+    padding: 0 6px;
+    font-size: 0.65rem;
+    line-height: 1.2;
+    height: 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 3px;
+    background: white;
+    color: #374151;
+    min-width: 100px;
+    max-width: 150px;
+    box-sizing: border-box;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.search-btn {
+    padding: 0 6px;
+    font-size: 0.65rem;
+    line-height: 1.2;
+    height: 14px;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.search-btn:hover {
+    background: #f3f4f6;
+    border-color: #3b82f6;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .sort-item {

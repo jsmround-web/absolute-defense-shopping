@@ -561,29 +561,44 @@ const firebaseConfig = {
             </div>
         </div>
 
+        <!-- PC용 검색바 (카테고리바와 정렬바 사이) -->
+        <div class="search-bar-between mobile-hidden">
+            <div class="search-bar-container">
+                <input type="text" id="searchInputPC" class="search-input" placeholder="검색어를 입력하세요." onkeypress="handleSearchKeyPress(event)" oninput="syncSearchInputs(event)">
+                <button class="search-btn" onclick="performSearch()">🔍</button>
+            </div>
+        </div>
+
         <!-- 정렬 바 -->
         <div class="sort-bar">
-            <button class="sort-item" data-sort="discount" onclick="sortProducts('discount')">
-                할인율순
-            </button>
-            <button class="sort-item" data-sort="newest" onclick="sortProducts('newest')">
-                신규순
-            </button>
-            <button class="sort-item" data-sort="price-low" onclick="sortProducts('price-low')">
-                낮은가격순
-            </button>
-            <button class="sort-item" data-sort="price-high" onclick="sortProducts('price-high')">
-                높은가격순
-            </button>
-            <button class="sort-item" data-sort="clicks" onclick="sortProducts('clicks')">
-                클릭순
-            </button>
-            <button class="sort-item active" data-sort="purchases" onclick="sortProducts('purchases')">
-                구매순
-            </button>
-            <button class="sort-item" data-sort="revenue" onclick="sortProducts('revenue')">
-                매출순
-            </button>
+            <div class="sort-buttons">
+                <button class="sort-item" data-sort="discount" onclick="sortProducts('discount')">
+                    할인율
+                </button>
+                <button class="sort-item" data-sort="newest" onclick="sortProducts('newest')">
+                    신규순
+                </button>
+                <button class="sort-item" data-sort="price-low" onclick="sortProducts('price-low')">
+                    저가순
+                </button>
+                <button class="sort-item" data-sort="price-high" onclick="sortProducts('price-high')">
+                    고가순
+                </button>
+                <button class="sort-item" data-sort="clicks" onclick="sortProducts('clicks')">
+                    클릭순
+                </button>
+                <button class="sort-item active" data-sort="purchases" onclick="sortProducts('purchases')">
+                    구매순
+                </button>
+                <button class="sort-item" data-sort="revenue" onclick="sortProducts('revenue')">
+                    매출순
+                </button>
+            </div>
+            <!-- 모바일용 검색바 (정렬바 우측) -->
+            <div class="search-bar-container mobile-only">
+                <input type="text" id="searchInput" class="search-input" placeholder="검색어를 입력하세요." onkeypress="handleSearchKeyPress(event)" oninput="syncSearchInputs(event)">
+                <button class="search-btn" onclick="performSearch()">🔍</button>
+            </div>
         </div>
 
         <!-- 검색 결과 -->

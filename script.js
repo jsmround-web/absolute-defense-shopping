@@ -397,6 +397,15 @@ class VisitorCounter {
                     visitData.savedToFirestore = true;
                     console.log('방문 기록 Firestore 저장 완료');
                     
+                    // Firestore 저장 성공 시 로컬 스토리지에서 제거 (중복 방지)
+                    try {
+                        const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
+                        const updatedLocalVisits = localVisits.filter(v => v.id !== visitId);
+                        localStorage.setItem('visitor_visits', JSON.stringify(updatedLocalVisits));
+                    } catch (e) {
+                        console.warn('로컬 스토리지 정리 중 오류 (무시 가능):', e);
+                    }
+                    
                 } catch (firestoreError) {
                     // Firestore 저장 실패 시 로컬 스토리지에 임시 저장
                     const isPermissionError = firestoreError.code === 'permission-denied' || 
@@ -493,26 +502,40 @@ class VisitorCounter {
                 }
             }
             
-            // 로컬 스토리지에서 Firestore에 저장되지 않은 방문 기록만 가져오기
+            // Firestore 데이터만 사용 (모든 사용자의 공유 데이터)
+            // 로컬 스토리지는 Firestore 저장 실패 시에만 임시 저장용으로 사용
+            // 통계는 Firestore 데이터만 사용하여 모든 기기에서 동일하게 표시
+            
+            // Firestore 데이터를 우선 사용 (모든 기기에서 동일한 데이터)
+            if (this.db && (firestoreDailyCount > 0 || firestoreMonthlyCount > 0 || firestoreTotalCount > 0)) {
+                // Firestore 데이터가 있으면 그것만 사용
+                this.updateUI(firestoreDailyCount, firestoreMonthlyCount, firestoreTotalCount);
+                await this.saveStatsToFirestore(firestoreDailyCount, firestoreMonthlyCount, firestoreTotalCount);
+                
+                // 로컬 스토리지의 저장된 방문 기록 정리 (Firestore에 이미 저장된 것들)
+                try {
+                    const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
+                    // savedToFirestore가 true인 항목들 제거
+                    const cleanedLocalVisits = localVisits.filter(v => v.savedToFirestore !== true);
+                    localStorage.setItem('visitor_visits', JSON.stringify(cleanedLocalVisits));
+                } catch (e) {
+                    console.warn('로컬 스토리지 정리 중 오류 (무시 가능):', e);
+                }
+                
+                return;
+            }
+            
+            // Firestore 데이터가 없거나 권한 오류인 경우에만 로컬 스토리지 확인
+            // (이 경우는 임시로만 사용, Firestore가 복구되면 자동으로 Firestore 데이터 사용)
             const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
-            // 기존 데이터 호환성: savedToFirestore 플래그가 없으면 false로 간주
             const unsavedVisits = localVisits.filter(v => v.savedToFirestore !== true);
             
-            // 로컬 스토리지의 미저장 방문 기록 통계
             const localDailyCount = unsavedVisits.filter(v => v.date === todayKey).length;
             const localMonthlyCount = unsavedVisits.filter(v => v.month === monthKey).length;
             const localTotalCount = unsavedVisits.length;
             
-            // 최종 통계 = Firestore (모든 사용자) + 로컬 스토리지 (현재 사용자의 미저장 방문)
-            const dailyCount = firestoreDailyCount + localDailyCount;
-            const monthlyCount = firestoreMonthlyCount + localMonthlyCount;
-            const totalCount = firestoreTotalCount + localTotalCount;
-            
-            // UI 업데이트
-            this.updateUI(dailyCount, monthlyCount, totalCount);
-            
-            // Firestore에 통계 저장 (캐시용)
-            await this.saveStatsToFirestore(dailyCount, monthlyCount, totalCount);
+            // Firestore 데이터가 없을 때만 로컬 스토리지 데이터 사용
+            this.updateUI(localDailyCount, localMonthlyCount, localTotalCount);
             
         } catch (error) {
             console.error('통계 업데이트 실패:', error);
@@ -1053,6 +1076,39 @@ class PriceComparisonSite {
             }
         }, 1000);
         
+        // Firebase가 준비될 때까지 기다린 후 제품 로드
+        const waitForFirebaseAndLoad = async () => {
+            let attempts = 0;
+            const maxAttempts = 20; // 최대 10초 대기 (500ms * 20)
+            
+            while (attempts < maxAttempts) {
+                if (window.firestoreDB) {
+                    console.log('Firebase 준비 확인, 제품 로드 시작');
+                    try {
+                        await this.loadProductsFromFirebase(true); // 캐시 사용
+                        
+                        // 제품이 로드되었는지 확인
+                        if (this.products.length > 0) {
+                            console.log('초기 제품 로드 성공:', this.products.length, '개');
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('초기 제품 로드 실패:', error);
+                    }
+                    break; // Firebase는 준비되었지만 로드 실패, 재시도 로직으로 넘어감
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 500));
+                attempts++;
+            }
+            
+            // Firebase가 준비되지 않았거나 제품 로드 실패 시 재시도
+            console.log('Firebase 준비 대기 완료 또는 로드 실패, 재시도 로직 시작');
+        };
+        
+        // Firebase 준비 대기 및 초기 로드
+        waitForFirebaseAndLoad();
+        
         // 상품 표시 보장 - 여러 단계로 확인 및 재시도
         const ensureProductsDisplayed = async () => {
             // 권한 오류가 발생했으면 재시도하지 않음
@@ -1062,11 +1118,21 @@ class PriceComparisonSite {
             
             const productList = document.getElementById('productList');
             const hasProducts = this.products.length > 0;
-            const isDisplayed = productList && productList.innerHTML && productList.innerHTML.trim() !== '';
+            const isDisplayed = productList && productList.innerHTML && productList.innerHTML.trim() !== '' && 
+                               !productList.innerHTML.includes('등록된 제품이 없습니다');
+            
+            console.log('상품 표시 확인:', {
+                hasProducts,
+                isDisplayed,
+                productsCount: this.products.length,
+                productListExists: !!productList,
+                innerHTML: productList ? productList.innerHTML.substring(0, 100) : 'null'
+            });
             
             if (!hasProducts) {
+                console.log('제품이 없음, Firebase에서 로드 시도');
                 try {
-                    await this.loadProductsFromFirebase(false);
+                    await this.loadProductsFromFirebase(false); // 캐시 없이 재시도
                 } catch (error) {
                     // 권한 오류는 조용히 처리
                     const isPermissionError = error.code === 'permission-denied' || 
@@ -1078,6 +1144,7 @@ class PriceComparisonSite {
                 }
             } else if (!isDisplayed) {
                 // 상품은 있지만 화면에 표시되지 않은 경우
+                console.log('제품은 있지만 표시되지 않음, displayAllProducts 호출');
                 try {
                     await this.displayAllProducts();
                 } catch (error) {
@@ -1086,13 +1153,19 @@ class PriceComparisonSite {
             }
         };
         
-        // 3초 후 첫 확인
+        // 1초 후 첫 확인
+        setTimeout(ensureProductsDisplayed, 1000);
+        
+        // 2초 후 두 번째 확인
+        setTimeout(ensureProductsDisplayed, 2000);
+        
+        // 3초 후 세 번째 확인
         setTimeout(ensureProductsDisplayed, 3000);
         
-        // 5초 후 두 번째 확인
+        // 5초 후 네 번째 확인
         setTimeout(ensureProductsDisplayed, 5000);
         
-        // 8초 후 세 번째 확인 (최종)
+        // 8초 후 다섯 번째 확인 (최종)
         setTimeout(ensureProductsDisplayed, 8000);
         
         // Firebase 로드 완료 후 알림 업데이트 시작
@@ -2532,15 +2605,6 @@ class PriceComparisonSite {
             }
         });
 
-        // 모든 숨김 상품 일괄 복원 버튼
-        const restoreAllBtn = document.getElementById('restoreAllHiddenProducts');
-        if (restoreAllBtn) {
-            restoreAllBtn.addEventListener('click', () => {
-                if (adminAuth.requireAuth() && window.priceComparisonSite) {
-                    window.priceComparisonSite.restoreAllHiddenProducts();
-                }
-            });
-        }
         
         // 기존 품절 설정 저장 버튼은 더 이상 사용하지 않으므로 안전하게 무시
         const saveOutOfStockSettingsBtn = document.getElementById('saveOutOfStockSettings');
@@ -5642,7 +5706,7 @@ class PriceComparisonSite {
             });
 
             // 숨김 상품 필터링 (여러 조건 확인)
-            const hiddenProducts = (this.products || []).filter(p => {
+            let hiddenProducts = (this.products || []).filter(p => {
                 const isHidden = p.status === 'hidden' || 
                                 p.hidden === true || 
                                 p.hidden === 'true' ||
@@ -5650,12 +5714,20 @@ class PriceComparisonSite {
                 return isHidden;
             });
             
+            // 최근 숨김 순으로 정렬 (lastUpdated 기준 내림차순)
+            hiddenProducts.sort((a, b) => {
+                const timeA = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+                const timeB = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+                return timeB - timeA; // 최근 것이 먼저
+            });
+            
             console.log('필터링된 숨김 상품 개수:', hiddenProducts.length);
-            console.log('숨김 상품 목록:', hiddenProducts.map(p => ({ 
+            console.log('숨김 상품 목록 (최근 순):', hiddenProducts.map(p => ({ 
                 id: p.id, 
                 name: p.name,
                 status: p.status,
-                hidden: p.hidden
+                hidden: p.hidden,
+                lastUpdated: p.lastUpdated
             })));
 
             // 만약 필터링 결과가 없고 전체 제품이 있다면, 모든 제품의 상태를 확인
@@ -5668,6 +5740,12 @@ class PriceComparisonSite {
                 // status가 없거나 'approved'가 아닌 모든 제품을 숨김으로 간주
                 const allNonApproved = this.products.filter(p => !p.status || (p.status !== 'approved' && p.status !== 'pending' && p.status !== 'rejected'));
                 if (allNonApproved.length > 0) {
+                    // 최근 순으로 정렬
+                    allNonApproved.sort((a, b) => {
+                        const timeA = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+                        const timeB = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+                        return timeB - timeA;
+                    });
                     console.log('승인되지 않은 제품을 숨김 상품으로 표시:', allNonApproved.length, '개');
                     this.displayHiddenProducts(allNonApproved);
                     return;
@@ -6359,7 +6437,31 @@ class PriceComparisonSite {
 
         } catch (error) {
             console.error('제품 수정 실패:', error);
-            alert('제품 수정에 실패했습니다.');
+            console.error('에러 상세:', {
+                message: error.message,
+                code: error.code,
+                stack: error.stack,
+                name: error.name
+            });
+            
+            // 권한 오류 확인 (더 정확한 체크)
+            const isPermissionError = error.code === 'permission-denied' || 
+                                     error.code === 'PERMISSION_DENIED' ||
+                                     error.code === 'permissions/denied' ||
+                                     error.message?.includes('Missing or insufficient permissions') ||
+                                     error.message?.includes('permission-denied') ||
+                                     error.message?.includes('PERMISSION_DENIED');
+            
+            if (isPermissionError) {
+                const consoleUrl = 'https://console.firebase.google.com/project/price-match-1f952/firestore/rules';
+                const errorMessage = `⚠️ Firebase 권한 오류\n\n제품 수정에 필요한 권한이 없습니다.\n\n오류 코드: ${error.code || '알 수 없음'}\n오류 메시지: ${error.message || '알 수 없음'}\n\nFirebase Console에서 Firestore 보안 규칙을 수정하시겠습니까?\n\n필요한 규칙:\nallow write: if request.auth != null;\n또는\nallow write: if true; (임시 테스트용)`;
+                
+                if (confirm(errorMessage)) {
+                    window.open(consoleUrl, '_blank');
+                }
+            } else {
+                alert(`제품 수정에 실패했습니다.\n\n오류 코드: ${error.code || '알 수 없음'}\n오류 메시지: ${error.message || '알 수 없음'}\n\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.`);
+            }
         }
     }
 
@@ -7268,7 +7370,31 @@ class PriceComparisonSite {
             
         } catch (error) {
             console.error('제품 시간 갱신 실패:', error);
-            alert('시간 업데이트에 실패했습니다.');
+            console.error('에러 상세:', {
+                message: error.message,
+                code: error.code,
+                stack: error.stack,
+                name: error.name
+            });
+            
+            // 권한 오류 확인 (더 정확한 체크)
+            const isPermissionError = error.code === 'permission-denied' || 
+                                     error.code === 'PERMISSION_DENIED' ||
+                                     error.code === 'permissions/denied' ||
+                                     error.message?.includes('Missing or insufficient permissions') ||
+                                     error.message?.includes('permission-denied') ||
+                                     error.message?.includes('PERMISSION_DENIED');
+            
+            if (isPermissionError) {
+                const consoleUrl = 'https://console.firebase.google.com/project/price-match-1f952/firestore/rules';
+                const errorMessage = `⚠️ Firebase 권한 오류\n\n시간 갱신에 필요한 권한이 없습니다.\n\n오류 코드: ${error.code || '알 수 없음'}\n오류 메시지: ${error.message || '알 수 없음'}\n\nFirebase Console에서 Firestore 보안 규칙을 수정하시겠습니까?\n\n필요한 규칙:\nallow write: if request.auth != null;\n또는\nallow write: if true; (임시 테스트용)`;
+                
+                if (confirm(errorMessage)) {
+                    window.open(consoleUrl, '_blank');
+                }
+            } else {
+                alert(`시간 업데이트에 실패했습니다.\n\n오류 코드: ${error.code || '알 수 없음'}\n오류 메시지: ${error.message || '알 수 없음'}\n\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.`);
+            }
         }
     }
 
@@ -7978,9 +8104,30 @@ class PriceComparisonSite {
             console.error('에러 상세:', {
                 message: error.message,
                 code: error.code,
-                stack: error.stack
+                stack: error.stack,
+                name: error.name
             });
-            alert(`제품 삭제에 실패했습니다: ${error.message}`);
+            
+            // 권한 오류 확인 (더 정확한 체크)
+            const isPermissionError = error.code === 'permission-denied' || 
+                                     error.code === 'PERMISSION_DENIED' ||
+                                     error.code === 'permissions/denied' ||
+                                     error.message?.includes('Missing or insufficient permissions') ||
+                                     error.message?.includes('permission-denied') ||
+                                     error.message?.includes('PERMISSION_DENIED');
+            
+            if (isPermissionError) {
+                const consoleUrl = 'https://console.firebase.google.com/project/price-match-1f952/firestore/rules';
+                const errorMessage = `⚠️ Firebase 권한 오류\n\n제품 숨김 처리에 필요한 권한이 없습니다.\n\n오류 코드: ${error.code || '알 수 없음'}\n오류 메시지: ${error.message || '알 수 없음'}\n\nFirebase Console에서 Firestore 보안 규칙을 수정하시겠습니까?\n\n필요한 규칙:\nallow write: if request.auth != null;\n또는\nallow write: if true; (임시 테스트용)`;
+                
+                if (confirm(errorMessage)) {
+                    window.open(consoleUrl, '_blank');
+                }
+            } else {
+                // 권한 오류가 아닌 경우
+                const errorMessage = `제품 숨김 처리에 실패했습니다.\n\n오류 코드: ${error.code || '알 수 없음'}\n오류 메시지: ${error.message || '알 수 없음'}\n\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.`;
+                alert(errorMessage);
+            }
         }
     }
 

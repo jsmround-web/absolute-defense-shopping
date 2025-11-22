@@ -335,9 +335,14 @@ class VisitorCounter {
                 clearInterval(checkFirebase);
                 this.db = window.firestoreDB;
                 
-                // 방문 기록 및 통계 업데이트
-                this.recordVisit();
-                this.updateStats();
+                // 방문 기록 저장 후 통계 업데이트 (순서 보장)
+                this.recordVisit().then(() => {
+                    // 방문 기록 저장 완료 후 통계 업데이트
+                    this.updateStats();
+                }).catch(() => {
+                    // 방문 기록 저장 실패해도 통계 업데이트 (로컬 스토리지 데이터 사용)
+                    this.updateStats();
+                });
                 
                 // 주기적으로 통계 업데이트 (30초마다)
                 setInterval(() => this.updateStats(), 30000);
@@ -359,6 +364,24 @@ class VisitorCounter {
             // 이번 달 키 (YYYY-MM)
             const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
             
+            // 방문 기록을 로컬 스토리지에 먼저 저장 (권한 오류 시에도 카운트 가능)
+            const visitData = {
+                timestamp: new Date().toISOString(),
+                date: todayKey,
+                month: monthKey,
+                userAgent: navigator.userAgent.substring(0, 100),
+                referrer: (document.referrer || '').substring(0, 200)
+            };
+            
+            // 로컬 스토리지에 방문 기록 저장
+            const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
+            localVisits.push(visitData);
+            // 최근 1000개만 저장 (용량 제한 방지)
+            if (localVisits.length > 1000) {
+                localVisits.splice(0, localVisits.length - 1000);
+            }
+            localStorage.setItem('visitor_visits', JSON.stringify(localVisits));
+            
             const visitsRef = window.firebaseCollection(this.db, 'visits');
             
             // 방문 기록 문서 추가 (같은 사람이 여러 번 방문하면 여러 번 카운트)
@@ -372,6 +395,16 @@ class VisitorCounter {
             
             console.log('방문 기록 저장 완료');
         } catch (error) {
+            // 권한 오류 발생 시에도 로컬 스토리지에 저장되었으므로 카운트는 정상 작동
+            const isPermissionError = error.code === 'permission-denied' || 
+                                     error.code === 'PERMISSION_DENIED' ||
+                                     error.message.includes('Missing or insufficient permissions');
+            
+            if (isPermissionError) {
+                // 로컬 스토리지에 이미 저장되었으므로 조용히 처리
+                return;
+            }
+            
             console.error('방문 기록 저장 실패:', error);
         }
     }
@@ -379,43 +412,91 @@ class VisitorCounter {
     // 통계 업데이트 및 표시
     async updateStats() {
         try {
-            if (!this.db) return;
-            
             const now = new Date();
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const todayKey = today.toISOString().split('T')[0];
             const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
             
-            const visitsRef = window.firebaseCollection(this.db, 'visits');
+            // 로컬 스토리지에서 방문 기록 가져오기 (주 데이터 소스)
+            const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
             
-            // 오늘 방문자수 계산 (일일은 중복 카운트)
-            const todayQuery = window.firebaseQuery(
-                visitsRef,
-                window.firebaseWhere('date', '==', todayKey)
-            );
-            const todaySnapshot = await window.firebaseGetDocs(todayQuery);
-            const dailyCount = todaySnapshot.size;
+            // 로컬 스토리지 기반 통계 계산
+            let localDailyCount = localVisits.filter(v => v.date === todayKey).length;
+            let localMonthlyCount = localVisits.filter(v => v.month === monthKey).length;
+            let localTotalCount = localVisits.length;
             
-            // 이번 달 누적 방문자수 계산
-            const monthQuery = window.firebaseQuery(
-                visitsRef,
-                window.firebaseWhere('month', '==', monthKey)
-            );
-            const monthSnapshot = await window.firebaseGetDocs(monthQuery);
-            const monthlyCount = monthSnapshot.size;
+            // 로컬 스토리지가 주 데이터 소스이므로 먼저 UI 업데이트
+            this.updateUI(localDailyCount, localMonthlyCount, localTotalCount);
             
-            // 총 누적 방문자수 계산
-            const allSnapshot = await window.firebaseGetDocs(visitsRef);
-            const totalCount = allSnapshot.size;
-            
-            // UI 업데이트
-            this.updateUI(dailyCount, monthlyCount, totalCount);
-            
-            // Firestore에 통계 저장 (캐시용)
-            await this.saveStatsToFirestore(dailyCount, monthlyCount, totalCount);
+            // Firestore에서도 통계 가져오기 (백업/동기화 용도)
+            if (this.db) {
+                try {
+                    const visitsRef = window.firebaseCollection(this.db, 'visits');
+                    
+                    // 오늘 방문자수 계산 (일일은 중복 카운트)
+                    const todayQuery = window.firebaseQuery(
+                        visitsRef,
+                        window.firebaseWhere('date', '==', todayKey)
+                    );
+                    const todaySnapshot = await window.firebaseGetDocs(todayQuery);
+                    const firestoreDailyCount = todaySnapshot.size;
+                    
+                    // 이번 달 누적 방문자수 계산
+                    const monthQuery = window.firebaseQuery(
+                        visitsRef,
+                        window.firebaseWhere('month', '==', monthKey)
+                    );
+                    const monthSnapshot = await window.firebaseGetDocs(monthQuery);
+                    const firestoreMonthlyCount = monthSnapshot.size;
+                    
+                    // 총 누적 방문자수 계산
+                    const allSnapshot = await window.firebaseGetDocs(visitsRef);
+                    const firestoreTotalCount = allSnapshot.size;
+                    
+                    // Firestore 데이터가 로컬 스토리지보다 크면 Firestore 데이터 사용 (동기화)
+                    // 하지만 로컬 스토리지가 더 크거나 같으면 로컬 스토리지 우선
+                    const dailyCount = firestoreDailyCount > localDailyCount ? firestoreDailyCount : localDailyCount;
+                    const monthlyCount = firestoreMonthlyCount > localMonthlyCount ? firestoreMonthlyCount : localMonthlyCount;
+                    const totalCount = firestoreTotalCount > localTotalCount ? firestoreTotalCount : localTotalCount;
+                    
+                    // Firestore 데이터가 더 큰 경우에만 UI 업데이트
+                    if (firestoreDailyCount > localDailyCount || firestoreMonthlyCount > localMonthlyCount || firestoreTotalCount > localTotalCount) {
+                        this.updateUI(dailyCount, monthlyCount, totalCount);
+                    }
+                    
+                    // Firestore에 통계 저장 (캐시용)
+                    await this.saveStatsToFirestore(dailyCount, monthlyCount, totalCount);
+                } catch (firestoreError) {
+                    // Firestore 오류는 무시하고 로컬 스토리지 데이터 사용
+                    const isPermissionError = firestoreError.code === 'permission-denied' || 
+                                             firestoreError.code === 'PERMISSION_DENIED' ||
+                                             firestoreError.message.includes('Missing or insufficient permissions');
+                    
+                    if (!isPermissionError) {
+                        // 권한 오류가 아닌 다른 오류만 로그 출력
+                        console.error('Firestore 통계 조회 실패:', firestoreError);
+                    }
+                }
+            }
             
         } catch (error) {
             console.error('통계 업데이트 실패:', error);
+            
+            // 오류 발생 시에도 로컬 스토리지 데이터로 표시
+            try {
+                const localVisits = JSON.parse(localStorage.getItem('visitor_visits') || '[]');
+                const now = new Date();
+                const todayKey = now.toISOString().split('T')[0];
+                const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                
+                const localDailyCount = localVisits.filter(v => v.date === todayKey).length;
+                const localMonthlyCount = localVisits.filter(v => v.month === monthKey).length;
+                const localTotalCount = localVisits.length;
+                
+                this.updateUI(localDailyCount, localMonthlyCount, localTotalCount);
+            } catch (fallbackError) {
+                console.error('로컬 스토리지 통계 조회 실패:', fallbackError);
+            }
         }
     }
 
@@ -436,6 +517,17 @@ class VisitorCounter {
             }, { merge: true });
             
         } catch (error) {
+            // 권한 오류는 조용히 처리 (에러 로그 출력 안 함)
+            const isPermissionError = error.code === 'permission-denied' || 
+                                     error.code === 'PERMISSION_DENIED' ||
+                                     error.message.includes('Missing or insufficient permissions');
+            
+            if (isPermissionError) {
+                // 통계 저장 권한 오류는 무시 (기능에 영향 없음)
+                return;
+            }
+            
+            // 다른 에러만 로그 출력
             console.error('통계 저장 실패:', error);
         }
     }
@@ -571,6 +663,13 @@ function approveOutOfStockReport(reportId, productId) {
 function restoreProduct(productId) {
     if (adminAuth.requireAuth() && window.priceComparisonSite) {
         window.priceComparisonSite.restoreProduct(productId);
+    }
+}
+
+// 모든 숨김 상품 일괄 복원
+function restoreAllHiddenProducts() {
+    if (adminAuth.requireAuth() && window.priceComparisonSite) {
+        window.priceComparisonSite.restoreAllHiddenProducts();
     }
 }
 
@@ -920,33 +1019,35 @@ class PriceComparisonSite {
         
         // 상품 표시 보장 - 여러 단계로 확인 및 재시도
         const ensureProductsDisplayed = async () => {
+            // 권한 오류가 발생했으면 재시도하지 않음
+            if (window.firebasePermissionDenied) {
+                return;
+            }
+            
             const productList = document.getElementById('productList');
             const hasProducts = this.products.length > 0;
             const isDisplayed = productList && productList.innerHTML && productList.innerHTML.trim() !== '';
             
-            console.log('상품 표시 확인:', {
-                productsCount: this.products.length,
-                hasProducts: hasProducts,
-                isDisplayed: isDisplayed,
-                productListExists: !!productList
-            });
-            
             if (!hasProducts) {
-                console.warn('상품이 로드되지 않았습니다. 강제로 로드 시도합니다...');
                 try {
                     await this.loadProductsFromFirebase(false);
                 } catch (error) {
-                    console.error('강제 로드 실패:', error);
+                    // 권한 오류는 조용히 처리
+                    const isPermissionError = error.code === 'permission-denied' || 
+                                             error.code === 'PERMISSION_DENIED' ||
+                                             error.message.includes('Missing or insufficient permissions');
+                    if (!isPermissionError) {
+                        console.error('강제 로드 실패:', error);
+                    }
                 }
             } else if (!isDisplayed) {
                 // 상품은 있지만 화면에 표시되지 않은 경우
-                    console.warn('상품은 있지만 화면에 표시되지 않았습니다. displayAllProducts 호출...');
-                    try {
-                        await this.displayAllProducts();
-                    } catch (error) {
-                        console.error('displayAllProducts 호출 실패:', error);
-                    }
+                try {
+                    await this.displayAllProducts();
+                } catch (error) {
+                    console.error('displayAllProducts 호출 실패:', error);
                 }
+            }
         };
         
         // 3초 후 첫 확인
@@ -2394,6 +2495,16 @@ class PriceComparisonSite {
                 this.loadHiddenProducts();
             }
         });
+
+        // 모든 숨김 상품 일괄 복원 버튼
+        const restoreAllBtn = document.getElementById('restoreAllHiddenProducts');
+        if (restoreAllBtn) {
+            restoreAllBtn.addEventListener('click', () => {
+                if (adminAuth.requireAuth() && window.priceComparisonSite) {
+                    window.priceComparisonSite.restoreAllHiddenProducts();
+                }
+            });
+        }
         
         // 기존 품절 설정 저장 버튼은 더 이상 사용하지 않으므로 안전하게 무시
         const saveOutOfStockSettingsBtn = document.getElementById('saveOutOfStockSettings');
@@ -3329,7 +3440,17 @@ class PriceComparisonSite {
                 console.log('Firebase에 필독 데이터가 없습니다.');
             }
         } catch (error) {
-            console.error('Firebase 필독 데이터 로드 실패:', error);
+            // 권한 오류는 조용히 처리 (팝업 없음)
+            const isPermissionError = error.code === 'permission-denied' || 
+                                     error.code === 'PERMISSION_DENIED' ||
+                                     error.message.includes('Missing or insufficient permissions');
+            
+            if (isPermissionError) {
+                console.warn('필독 데이터 로드 권한 오류 (무시됨)');
+                // localStorage에서 로드 시도
+            } else {
+                console.error('Firebase 필독 데이터 로드 실패:', error);
+            }
         }
         
         // Firebase에 없으면 localStorage 사용 (하위 호환성)
@@ -4463,14 +4584,17 @@ class PriceComparisonSite {
         console.log('현재 로드된 상품 개수:', this.products.length);
         
         const checkAndRetryProducts = async () => {
+            // 권한 오류가 발생했으면 재시도하지 않음
+            if (window.firebasePermissionDenied) {
+                return;
+            }
+            
             const productList = document.getElementById('productList');
             const hasProducts = this.products.length > 0;
             const isDisplayed = productList && productList.innerHTML && productList.innerHTML.trim() !== '';
             
             if (!hasProducts || !isDisplayed) {
-                console.warn('상품이 로드되지 않았거나 표시되지 않았습니다. 재시도합니다...');
                 try {
-                    console.log('initFirebase에서 상품 로드 재시도 시작...');
                     await this.loadProductsFromFirebase(false); // 캐시 없이 재시도
                     
                     // 재시도 후에도 확인
@@ -4479,15 +4603,26 @@ class PriceComparisonSite {
                     const retryIsDisplayed = retryProductList && retryProductList.innerHTML && retryProductList.innerHTML.trim() !== '';
                     
                     if (!retryHasProducts || !retryIsDisplayed) {
-                        console.warn('재시도 후에도 실패. displayAllProducts 강제 호출...');
                         try {
                             await this.displayAllProducts();
                         } catch (displayError) {
-                            console.error('displayAllProducts 강제 호출 실패:', displayError);
+                            // 권한 오류는 조용히 처리
+                            const isPermissionError = displayError.code === 'permission-denied' || 
+                                                     displayError.code === 'PERMISSION_DENIED' ||
+                                                     displayError.message.includes('Missing or insufficient permissions');
+                            if (!isPermissionError) {
+                                console.error('displayAllProducts 강제 호출 실패:', displayError);
+                            }
                         }
                     }
                 } catch (retryError) {
-                    console.error('재시도 실패:', retryError);
+                    // 권한 오류는 조용히 처리
+                    const isPermissionError = retryError.code === 'permission-denied' || 
+                                             retryError.code === 'PERMISSION_DENIED' ||
+                                             retryError.message.includes('Missing or insufficient permissions');
+                    if (!isPermissionError) {
+                        console.error('재시도 실패:', retryError);
+                    }
                 }
             }
         };
@@ -4501,12 +4636,27 @@ class PriceComparisonSite {
         // 5초 후 최종 확인
         setTimeout(checkAndRetryProducts, 5000);
         } catch (error) {
+            // 권한 오류 감지
+            const isPermissionError = error.code === 'permission-denied' || 
+                                     error.code === 'PERMISSION_DENIED' ||
+                                     error.message.includes('Missing or insufficient permissions');
+            
+            if (isPermissionError) {
+                window.firebasePermissionDenied = true;
+                // 권한 오류는 initFirebase에서 이미 처리되었으므로 재시도하지 않음
+                return;
+            }
+            
             console.error('Firebase 초기화 실패:', error);
             gaTracker.trackError('firebase_init_error', error.message);
             
-            // 에러 발생 시에도 재시도
+            // 에러 발생 시에도 재시도 (권한 오류가 아닌 경우만)
             console.log('Firebase 초기화 실패 후 5초 뒤 재시도합니다...');
             setTimeout(async () => {
+                // 권한 오류가 발생했으면 재시도하지 않음
+                if (window.firebasePermissionDenied) {
+                    return;
+                }
                 try {
                     console.log('Firebase 초기화 재시도 시작...');
                     await this.initFirebase();
@@ -4786,26 +4936,121 @@ class PriceComparisonSite {
             }
             
         } catch (error) {
+            // 권한 오류 감지
+            const isPermissionError = error.code === 'permission-denied' || 
+                                     error.code === 'PERMISSION_DENIED' ||
+                                     error.message.includes('Missing or insufficient permissions') ||
+                                     error.message.includes('permission-denied');
+            
+            if (isPermissionError) {
+                // 권한 오류 전역 플래그 설정 (재시도 함수들에서 확인)
+                window.firebasePermissionDenied = true;
+                
+                // 권한 오류 알림 (최초 1회만, 지연 처리로 중복 방지)
+                if (!window.firebasePermissionErrorShown) {
+                    window.firebasePermissionErrorShown = true;
+                    
+                    // 약간의 지연을 두고 한 번만 표시 (여러 함수에서 동시 호출 방지)
+                    setTimeout(() => {
+                        // 다시 확인 (다른 함수에서 이미 표시했을 수 있음)
+                        if (!window.firebasePermissionAlertShown) {
+                            window.firebasePermissionAlertShown = true;
+                            
+                            const consoleUrl = 'https://console.firebase.google.com/project/price-match-1f952/firestore/rules';
+                            
+                            // 콘솔에 간단한 안내만 출력
+                            console.error('⚠️ Firebase 권한 오류 발생!');
+                            console.log('🔗 Firebase Console Firestore Rules:', consoleUrl);
+                            console.log('💡 보안 규칙에서 "allow read: if true;" 설정 필요');
+                            
+                            // 사용자에게 한 번만 알림
+                            setTimeout(() => {
+                                if (window.firebasePermissionAlertShown) {
+                                    if (confirm('Firebase 권한 오류가 발생했습니다.\n\nFirebase Console을 열어 보안 규칙을 수정하시겠습니까?')) {
+                                        window.open(consoleUrl, '_blank');
+                                    }
+                                }
+                            }, 500);
+                        }
+                    }, 200);
+                }
+                
+                // 권한 오류는 재시도하지 않음 (로그 출력 최소화)
+                return;
+            }
+            
+            // 권한 오류가 아닌 경우에만 상세 로그 출력
             console.error('Firebase에서 제품 데이터 불러오기 실패:', error);
             console.error('에러 상세:', error.message, error.stack);
             
+            // 권한 오류가 아닌 경우에만 재시도 (재시도 횟수 제한)
+            const retryCount = (window.firebaseLoadRetryCount || 0) + 1;
+            window.firebaseLoadRetryCount = retryCount;
+            
+            if (retryCount > 3) {
+                console.error('재시도 횟수 초과 (3회). 재시도를 중단합니다.');
+                window.firebaseLoadRetryCount = 0; // 리셋
+                alert('Firebase 연결에 실패했습니다. 페이지를 새로고침해주세요.');
+                return;
+            }
+            
+            // 권한 오류가 아닌 경우에만 재시도
+            // 권한 오류 발생 시 재시도하지 않음
+            if (window.firebasePermissionDenied) {
+                return;
+            }
+            
             // 에러 발생 시 3초 후 재시도
-            console.log('3초 후 상품 로드 재시도합니다...');
+            console.log(`3초 후 상품 로드 재시도합니다... (${retryCount}/3)`);
             setTimeout(async () => {
+                // 권한 오류가 발생했으면 재시도하지 않음
+                if (window.firebasePermissionDenied) {
+                    window.firebaseLoadRetryCount = 0;
+                    return;
+                }
+                
                 try {
-                    console.log('상품 로드 재시도 시작 (에러 후)...');
                     await this.loadProductsFromFirebase(false); // 캐시 없이 재시도
+                    // 성공 시 리셋
+                    window.firebaseLoadRetryCount = 0;
                 } catch (retryError) {
-                    console.error('재시도도 실패:', retryError);
-                    // 두 번째 재시도 (5초 후)
-                    setTimeout(async () => {
-                        try {
-                            console.log('상품 로드 두 번째 재시도 시작...');
-                            await this.loadProductsFromFirebase(false);
-                        } catch (secondRetryError) {
-                            console.error('두 번째 재시도도 실패:', secondRetryError);
-                        }
-                    }, 5000);
+                    // 권한 오류는 조용히 처리
+                    const isPermissionError = retryError.code === 'permission-denied' || 
+                                             retryError.code === 'PERMISSION_DENIED' ||
+                                             retryError.message.includes('Missing or insufficient permissions');
+                    
+                    if (isPermissionError) {
+                        window.firebasePermissionDenied = true;
+                        window.firebaseLoadRetryCount = 0;
+                        return;
+                    }
+                    
+                    // 재시도 횟수가 초과되지 않았으면 한 번 더 시도
+                    if (window.firebaseLoadRetryCount < 3) {
+                        setTimeout(async () => {
+                            // 권한 오류가 발생했으면 재시도하지 않음
+                            if (window.firebasePermissionDenied) {
+                                window.firebaseLoadRetryCount = 0;
+                                return;
+                            }
+                            
+                            try {
+                                await this.loadProductsFromFirebase(false);
+                                window.firebaseLoadRetryCount = 0;
+                            } catch (secondRetryError) {
+                                // 권한 오류는 조용히 처리
+                                const isSecondPermissionError = secondRetryError.code === 'permission-denied' || 
+                                                               secondRetryError.code === 'PERMISSION_DENIED' ||
+                                                               secondRetryError.message.includes('Missing or insufficient permissions');
+                                if (!isSecondPermissionError) {
+                                    console.error('두 번째 재시도도 실패:', secondRetryError);
+                                } else {
+                                    window.firebasePermissionDenied = true;
+                                    window.firebaseLoadRetryCount = 0;
+                                }
+                            }
+                        }, 5000);
+                    }
                 }
             }, 3000);
         }
@@ -4852,6 +5097,16 @@ class PriceComparisonSite {
             })));
             
         } catch (error) {
+            // 권한 오류는 조용히 처리 (팝업 없음)
+            const isPermissionError = error.code === 'permission-denied' || 
+                                     error.code === 'PERMISSION_DENIED' ||
+                                     error.message.includes('Missing or insufficient permissions');
+            
+            if (isPermissionError) {
+                console.warn('가격 변경 신고 로드 권한 오류 (무시됨)');
+                return;
+            }
+            
             console.error('Firebase에서 가격 변경 신고 불러오기 실패:', error);
         }
     }
@@ -5290,8 +5545,9 @@ class PriceComparisonSite {
             return;
         }
 
-        const hiddenProducts = (products || []).filter(p => p.status === 'hidden' || p.hidden);
-        console.log('숨김 상품 개수:', hiddenProducts.length);
+        // 이미 필터링된 제품들을 받았으므로 중복 필터링 제거
+        const hiddenProducts = products || [];
+        console.log('표시할 숨김 상품 개수:', hiddenProducts.length);
 
         if (hiddenProducts.length === 0) {
             hiddenList.innerHTML = `
@@ -5339,8 +5595,48 @@ class PriceComparisonSite {
             // Firebase에서 최신 제품 데이터 로드 (캐시 사용 안 함)
             await this.loadProductsFromFirebase(false);
 
-            const hiddenProducts = (this.products || []).filter(p => p.status === 'hidden' || p.hidden);
-            console.log('숨김 상품 목록:', hiddenProducts.map(p => ({ id: p.id, name: p.name })));
+            console.log('전체 제품 개수:', this.products.length);
+            console.log('제품 상태 분류:', {
+                approved: this.products.filter(p => p.status === 'approved').length,
+                pending: this.products.filter(p => p.status === 'pending').length,
+                rejected: this.products.filter(p => p.status === 'rejected').length,
+                hidden: this.products.filter(p => p.status === 'hidden').length,
+                hasHiddenFlag: this.products.filter(p => p.hidden === true).length,
+                noStatus: this.products.filter(p => !p.status || (p.status !== 'approved' && p.status !== 'pending' && p.status !== 'rejected')).length
+            });
+
+            // 숨김 상품 필터링 (여러 조건 확인)
+            const hiddenProducts = (this.products || []).filter(p => {
+                const isHidden = p.status === 'hidden' || 
+                                p.hidden === true || 
+                                p.hidden === 'true' ||
+                                (p.status && p.status !== 'approved' && p.status !== 'pending' && p.status !== 'rejected' && p.status.includes('hidden'));
+                return isHidden;
+            });
+            
+            console.log('필터링된 숨김 상품 개수:', hiddenProducts.length);
+            console.log('숨김 상품 목록:', hiddenProducts.map(p => ({ 
+                id: p.id, 
+                name: p.name,
+                status: p.status,
+                hidden: p.hidden
+            })));
+
+            // 만약 필터링 결과가 없고 전체 제품이 있다면, 모든 제품의 상태를 확인
+            if (hiddenProducts.length === 0 && this.products.length > 0) {
+                console.warn('숨김 상품이 필터링되지 않았습니다. 전체 제품 상태 확인:');
+                this.products.slice(0, 10).forEach(p => {
+                    console.log(`제품: ${p.name}, status: ${p.status}, hidden: ${p.hidden}`);
+                });
+                
+                // status가 없거나 'approved'가 아닌 모든 제품을 숨김으로 간주
+                const allNonApproved = this.products.filter(p => !p.status || (p.status !== 'approved' && p.status !== 'pending' && p.status !== 'rejected'));
+                if (allNonApproved.length > 0) {
+                    console.log('승인되지 않은 제품을 숨김 상품으로 표시:', allNonApproved.length, '개');
+                    this.displayHiddenProducts(allNonApproved);
+                    return;
+                }
+            }
 
             this.displayHiddenProducts(hiddenProducts);
 
@@ -5348,7 +5644,7 @@ class PriceComparisonSite {
             sessionStorage.setItem('currentAdminView', 'hidden');
         } catch (error) {
             console.error('숨김 상품 로드 실패:', error);
-            alert('숨김 상품 목록을 불러오는데 실패했습니다.');
+            alert('숨김 상품 목록을 불러오는데 실패했습니다: ' + error.message);
         }
     }
 
@@ -6071,6 +6367,235 @@ class PriceComparisonSite {
         } catch (error) {
             console.error('숨김 상품 복원 실패:', error);
             alert('숨김 상품 복원에 실패했습니다.');
+        }
+    }
+
+    // 모든 숨김 상품 일괄 복원
+    async restoreAllHiddenProducts() {
+        if (!adminAuth.isAuthenticated()) {
+            alert('관리자 권한이 필요합니다.');
+            return;
+        }
+
+        // Firebase에서 최신 데이터 로드
+        await this.loadProductsFromFirebase(false);
+
+        // 숨김 상품 필터링 (여러 조건 확인)
+        const hiddenProducts = (this.products || []).filter(p => {
+            const isHidden = p.status === 'hidden' || 
+                            p.hidden === true || 
+                            p.hidden === 'true' ||
+                            (p.status && p.status !== 'approved' && p.status !== 'pending' && p.status !== 'rejected' && p.status.includes('hidden'));
+            return isHidden;
+        });
+
+        console.log('복원 대상 숨김 상품:', hiddenProducts.length, '개');
+        console.log('숨김 상품 상세:', hiddenProducts.map(p => ({ id: p.id, name: p.name, status: p.status, hidden: p.hidden })));
+
+        if (hiddenProducts.length === 0) {
+            // status가 없는 제품도 확인
+            const noStatusProducts = this.products.filter(p => !p.status || (p.status !== 'approved' && p.status !== 'pending' && p.status !== 'rejected'));
+            if (noStatusProducts.length > 0) {
+                console.log('상태가 없는 제품을 복원 대상으로 추가:', noStatusProducts.length, '개');
+                const confirmMsg = `상태가 불명확한 제품 ${noStatusProducts.length}개를 모두 승인 상태로 복원하시겠습니까?`;
+                if (confirm(confirmMsg)) {
+                    await this.restoreProductsInBatches(noStatusProducts);
+                    return;
+                }
+            }
+            alert('복원할 숨김 상품이 없습니다.');
+            return;
+        }
+
+        const confirmMessage = `모든 숨김 상품 ${hiddenProducts.length}개를 복원하시겠습니까?`;
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            console.log(`일괄 복원 시작: ${hiddenProducts.length}개 상품`);
+            
+            const restoreButton = document.getElementById('restoreAllHiddenProducts');
+            if (restoreButton) {
+                restoreButton.disabled = true;
+                restoreButton.textContent = `복원 중... (0/${hiddenProducts.length})`;
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // 배치 처리 (한 번에 너무 많이 처리하지 않도록)
+            const batchSize = 10;
+            for (let i = 0; i < hiddenProducts.length; i += batchSize) {
+                const batch = hiddenProducts.slice(i, i + batchSize);
+                
+                const batchPromises = batch.map(async (product) => {
+                    try {
+                        const productRef = window.firebaseDoc(window.firebaseDb, 'products', product.id);
+                        await window.firebaseUpdateDoc(productRef, {
+                            status: 'approved',
+                            hidden: false,
+                            lastUpdated: new Date().toISOString()
+                        });
+                        
+                        // 로컬 데이터 갱신
+                        const idx = this.products.findIndex(p => p.id === product.id);
+                        if (idx !== -1) {
+                            this.products[idx].status = 'approved';
+                            this.products[idx].hidden = false;
+                            this.products[idx].lastUpdated = new Date().toISOString();
+                        }
+                        
+                        successCount++;
+                        if (restoreButton) {
+                            restoreButton.textContent = `복원 중... (${successCount}/${hiddenProducts.length})`;
+                        }
+                        return true;
+                    } catch (error) {
+                        console.error(`상품 ${product.id} 복원 실패:`, error);
+                        failCount++;
+                        return false;
+                    }
+                });
+
+                await Promise.all(batchPromises);
+                
+                // 배치 간 짧은 지연 (Firebase 부하 방지)
+                if (i + batchSize < hiddenProducts.length) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+
+            // 제품 캐시 무효화
+            try {
+                localStorage.removeItem('firebase_products_cache_v3');
+                console.log('일괄 복원 후 캐시 무효화 완료');
+            } catch (e) {
+                console.warn('캐시 무효화 중 오류 (무시 가능):', e);
+            }
+
+            // Firebase에서 최신 데이터 재로드
+            await this.loadProductsFromFirebase(false);
+
+            // UI 갱신
+            this.forceUIUpdate();
+            this.loadHiddenProducts();
+            this.updateCategoryCounts();
+            await this.displayAllProducts();
+
+            if (restoreButton) {
+                restoreButton.disabled = false;
+                restoreButton.textContent = '🔄 모든 숨김 상품 일괄 복원';
+            }
+
+            alert(`복원 완료!\n성공: ${successCount}개\n실패: ${failCount}개`);
+            console.log(`일괄 복원 완료: 성공 ${successCount}개, 실패 ${failCount}개`);
+        } catch (error) {
+            console.error('일괄 복원 실패:', error);
+            alert('일괄 복원 중 오류가 발생했습니다: ' + error.message);
+            
+            const restoreButton = document.getElementById('restoreAllHiddenProducts');
+            if (restoreButton) {
+                restoreButton.disabled = false;
+                restoreButton.textContent = '🔄 모든 숨김 상품 일괄 복원';
+            }
+        }
+    }
+
+    // 제품 배치 복원 (내부 함수)
+    async restoreProductsInBatches(products) {
+        const confirmMessage = `모든 제품 ${products.length}개를 복원하시겠습니까?`;
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            console.log(`배치 복원 시작: ${products.length}개 상품`);
+            
+            const restoreButton = document.getElementById('restoreAllHiddenProducts');
+            if (restoreButton) {
+                restoreButton.disabled = true;
+                restoreButton.textContent = `복원 중... (0/${products.length})`;
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // 배치 처리 (한 번에 너무 많이 처리하지 않도록)
+            const batchSize = 10;
+            for (let i = 0; i < products.length; i += batchSize) {
+                const batch = products.slice(i, i + batchSize);
+                
+                const batchPromises = batch.map(async (product) => {
+                    try {
+                        const productRef = window.firebaseDoc(window.firebaseDb, 'products', product.id);
+                        await window.firebaseUpdateDoc(productRef, {
+                            status: 'approved',
+                            hidden: false,
+                            lastUpdated: new Date().toISOString()
+                        });
+                        
+                        // 로컬 데이터 갱신
+                        const idx = this.products.findIndex(p => p.id === product.id);
+                        if (idx !== -1) {
+                            this.products[idx].status = 'approved';
+                            this.products[idx].hidden = false;
+                            this.products[idx].lastUpdated = new Date().toISOString();
+                        }
+                        
+                        successCount++;
+                        if (restoreButton) {
+                            restoreButton.textContent = `복원 중... (${successCount}/${products.length})`;
+                        }
+                        return true;
+                    } catch (error) {
+                        console.error(`상품 ${product.id} 복원 실패:`, error);
+                        failCount++;
+                        return false;
+                    }
+                });
+
+                await Promise.all(batchPromises);
+                
+                // 배치 간 짧은 지연 (Firebase 부하 방지)
+                if (i + batchSize < products.length) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+
+            // 제품 캐시 무효화
+            try {
+                localStorage.removeItem('firebase_products_cache_v3');
+                console.log('배치 복원 후 캐시 무효화 완료');
+            } catch (e) {
+                console.warn('캐시 무효화 중 오류 (무시 가능):', e);
+            }
+
+            // Firebase에서 최신 데이터 재로드
+            await this.loadProductsFromFirebase(false);
+
+            // UI 갱신
+            this.forceUIUpdate();
+            this.loadHiddenProducts();
+            this.updateCategoryCounts();
+            await this.displayAllProducts();
+
+            if (restoreButton) {
+                restoreButton.disabled = false;
+                restoreButton.textContent = '🔄 모든 숨김 상품 일괄 복원';
+            }
+
+            alert(`복원 완료!\n성공: ${successCount}개\n실패: ${failCount}개`);
+            console.log(`배치 복원 완료: 성공 ${successCount}개, 실패 ${failCount}개`);
+        } catch (error) {
+            console.error('배치 복원 실패:', error);
+            alert('배치 복원 중 오류가 발생했습니다: ' + error.message);
+            
+            const restoreButton = document.getElementById('restoreAllHiddenProducts');
+            if (restoreButton) {
+                restoreButton.disabled = false;
+                restoreButton.textContent = '🔄 모든 숨김 상품 일괄 복원';
+            }
         }
     }
 
@@ -7348,6 +7873,13 @@ class PriceComparisonSite {
 
     // 제품 삭제 함수
     async deleteProduct(productId) {
+        // 관리자 권한 체크
+        if (!adminAuth.isAuthenticated()) {
+            console.warn('제품 삭제 시도: 관리자 권한 없음');
+            alert('관리자 권한이 필요합니다.');
+            return;
+        }
+
         try {
             console.log('제품 삭제 시작:', productId);
             

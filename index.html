@@ -191,8 +191,7 @@ const firebaseConfig = {
             })
             .catch((error) => {
                 // 익명 인증 실패는 정상일 수 있음 (Storage 보안 규칙이 "allow write: if true;"인 경우)
-                console.log('ℹ️ Firebase 익명 인증 비활성화됨 (정상 - Storage 보안 규칙 확인 필요)');
-                console.log('Storage 보안 규칙이 "allow write: if true;"로 설정되어 있으면 이미지 업로드가 가능합니다.');
+                // 에러 로그 최소화 - 조용히 처리
                 window.firebaseAuthReady = false;
                 window.firebaseAuthError = error;
             });
@@ -517,7 +516,12 @@ const firebaseConfig = {
                         <!-- 숨김 상품 관리 패널 (기존 품절설정 영역 재사용) -->
                         <div id="outOfStockSettings" class="pending-products-list" style="display: none;">
                             <div class="settings-section">
-                                <h3>숨김 상품 관리</h3>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                    <h3 style="margin: 0;">숨김 상품 관리</h3>
+                                    <button id="restoreAllHiddenProducts" class="admin-btn" style="background: #10b981; color: white; font-weight: 600;">
+                                        🔄 모든 숨김 상품 일괄 복원
+                                    </button>
+                                </div>
                                 <p style="font-size: 0.85rem; color: #6b7280; margin-bottom: 12px;">
                                     숨김 처리된 상품들을 여기에서 수정, 복원, 완전 삭제, 링크 연결할 수 있습니다.
                                 </p>

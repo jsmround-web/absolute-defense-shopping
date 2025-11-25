@@ -183,6 +183,29 @@ body {
     .visitor-counter-badge .visitor-line-2 {
         line-height: 1.1 !important;
     }
+    
+    /* 모바일 검색창 - 정렬바(18px)보다 살짝 크게(24px, 1.2배) */
+    #searchInput,
+    .search-bar-container .search-input,
+    .sort-bar .search-input,
+    .mobile-only .search-input,
+    input.search-input {
+        padding: 1px 4px !important;
+        font-size: 0.9rem !important;
+        line-height: 1.2 !important;
+        height: 24px !important;
+        min-height: 24px !important;
+        max-height: 24px !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 3px !important;
+        background: white !important;
+        color: #374151 !important;
+        min-width: 80px !important;
+        max-width: 120px !important;
+        box-sizing: border-box !important;
+        vertical-align: top !important;
+        margin: 0 !important;
+    }
 }
 
 /* PC용 버튼 그룹 스타일 */
@@ -547,11 +570,16 @@ body {
         margin-left: auto !important;
     }
     
-    .search-input {
-        padding: 2px 4px !important;
-        font-size: 0.75rem !important;
+    #searchInput,
+    .search-bar-container .search-input,
+    .sort-bar .search-input,
+    .mobile-only .search-input {
+        padding: 1px 4px !important;
+        font-size: 0.9rem !important;
         line-height: 1.2 !important;
-        height: auto !important;
+        height: 24px !important;
+        min-height: 24px !important;
+        max-height: 24px !important;
         border: 1px solid #d1d5db !important;
         border-radius: 3px !important;
         background: white !important;
@@ -559,6 +587,7 @@ body {
         min-width: 80px !important;
         max-width: 120px !important;
         box-sizing: border-box !important;
+        vertical-align: top !important;
     }
     
     .search-input:focus {
@@ -801,6 +830,8 @@ body {
         transform: translateX(-50%) !important;
         width: calc(100% - 4px) !important; /* 좌우 2px씩 여백 */
         justify-content: flex-start !important; /* PC에서는 검색바가 없으므로 */
+        z-index: 100000 !important; /* PC용 검색창(99999)보다 높게 */
+        position: relative !important; /* z-index가 작동하도록 */
     }
     
     .search-input {
@@ -808,20 +839,64 @@ body {
         max-width: 200px !important;
     }
     
-    /* PC용 검색바 (카테고리바와 정렬바 사이) */
+    
+    /* 카테고리바와 정렬탭 사이 간격 추가 */
+    .category-bar {
+        margin-bottom: 2px !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+    }
+    
+    /* PC용 검색바 (카테고리바 회색 여백 안 우측에 배치) */
     .search-bar-between {
         position: fixed !important;
-        top: 60px !important; /* 카테고리바(42px + 18px) 바로 아래 */
-        left: 50% !important;
+        top: 42px !important; /* 카테고리바와 같은 높이 */
+        left: 50% !important; /* 카테고리바와 같은 중앙 정렬 */
         right: auto !important;
-        transform: translateX(-50%) !important;
-        max-width: 1200px !important;
-        width: calc(100% - 4px) !important;
-        z-index: 99999 !important; /* 정렬바(9998)보다 높게 */
+        transform: translateX(-50%) !important; /* 카테고리바와 같은 중앙 정렬 */
+        max-width: 1200px !important; /* 카테고리바와 같은 너비 */
+        width: calc(100% - 4px) !important; /* 카테고리바와 같은 너비 */
+        z-index: 100002 !important; /* 카테고리바보다 높게 */
+        height: 18px !important; /* 카테고리바와 같은 높이 */
         display: flex !important;
         align-items: center !important;
-        justify-content: flex-end !important;
-        padding-right: 4px !important;
+        justify-content: flex-end !important; /* 우측 정렬 */
+        padding-right: 2px !important; /* 카테고리바 padding과 맞춤 */
+        pointer-events: none !important; /* 검색창 영역 외부 클릭은 통과 */
+    }
+    
+    /* PC용 검색창 컨테이너는 pointer-events 활성화 */
+    .search-bar-between .search-bar-container {
+        pointer-events: auto !important;
+    }
+    
+    /* 정렬탭 위치 조정 (카테고리바 아래로, 겹치지 않게) */
+    .sort-bar {
+        top: 65px !important; /* 헤더(42px) + 카테고리바(18px) + 여백(5px) = 65px */
+        margin-top: 0 !important;
+    }
+    
+    /* 정렬탭과 상품리스트 바로 아래로 붙이기 - 더 구체적인 선택자 사용 */
+    #productList,
+    .product-list,
+    .main-content #productList,
+    .main-content .product-list,
+    #searchResults #productList,
+    #searchResults .product-list,
+    body #productList,
+    body .product-list {
+        padding-top: 81px !important; /* 헤더(42px) + 카테고리바(18px) + 여백(5px) + 정렬바(18px) - 여유(2px) = 81px (정렬탭 바로 아래) */
+        margin-top: 0 !important;
+    }
+    
+    /* 모바일 미디어 쿼리의 스타일을 PC에서 덮어쓰기 */
+    .main-content {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    /* 상품 아이템의 첫 번째 요소도 margin 제거 */
+    .product-item:first-child {
+        margin-top: 0 !important;
     }
     
     .search-bar-between .search-bar-container {
@@ -873,7 +948,8 @@ body {
     }
     
     #productDetailDropdown .product-detail-name {
-        padding-top: 0 !important; /* 제목 자체는 추가 여백 없음 */
+        margin-top: 30px !important; /* 더 위로 올림 */
+        padding-top: 0 !important;
     }
     
     #productDetailDropdown .product-detail-image {
@@ -4269,6 +4345,21 @@ body {
         border-radius: 6px;
     }
     
+    /* 검색바 컨테이너 안의 검색창은 정렬바보다 살짝 크게 (1.2배) */
+    #searchInput,
+    .search-bar-container .search-input,
+    .sort-bar .search-input,
+    .mobile-only .search-input {
+        padding: 1px 4px !important;
+        font-size: 0.9rem !important;
+        line-height: 1.2 !important;
+        height: 24px !important;
+        min-height: 24px !important;
+        max-height: 24px !important;
+        border-radius: 3px !important;
+        vertical-align: top !important;
+    }
+    
     .search-btn {
         padding: 8px 14px;
         font-size: 0.85rem;
@@ -5148,6 +5239,20 @@ body {
         padding: 6px 8px;
     }
     
+    /* 검색바 컨테이너 안의 검색창은 정렬바보다 살짝 크게 (1.2배) */
+    #searchInput,
+    .search-bar-container .search-input,
+    .sort-bar .search-input,
+    .mobile-only .search-input {
+        padding: 1px 4px !important;
+        font-size: 0.9rem !important;
+        line-height: 1.2 !important;
+        height: 24px !important;
+        min-height: 24px !important;
+        max-height: 24px !important;
+        vertical-align: top !important;
+    }
+    
     .search-btn {
         font-size: 0.75rem;
         padding: 6px 10px;
@@ -5411,6 +5516,35 @@ body {
 }
 
 /* 업데이트 시간 표시 제거 - 모바일 최적화 */
+
+/* 모바일 검색창 최종 오버라이드 - 정렬바(18px)보다 살짝 크게(24px, 1.2배) */
+@media screen and (max-width: 768px) {
+    #searchInput,
+    input#searchInput,
+    .search-bar-container .search-input,
+    .search-bar-container input.search-input,
+    .sort-bar .search-input,
+    .sort-bar input.search-input,
+    .mobile-only .search-input,
+    .mobile-only input.search-input {
+        padding: 1px 4px !important;
+        font-size: 0.9rem !important;
+        line-height: 1.2 !important;
+        height: 24px !important;
+        min-height: 24px !important;
+        max-height: 24px !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 3px !important;
+        background: white !important;
+        color: #374151 !important;
+        min-width: 80px !important;
+        max-width: 120px !important;
+        box-sizing: border-box !important;
+        vertical-align: top !important;
+        margin: 0 !important;
+        display: inline-block !important;
+    }
+}
 
 /* 삭제 확인 팝업 스타일 */
 .delete-confirmation-overlay {

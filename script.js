@@ -2363,8 +2363,10 @@ class PriceComparisonSite {
         console.log('정렬 바 버튼 개수:', sortItems.length);
         sortItems.forEach(item => {
             item.classList.remove('active');
-            if (item.dataset.sort === sortType) {
+            const itemSortType = item.getAttribute('data-sort') || item.dataset.sort;
+            if (itemSortType === sortType) {
                 item.classList.add('active');
+                console.log('활성화된 정렬 버튼:', itemSortType);
             }
         });
         
@@ -9096,50 +9098,72 @@ class PriceComparisonSite {
             return;
         }
         
+        // PC인지 모바일인지 확인
+        const isMobile = window.innerWidth <= 768;
+        console.log('현재 화면 크기:', window.innerWidth, '모바일:', isMobile);
+        
+        // 정렬 바를 클론하고 교체 (PC와 모바일 모두)
         // 기존 이벤트 리스너 제거 후 새로 추가 (중복 방지)
         const newSortBar = sortBar.cloneNode(true);
         sortBar.parentNode.replaceChild(newSortBar, sortBar);
         
-        // 이벤트 위임으로 정렬 바 전체에 리스너 추가 (capture 단계에서 처리하여 다른 이벤트보다 먼저 실행)
-        newSortBar.addEventListener('click', function(e) {
-            const button = e.target.closest('.sort-item');
-            if (button) {
-                e.preventDefault();
-                e.stopPropagation();
-                const sortType = button.getAttribute('data-sort');
-                if (sortType) {
-                    console.log('정렬 버튼 클릭됨 (이벤트 위임):', sortType);
-                    sortProducts(sortType);
-                    return false;
+        // 이벤트 위임 추가 (PC와 모바일 모두)
+        {
+            // 이벤트 위임으로 정렬 바 전체에 리스너 추가 (bubble 단계에서 처리)
+            // 단, 검색창 영역은 제외
+            newSortBar.addEventListener('click', function(e) {
+                // 검색창 영역 클릭은 무시
+                if (e.target.closest('.search-bar-container') || 
+                    e.target.closest('.search-input') || 
+                    e.target.closest('.search-btn')) {
+                    return;
                 }
-            }
-        }, { passive: false, capture: true });
-        
-        // 터치 이벤트도 추가 (모바일, capture 단계에서 처리)
-        newSortBar.addEventListener('touchend', function(e) {
-            const button = e.target.closest('.sort-item');
-            if (button) {
-                e.preventDefault();
-                e.stopPropagation();
-                const sortType = button.getAttribute('data-sort');
-                if (sortType) {
-                    console.log('정렬 버튼 터치됨 (이벤트 위임):', sortType);
-                    sortProducts(sortType);
-                    return false;
+                
+                const button = e.target.closest('.sort-item');
+                if (button) {
+                    // 이미 처리된 이벤트는 무시
+                    if (e.defaultPrevented) {
+                        return;
+                    }
+                    const sortType = button.getAttribute('data-sort');
+                    if (sortType) {
+                        console.log('정렬 버튼 클릭됨 (이벤트 위임):', sortType);
+                        e.preventDefault();
+                        e.stopPropagation();
+                        sortProducts(sortType);
+                        return false;
+                    }
                 }
-            }
-        }, { passive: false, capture: true });
+            }, { passive: false, capture: false });
+        }
         
-        // touchstart도 이벤트 위임으로 추가
-        newSortBar.addEventListener('touchstart', function(e) {
-            const button = e.target.closest('.sort-item');
-            if (button) {
-                // 터치 시작 시 피드백
-                button.style.opacity = '0.7';
-            }
-        }, { passive: true, capture: true });
+        // 터치 이벤트도 추가 (모바일만, capture 단계에서 처리)
+        if (isMobile) {
+            newSortBar.addEventListener('touchend', function(e) {
+                const button = e.target.closest('.sort-item');
+                if (button) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const sortType = button.getAttribute('data-sort');
+                    if (sortType) {
+                        console.log('정렬 버튼 터치됨 (이벤트 위임):', sortType);
+                        sortProducts(sortType);
+                        return false;
+                    }
+                }
+            }, { passive: false, capture: true });
+            
+            // touchstart도 이벤트 위임으로 추가
+            newSortBar.addEventListener('touchstart', function(e) {
+                const button = e.target.closest('.sort-item');
+                if (button) {
+                    // 터치 시작 시 피드백
+                    button.style.opacity = '0.7';
+                }
+            }, { passive: true, capture: true });
+        }
         
-        // 각 버튼에도 직접 이벤트 추가 (이중 보안)
+        // 각 버튼에 직접 이벤트 추가 (PC와 모바일 모두)
         const sortItems = newSortBar.querySelectorAll('.sort-item');
         console.log('찾은 정렬 바 버튼 개수:', sortItems.length);
         
@@ -9148,41 +9172,51 @@ class PriceComparisonSite {
             if (sortType) {
                 console.log('정렬 버튼 직접 이벤트 리스너 추가:', sortType);
                 
-                // 클릭 이벤트
-                button.addEventListener('click', function(e) {
+                // 클릭 이벤트 (PC와 모바일 모두)
+                const clickHandler = function(e) {
                     e.preventDefault();
                     e.stopPropagation();
+                    e.stopImmediatePropagation();
                     console.log('정렬 버튼 직접 클릭됨:', sortType);
                     sortProducts(sortType);
-                }, { passive: false });
+                };
                 
-                // 터치 이벤트 (touchstart와 touchend 함께 처리)
-                let touchStarted = false;
+                // capture와 bubble 단계 모두에서 처리
+                button.addEventListener('click', clickHandler, { passive: false, capture: true });
+                button.addEventListener('click', clickHandler, { passive: false, capture: false });
                 
-                button.addEventListener('touchstart', function(e) {
-                    touchStarted = true;
-                    // 터치 시작 시 피드백
-                    button.style.opacity = '0.7';
-                }, { passive: true });
-                
-                button.addEventListener('touchend', function(e) {
-                    if (touchStarted) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('정렬 버튼 직접 터치됨:', sortType);
-                        sortProducts(sortType);
+                // onclick 속성 제거 (이벤트 리스너로 완전히 대체)
+                button.removeAttribute('onclick');
+            
+                // 터치 이벤트 (모바일만)
+                if (isMobile) {
+                    let touchStarted = false;
+                    
+                    button.addEventListener('touchstart', function(e) {
+                        touchStarted = true;
+                        // 터치 시작 시 피드백
+                        button.style.opacity = '0.7';
+                    }, { passive: true });
+                    
+                    button.addEventListener('touchend', function(e) {
+                        if (touchStarted) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('정렬 버튼 직접 터치됨:', sortType);
+                            sortProducts(sortType);
+                            touchStarted = false;
+                        }
+                        // 터치 종료 시 원래대로
+                        setTimeout(() => {
+                            button.style.opacity = '1';
+                        }, 100);
+                    }, { passive: false });
+                    
+                    button.addEventListener('touchcancel', function(e) {
                         touchStarted = false;
-                    }
-                    // 터치 종료 시 원래대로
-                    setTimeout(() => {
                         button.style.opacity = '1';
-                    }, 100);
-                }, { passive: false });
-                
-                button.addEventListener('touchcancel', function(e) {
-                    touchStarted = false;
-                    button.style.opacity = '1';
-                }, { passive: true });
+                    }, { passive: true });
+                }
             }
         });
         

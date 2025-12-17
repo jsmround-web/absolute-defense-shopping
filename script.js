@@ -739,6 +739,13 @@ function hardDeleteProduct(productId) {
     }
 }
 
+// 모든 숨김 상품 일괄 삭제
+function hardDeleteAllHiddenProducts() {
+    if (adminAuth.requireAuth() && window.priceComparisonSite) {
+        window.priceComparisonSite.hardDeleteAllHiddenProducts();
+    }
+}
+
 // 페이지가 로드되면 앱 실행
 document.addEventListener('DOMContentLoaded', function() {
     window.priceComparisonSite = new PriceComparisonSite();
@@ -5792,6 +5799,14 @@ class PriceComparisonSite {
 
         hiddenList.innerHTML = `
             <h3>숨김 상품 (${hiddenProducts.length}개)</h3>
+            <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <button id="restoreAllHiddenProducts" class="admin-btn" onclick="restoreAllHiddenProducts()" style="flex: 1;">
+                    🔄 모든 숨김 상품 일괄 복원
+                </button>
+                <button id="deleteAllHiddenProducts" class="admin-btn" onclick="hardDeleteAllHiddenProducts()" style="flex: 1; background: linear-gradient(135deg, #dc2626, #b91c1c);">
+                    🗑️ 모든 숨김 상품 일괄 삭제
+                </button>
+            </div>
             <div class="all-products">
                 ${hiddenProducts.map(product => `
                     <div class="admin-product-item hidden-product-item" data-product-id="${product.id}" draggable="true">
@@ -6962,6 +6977,161 @@ class PriceComparisonSite {
         } catch (error) {
             console.error('상품 완전 삭제 실패:', error);
             alert('상품 완전 삭제에 실패했습니다.');
+        }
+    }
+
+    // 모든 숨김 상품 일괄 삭제
+    async hardDeleteAllHiddenProducts() {
+        if (!adminAuth.isAuthenticated()) {
+            alert('관리자 권한이 필요합니다.');
+            return;
+        }
+
+        // Firebase에서 최신 데이터 로드
+        await this.loadProductsFromFirebase(false);
+
+        // 숨김 상품 필터링 (여러 조건 확인)
+        const hiddenProducts = (this.products || []).filter(p => {
+            const isHidden = p.status === 'hidden' || 
+                            p.hidden === true || 
+                            p.hidden === 'true' ||
+                            (p.status && p.status !== 'approved' && p.status !== 'pending' && p.status !== 'rejected' && p.status.includes('hidden'));
+            return isHidden;
+        });
+
+        console.log('삭제 대상 숨김 상품:', hiddenProducts.length, '개');
+        console.log('숨김 상품 상세:', hiddenProducts.map(p => ({ id: p.id, name: p.name, status: p.status, hidden: p.hidden })));
+
+        if (hiddenProducts.length === 0) {
+            alert('삭제할 숨김 상품이 없습니다.');
+            return;
+        }
+
+        const confirmMessage = `⚠️ 경고: 모든 숨김 상품 ${hiddenProducts.length}개를 완전히 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다!`;
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        // 이중 확인
+        const doubleConfirm = confirm(`정말로 ${hiddenProducts.length}개 상품을 모두 삭제하시겠습니까?\n\n이 작업은 절대 되돌릴 수 없습니다!`);
+        if (!doubleConfirm) {
+            return;
+        }
+
+        try {
+            console.log(`일괄 삭제 시작: ${hiddenProducts.length}개 상품`);
+            
+            const deleteButton = document.getElementById('deleteAllHiddenProducts');
+            if (deleteButton) {
+                deleteButton.disabled = true;
+                deleteButton.textContent = `삭제 중... (0/${hiddenProducts.length})`;
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // 배치 처리 (한 번에 너무 많이 처리하지 않도록)
+            const batchSize = 10;
+            for (let i = 0; i < hiddenProducts.length; i += batchSize) {
+                const batch = hiddenProducts.slice(i, i + batchSize);
+                
+                const batchPromises = batch.map(async (product) => {
+                    try {
+                        // Firebase에서 완전 삭제
+                        let firebaseDeleteSuccess = false;
+
+                        // 방법 1: 전역 Firebase 함수 사용
+                        if (window.firebaseDeleteDoc && window.firebaseDoc && window.firebaseDb) {
+                            try {
+                                const productRef = window.firebaseDoc(window.firebaseDb, 'products', product.id);
+                                await window.firebaseDeleteDoc(productRef);
+                                console.log('Firebase에서 제품 삭제 완료 (방법 1):', product.id);
+                                firebaseDeleteSuccess = true;
+                            } catch (firebaseError) {
+                                console.error('Firebase 삭제 방법 1 실패:', firebaseError);
+                            }
+                        }
+
+                        // 방법 2: REST API 사용
+                        if (!firebaseDeleteSuccess) {
+                            try {
+                                const response = await fetch(`https://firestore.googleapis.com/v1/projects/price-match-1f952/databases/(default)/documents/products/${product.id}`, {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    }
+                                });
+
+                                if (response.ok) {
+                                    console.log('Firebase에서 제품 삭제 완료 (방법 2):', product.id);
+                                    firebaseDeleteSuccess = true;
+                                } else {
+                                    console.error('Firebase 삭제 방법 2 실패:', response.status, response.statusText);
+                                }
+                            } catch (fetchError) {
+                                console.error('Firebase 삭제 방법 2 실패:', fetchError);
+                            }
+                        }
+
+                        if (!firebaseDeleteSuccess) {
+                            throw new Error('모든 Firebase 삭제 방법이 실패했습니다');
+                        }
+
+                        // 로컬 데이터에서 제거
+                        this.products = this.products.filter(p => p.id !== product.id);
+                        
+                        successCount++;
+                        if (deleteButton) {
+                            deleteButton.textContent = `삭제 중... (${successCount}/${hiddenProducts.length})`;
+                        }
+                        return true;
+                    } catch (error) {
+                        console.error(`상품 ${product.id} 삭제 실패:`, error);
+                        failCount++;
+                        return false;
+                    }
+                });
+
+                await Promise.all(batchPromises);
+                
+                // 배치 간 짧은 지연 (Firebase 부하 방지)
+                if (i + batchSize < hiddenProducts.length) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+
+            // 제품 캐시 무효화
+            try {
+                localStorage.removeItem('firebase_products_cache_v3');
+                console.log('일괄 삭제 후 캐시 무효화 완료');
+            } catch (e) {
+                console.warn('캐시 무효화 중 오류 (무시 가능):', e);
+            }
+
+            // Firebase에서 최신 데이터 재로드
+            await this.loadProductsFromFirebase(false);
+
+            // UI 갱신
+            this.forceUIUpdate();
+            this.loadHiddenProducts();
+            this.updateCategoryCounts();
+
+            if (deleteButton) {
+                deleteButton.disabled = false;
+                deleteButton.textContent = '🗑️ 모든 숨김 상품 일괄 삭제';
+            }
+
+            alert(`삭제 완료!\n성공: ${successCount}개\n실패: ${failCount}개`);
+            console.log(`일괄 삭제 완료: 성공 ${successCount}개, 실패 ${failCount}개`);
+        } catch (error) {
+            console.error('일괄 삭제 실패:', error);
+            alert('일괄 삭제 중 오류가 발생했습니다: ' + error.message);
+            
+            const deleteButton = document.getElementById('deleteAllHiddenProducts');
+            if (deleteButton) {
+                deleteButton.disabled = false;
+                deleteButton.textContent = '🗑️ 모든 숨김 상품 일괄 삭제';
+            }
         }
     }
 

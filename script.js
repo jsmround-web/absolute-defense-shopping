@@ -772,7 +772,90 @@ class PriceComparisonSite {
         this.init();
     }
 
-    // 썸네일 생성 함수 (Canvas API 사용)
+    // 이미지 압축 및 최적화 함수 (업로드 전 사용)
+    async compressImage(imageFile, maxWidth = 1200, maxHeight = 1200, quality = 0.8, maxSizeKB = 500) {
+        return new Promise((resolve, reject) => {
+            // 이미 작은 이미지면 압축하지 않음
+            if (imageFile.size <= maxSizeKB * 1024) {
+                resolve(imageFile);
+                return;
+            }
+            
+            const img = new Image();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            img.onload = () => {
+                // 비율 유지하며 리사이즈
+                let width = img.width;
+                let height = img.height;
+                
+                if (width > maxWidth || height > maxHeight) {
+                    if (width > height) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                    } else {
+                        width = (width * maxHeight) / height;
+                        height = maxHeight;
+                    }
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                
+                // 고품질 리사이징
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Blob으로 변환 (JPEG 형식으로 압축)
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        // 목표 크기보다 작아질 때까지 quality 조정
+                        let currentQuality = quality;
+                        const targetSize = maxSizeKB * 1024;
+                        
+                        if (blob.size > targetSize) {
+                            // quality를 낮춰서 재압축
+                            const adjustQuality = () => {
+                                currentQuality = Math.max(0.3, currentQuality - 0.1);
+                                canvas.toBlob((adjustedBlob) => {
+                                    if (adjustedBlob && adjustedBlob.size <= targetSize) {
+                                        const compressedFile = new File([adjustedBlob], imageFile.name, {
+                                            type: 'image/jpeg',
+                                            lastModified: Date.now()
+                                        });
+                                        resolve(compressedFile);
+                                    } else if (currentQuality > 0.3) {
+                                        adjustQuality();
+                                    } else {
+                                        // 최소 quality로라도 압축
+                                        const finalFile = new File([blob], imageFile.name, {
+                                            type: 'image/jpeg',
+                                            lastModified: Date.now()
+                                        });
+                                        resolve(finalFile);
+                                    }
+                                }, 'image/jpeg', currentQuality);
+                            };
+                            adjustQuality();
+                        } else {
+                            const compressedFile = new File([blob], imageFile.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            resolve(compressedFile);
+                        }
+                    } else {
+                        reject(new Error('이미지 압축 실패'));
+                    }
+                }, 'image/jpeg', quality);
+            };
+            
+            img.onerror = () => reject(new Error('이미지 로드 실패'));
+            img.src = URL.createObjectURL(imageFile);
+        });
+    }
+    
+    // 썸네일 생성 함수 (클라이언트에서만 사용, 업로드하지 않음)
     async createThumbnail(imageFile, maxWidth = 120, maxHeight = 120, quality = 0.7) {
         return new Promise((resolve, reject) => {
             const img = new Image();
@@ -780,9 +863,8 @@ class PriceComparisonSite {
             const ctx = canvas.getContext('2d');
             
             img.onload = () => {
-                // 이미 이미 작은 이미지인지 확인 (120x120 이하이고 50KB 이하면 썸네일 생성 건너뛰기)
+                // 이미 이미 작은 이미지인지 확인
                 if (img.width <= maxWidth && img.height <= maxHeight && imageFile.size <= 50 * 1024) {
-                    // 원본을 그대로 사용 (썸네일 생성 불필요)
                     resolve(null);
                     return;
                 }
@@ -805,14 +887,10 @@ class PriceComparisonSite {
                 
                 canvas.width = width;
                 canvas.height = height;
-                
-                // 이미지 그리기 (고품질 리사이징)
                 ctx.drawImage(img, 0, 0, width, height);
                 
-                // Blob으로 변환
                 canvas.toBlob((blob) => {
                     if (blob) {
-                        // File 객체로 변환 (원본 파일명 유지)
                         const thumbnailFile = new File([blob], `thumb_${imageFile.name}`, {
                             type: 'image/jpeg',
                             lastModified: Date.now()
@@ -4193,18 +4271,33 @@ class PriceComparisonSite {
                     throw new Error('Firebase Storage가 초기화되지 않았습니다.');
                 }
                 
-                // 모든 이미지 업로드 (순서대로) - 원본 + 썸네일
+                // 모든 이미지 업로드 (순서대로) - 압축된 원본만 업로드 (썸네일 제거)
                 for (let i = 0; i < imageFilesToUpload.length; i++) {
-                    const imageFile = imageFilesToUpload[i];
+                    const originalFile = imageFilesToUpload[i];
                     
-                    // 파일 크기 검증 (5MB)
-                    if (imageFile.size > 5 * 1024 * 1024) {
-                        alert(`이미지 ${i + 1}번의 크기가 5MB를 초과합니다.`);
-                        this.isSubmitting = false;
-                        return;
+                    // 파일 크기 검증 (1MB로 제한 강화)
+                    if (originalFile.size > 1 * 1024 * 1024) {
+                        alert(`이미지 ${i + 1}번의 크기가 1MB를 초과합니다. 이미지를 압축합니다...`);
                     }
                     
-                    // 원본 이미지 업로드
+                    // 이미지 압축 및 최적화 (최대 1200x1200, 500KB 이하로 압축)
+                    let imageFile = originalFile;
+                    try {
+                        console.log(`이미지 ${i + 1}/${imageFilesToUpload.length} 압축 시작:`, originalFile.name, `(원본: ${(originalFile.size / 1024).toFixed(1)}KB)`);
+                        imageFile = await this.compressImage(originalFile, 1200, 1200, 0.8, 500);
+                        console.log(`이미지 ${i + 1} 압축 완료:`, `(${(imageFile.size / 1024).toFixed(1)}KB, 압축률: ${((1 - imageFile.size / originalFile.size) * 100).toFixed(1)}%)`);
+                    } catch (compressError) {
+                        console.warn(`이미지 ${i + 1} 압축 실패, 원본 사용:`, compressError);
+                        // 압축 실패 시 원본 사용
+                        imageFile = originalFile;
+                    }
+                    
+                    // 압축 후에도 1MB 초과하면 경고
+                    if (imageFile.size > 1 * 1024 * 1024) {
+                        console.warn(`이미지 ${i + 1} 압축 후에도 1MB 초과: ${(imageFile.size / 1024).toFixed(1)}KB`);
+                    }
+                    
+                    // 압축된 이미지 업로드 (원본만, 썸네일 제거)
                     try {
                         const imageRef = window.firebaseStorageRef(storageRef, `products/${timestamp}_${i}_${imageFile.name}`);
                         console.log(`이미지 ${i + 1}/${imageFilesToUpload.length} 업로드 시도:`, imageFile.name, `(${(imageFile.size / 1024).toFixed(1)}KB)`);
@@ -4212,34 +4305,16 @@ class PriceComparisonSite {
                         const snapshot = await window.firebaseUploadBytes(imageRef, imageFile);
                         const imageUrl = await window.firebaseGetDownloadURL(snapshot.ref);
                         imageUrls.push(imageUrl);
-                        console.log(`원본 이미지 ${i + 1}/${imageFilesToUpload.length} 업로드 완료:`, imageUrl);
+                        // 썸네일은 원본 URL 사용 (서버에서 리사이즈하거나 클라이언트에서 처리)
+                        thumbnailUrls.push(imageUrl);
+                        console.log(`이미지 ${i + 1}/${imageFilesToUpload.length} 업로드 완료:`, imageUrl);
                     } catch (uploadError) {
                         console.error(`이미지 ${i + 1} 업로드 실패:`, uploadError);
                         throw new Error(`이미지 ${i + 1} 업로드 실패: ${uploadError.message || uploadError.code || '알 수 없는 오류'}`);
                     }
-                    
-                    // 썸네일 생성 및 업로드
-                    try {
-                        const thumbnailFile = await this.createThumbnail(imageFile, 120, 120, 0.7);
-                        if (thumbnailFile === null) {
-                            // 이미 작은 이미지인 경우 원본 URL 사용
-                            thumbnailUrls.push(imageUrl);
-                            console.log(`썸네일 생성 건너뜀 (이미 작은 이미지): ${i + 1}/${imageFilesToUpload.length}`);
-                        } else {
-                            const thumbnailRef = window.firebaseStorageRef(storageRef, `products/thumbnails/${timestamp}_${i}_thumb_${imageFile.name}`);
-                            const thumbnailSnapshot = await window.firebaseUploadBytes(thumbnailRef, thumbnailFile);
-                            const thumbnailUrl = await window.firebaseGetDownloadURL(thumbnailSnapshot.ref);
-                            thumbnailUrls.push(thumbnailUrl);
-                            console.log(`썸네일 ${i + 1}/${imageFilesToUpload.length} 업로드 완료:`, thumbnailUrl, `(크기: ${(thumbnailFile.size / 1024).toFixed(1)}KB)`);
-                        }
-                    } catch (thumbnailError) {
-                        console.error(`썸네일 생성/업로드 실패 (${i + 1}):`, thumbnailError);
-                        // 썸네일 실패 시 원본 URL 사용 (하위 호환성)
-                        thumbnailUrls.push(imageUrl);
-                    }
                 }
                 
-                console.log('모든 이미지 업로드 완료:', imageUrls.length, '개 원본,', thumbnailUrls.length, '개 썸네일');
+                console.log('모든 이미지 업로드 완료:', imageUrls.length, '개 (썸네일 업로드 제거로 저장 공간 절약)');
                 
                 // thumbnailUrls를 formData에 추가하기 위해 변수에 저장
                 this.currentThumbnailUrls = thumbnailUrls;
@@ -6428,10 +6503,21 @@ class PriceComparisonSite {
                     }
                     
                     for (let i = 0; i < this.editProductImageOrder.length; i++) {
-                        const imageFile = this.editProductImageOrder[i];
-                        if (imageFile.size > 5 * 1024 * 1024) {
-                            alert(`이미지 ${i + 1}번의 크기가 5MB를 초과합니다.`);
-                            continue;
+                        const originalFile = this.editProductImageOrder[i];
+                        
+                        // 이미지 압축 및 최적화
+                        let imageFile = originalFile;
+                        try {
+                            console.log(`이미지 ${i + 1}/${this.editProductImageOrder.length} 압축 시작:`, originalFile.name, `(원본: ${(originalFile.size / 1024).toFixed(1)}KB)`);
+                            imageFile = await this.compressImage(originalFile, 1200, 1200, 0.8, 500);
+                            console.log(`이미지 ${i + 1} 압축 완료:`, `(${(imageFile.size / 1024).toFixed(1)}KB, 압축률: ${((1 - imageFile.size / originalFile.size) * 100).toFixed(1)}%)`);
+                        } catch (compressError) {
+                            console.warn(`이미지 ${i + 1} 압축 실패, 원본 사용:`, compressError);
+                            imageFile = originalFile;
+                        }
+                        
+                        if (imageFile.size > 1 * 1024 * 1024) {
+                            console.warn(`이미지 ${i + 1} 압축 후에도 1MB 초과: ${(imageFile.size / 1024).toFixed(1)}KB`);
                         }
                         
                         try {
@@ -7499,10 +7585,21 @@ class PriceComparisonSite {
                     }
                     
                     for (let i = 0; i < this.editPriceReportImageOrder.length; i++) {
-                        const imageFile = this.editPriceReportImageOrder[i];
-                        if (imageFile.size > 5 * 1024 * 1024) {
-                            alert(`이미지 ${i + 1}번의 크기가 5MB를 초과합니다.`);
-                            continue;
+                        const originalFile = this.editPriceReportImageOrder[i];
+                        
+                        // 이미지 압축 및 최적화
+                        let imageFile = originalFile;
+                        try {
+                            console.log(`이미지 ${i + 1}/${this.editPriceReportImageOrder.length} 압축 시작:`, originalFile.name, `(원본: ${(originalFile.size / 1024).toFixed(1)}KB)`);
+                            imageFile = await this.compressImage(originalFile, 1200, 1200, 0.8, 500);
+                            console.log(`이미지 ${i + 1} 압축 완료:`, `(${(imageFile.size / 1024).toFixed(1)}KB, 압축률: ${((1 - imageFile.size / originalFile.size) * 100).toFixed(1)}%)`);
+                        } catch (compressError) {
+                            console.warn(`이미지 ${i + 1} 압축 실패, 원본 사용:`, compressError);
+                            imageFile = originalFile;
+                        }
+                        
+                        if (imageFile.size > 1 * 1024 * 1024) {
+                            console.warn(`이미지 ${i + 1} 압축 후에도 1MB 초과: ${(imageFile.size / 1024).toFixed(1)}KB`);
                         }
                         
                         try {
@@ -11189,7 +11286,7 @@ window.showEditPriceReportModal = async function(report) {
         <div class="form-group">
             <label>상품 이미지 (선택사항, 여러장 가능)</label>
             <input type="file" id="editProductImage" accept="image/*" multiple>
-            <small style="color: #6b7280; font-size: 0.8rem;">JPG, PNG 형식, 최대 5MB</small>
+            <small style="color: #6b7280; font-size: 0.8rem;">JPG, PNG 형식, 자동 압축 (최대 1MB, 권장 500KB 이하)</small>
             ${report.imageUrl ? `<div style="margin-top: 10px;"><img src="${report.imageUrl}" style="max-width: 200px; max-height: 200px; border-radius: 8px;"></div>` : ''}
         </div>
         <button onclick="submitEditPriceReport('${report.id}')" style="padding: 12px 24px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-right: 10px;">
@@ -11246,12 +11343,21 @@ window.submitEditPriceReport = async function(reportId) {
                 }
                 
                 for (let i = 0; i < imageFiles.length; i++) {
-                    const imageFile = imageFiles[i];
+                    const originalFile = imageFiles[i];
                     
-                    // 파일 크기 검증 (5MB)
-                    if (imageFile.size > 5 * 1024 * 1024) {
-                        alert(`이미지 ${i + 1}번의 크기가 5MB를 초과합니다.`);
-                        return;
+                    // 이미지 압축 및 최적화
+                    let imageFile = originalFile;
+                    try {
+                        console.log(`이미지 ${i + 1}/${imageFiles.length} 압축 시작:`, originalFile.name, `(원본: ${(originalFile.size / 1024).toFixed(1)}KB)`);
+                        imageFile = await this.compressImage(originalFile, 1200, 1200, 0.8, 500);
+                        console.log(`이미지 ${i + 1} 압축 완료:`, `(${(imageFile.size / 1024).toFixed(1)}KB, 압축률: ${((1 - imageFile.size / originalFile.size) * 100).toFixed(1)}%)`);
+                    } catch (compressError) {
+                        console.warn(`이미지 ${i + 1} 압축 실패, 원본 사용:`, compressError);
+                        imageFile = originalFile;
+                    }
+                    
+                    if (imageFile.size > 1 * 1024 * 1024) {
+                        console.warn(`이미지 ${i + 1} 압축 후에도 1MB 초과: ${(imageFile.size / 1024).toFixed(1)}KB`);
                     }
                     
                     // Firebase Storage에 이미지 업로드

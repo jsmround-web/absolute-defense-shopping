@@ -339,7 +339,7 @@ const firebaseConfig = {
                         <div class="form-group">
                             <label for="productImage">상품 이미지 (선택사항, 여러장 가능)</label>
                             <input type="file" id="productImage" name="productImage" accept="image/*" multiple onchange="handleImageSelection()">
-                            <small style="color: #6b7280; font-size: 0.8rem;">JPG, PNG 형식, 최대 5MB (Ctrl/Cmd 키로 여러장 선택)</small>
+                            <small style="color: #6b7280; font-size: 0.8rem;">JPG, PNG 형식, 자동 압축 (최대 1MB, 권장 500KB 이하) (Ctrl/Cmd 키로 여러장 선택)</small>
                             <div id="imagePreviewContainer" style="display: none; margin-top: 12px;"></div>
                         </div>
                         

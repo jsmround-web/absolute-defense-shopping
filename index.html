@@ -158,7 +158,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getFirestore, collection, addDoc, getDocs, getDoc, onSnapshot, orderBy, query, doc, updateDoc, where, setDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-        import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+        import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
         
         // Firebase 설정 (실제 프로젝트 설정으로 변경하세요)
@@ -213,6 +213,7 @@ const firebaseConfig = {
         window.firebaseStorageRef = ref;
         window.firebaseUploadBytes = uploadBytes;
         window.firebaseGetDownloadURL = getDownloadURL;
+        window.firebaseDeleteObject = deleteObject;
         window.firebaseCollection = collection;
         window.firebaseAddDoc = addDoc;
         window.firebaseGetDocs = getDocs;
@@ -522,6 +523,7 @@ const firebaseConfig = {
                                 <p style="font-size: 0.85rem; color: #6b7280; margin-bottom: 12px;">
                                     숨김 처리된 상품들을 여기에서 수정, 복원, 완전 삭제, 링크 연결할 수 있습니다.
                                 </p>
+                                <button id="deleteAllImages" class="admin-btn" style="background-color: #dc2626; color: white; width: 100%; margin-bottom: 16px; font-weight: 600; padding: 12px;">🗑️ 이미지 일괄 삭제</button>
                                 <div id="hiddenProductsList" class="pending-products-list"></div>
                             </div>
                         </div>

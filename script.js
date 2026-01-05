@@ -2824,6 +2824,13 @@ class PriceComparisonSite {
             saveOutOfStockSettingsBtn.addEventListener('click', () => {});
         }
         
+        // 이미지 일괄 삭제 버튼
+        document.getElementById('deleteAllImages').addEventListener('click', () => {
+            if (adminAuth.requireAuth()) {
+                this.deleteAllProductImages();
+            }
+        });
+        
         // 관리자 로그아웃 버튼
         document.getElementById('adminLogout').addEventListener('click', () => {
             adminAuth.logout();
@@ -8526,6 +8533,191 @@ class PriceComparisonSite {
                 // 권한 오류가 아닌 경우
                 const errorMessage = `제품 숨김 처리에 실패했습니다.\n\n오류 코드: ${error.code || '알 수 없음'}\n오류 메시지: ${error.message || '알 수 없음'}\n\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.`;
                 alert(errorMessage);
+            }
+        }
+    }
+
+    // 모든 상품의 이미지와 썸네일 일괄 삭제 함수
+    async deleteAllProductImages() {
+        if (!adminAuth.requireAuth()) {
+            alert('관리자 권한이 필요합니다.');
+            return;
+        }
+        
+        const confirmDelete = confirm(
+            '⚠️ 경고: 모든 상품의 이미지와 썸네일을 삭제하시겠습니까?\n\n' +
+            '이 작업은 되돌릴 수 없습니다.\n' +
+            '상품 데이터는 유지되고 이미지만 삭제됩니다.\n\n' +
+            '계속하시겠습니까?'
+        );
+        
+        if (!confirmDelete) return;
+        
+        try {
+            console.log('이미지 일괄 삭제 시작...');
+            
+            // 진행 상황 표시
+            const progressDiv = document.createElement('div');
+            progressDiv.id = 'imageDeleteProgress';
+            progressDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10000; min-width: 300px;';
+            progressDiv.innerHTML = `
+                <h3 style="margin: 0 0 15px 0;">이미지 삭제 진행 중...</h3>
+                <div id="deleteProgressText" style="margin-bottom: 10px;">상품 목록 가져오는 중...</div>
+                <div style="background: #f0f0f0; border-radius: 4px; height: 20px; overflow: hidden;">
+                    <div id="deleteProgressBar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                </div>
+            `;
+            document.body.appendChild(progressDiv);
+            
+            const updateProgress = (text, percent) => {
+                const textEl = document.getElementById('deleteProgressText');
+                const barEl = document.getElementById('deleteProgressBar');
+                if (textEl) textEl.textContent = text;
+                if (barEl) barEl.style.width = percent + '%';
+            };
+            
+            // 모든 상품 가져오기
+            const productsRef = window.firebaseCollection(window.firebaseDb, 'products');
+            const productsSnapshot = await window.firebaseGetDocs(productsRef);
+            
+            const totalProducts = productsSnapshot.docs.length;
+            let processedProducts = 0;
+            let totalDeleted = 0;
+            let totalErrors = 0;
+            const deletedUrls = [];
+            const errorUrls = [];
+            
+            updateProgress(`총 ${totalProducts}개 상품 처리 중... (0/${totalProducts})`, 0);
+            
+            // 각 상품의 이미지 URL 수집 및 삭제
+            for (const doc of productsSnapshot.docs) {
+                const product = doc.data();
+                const imageUrls = [];
+                
+                // imageUrl 필드
+                if (product.imageUrl && typeof product.imageUrl === 'string' && product.imageUrl.trim()) {
+                    imageUrls.push(product.imageUrl);
+                }
+                
+                // imageUrls 배열
+                if (product.imageUrls && Array.isArray(product.imageUrls)) {
+                    imageUrls.push(...product.imageUrls.filter(url => url && typeof url === 'string' && url.trim()));
+                }
+                
+                // thumbnailUrl 필드
+                if (product.thumbnailUrl && typeof product.thumbnailUrl === 'string' && product.thumbnailUrl.trim()) {
+                    imageUrls.push(product.thumbnailUrl);
+                }
+                
+                // thumbnailUrls 배열
+                if (product.thumbnailUrls && Array.isArray(product.thumbnailUrls)) {
+                    imageUrls.push(...product.thumbnailUrls.filter(url => url && typeof url === 'string' && url.trim()));
+                }
+                
+                // 중복 제거
+                const uniqueUrls = [...new Set(imageUrls)];
+                
+                // Firebase Storage에서 삭제
+                for (const imageUrl of uniqueUrls) {
+                    try {
+                        // Firebase Storage URL에서 파일 경로 추출
+                        // URL 형식: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encodedPath}?alt=media&token={token}
+                        let filePath = '';
+                        
+                        if (imageUrl.includes('firebasestorage.googleapis.com')) {
+                            // Firebase Storage URL 파싱
+                            const urlMatch = imageUrl.match(/\/o\/([^?]+)/);
+                            if (urlMatch) {
+                                // URL 디코딩 (%2F -> /)
+                                filePath = decodeURIComponent(urlMatch[1]);
+                            }
+                        } else {
+                            // 다른 형식의 URL은 건너뛰기
+                            console.warn('알 수 없는 URL 형식:', imageUrl);
+                            continue;
+                        }
+                        
+                        if (!filePath) {
+                            console.warn('파일 경로를 추출할 수 없음:', imageUrl);
+                            continue;
+                        }
+                        
+                        // Storage 참조 생성 및 삭제
+                        const storageRef = window.firebaseStorage();
+                        const fileRef = window.firebaseStorageRef(storageRef, filePath);
+                        
+                        await window.firebaseDeleteObject(fileRef);
+                        totalDeleted++;
+                        deletedUrls.push(imageUrl);
+                        console.log(`삭제 완료: ${filePath}`);
+                        
+                    } catch (error) {
+                        // 파일이 이미 삭제되었거나 존재하지 않는 경우는 무시
+                        if (error.code === 'storage/object-not-found' || error.code === '404') {
+                            console.log(`이미 삭제된 파일 (무시): ${imageUrl}`);
+                            totalDeleted++; // 이미 삭제된 것도 성공으로 카운트
+                        } else {
+                            console.error(`이미지 삭제 오류: ${imageUrl}`, error);
+                            totalErrors++;
+                            errorUrls.push({ url: imageUrl, error: error.message });
+                        }
+                    }
+                }
+                
+                // Firestore에서 이미지 URL 필드 비우기
+                try {
+                    await window.firebaseUpdateDoc(window.firebaseDoc(window.firebaseDb, 'products', doc.id), {
+                        imageUrl: '',
+                        imageUrls: [],
+                        thumbnailUrl: '',
+                        thumbnailUrls: []
+                    });
+                } catch (updateError) {
+                    console.error(`Firestore 업데이트 오류 (상품 ID: ${doc.id}):`, updateError);
+                }
+                
+                processedProducts++;
+                const progressPercent = Math.round((processedProducts / totalProducts) * 100);
+                updateProgress(
+                    `처리 중... (${processedProducts}/${totalProducts}) - 삭제: ${totalDeleted}개, 오류: ${totalErrors}개`,
+                    progressPercent
+                );
+            }
+            
+            // 진행 상황 표시 제거
+            document.body.removeChild(progressDiv);
+            
+            // 결과 표시
+            const resultMessage = 
+                `이미지 일괄 삭제 완료!\n\n` +
+                `처리된 상품: ${processedProducts}개\n` +
+                `삭제된 이미지: ${totalDeleted}개\n` +
+                `오류: ${totalErrors}개\n\n` +
+                `Firestore의 이미지 URL 필드도 모두 비웠습니다.`;
+            
+            alert(resultMessage);
+            
+            console.log('삭제 완료 요약:', {
+                totalProducts: processedProducts,
+                deletedImages: totalDeleted,
+                errors: totalErrors,
+                deletedUrls: deletedUrls.length,
+                errorUrls: errorUrls
+            });
+            
+            // 상품 목록 새로고침
+            if (window.priceComparisonSite) {
+                await window.priceComparisonSite.loadProducts();
+            }
+            
+        } catch (error) {
+            console.error('이미지 일괄 삭제 오류:', error);
+            alert(`오류 발생: ${error.message}\n\n브라우저 콘솔(F12)에서 자세한 정보를 확인할 수 있습니다.`);
+            
+            // 진행 상황 표시 제거 (오류 발생 시)
+            const progressDiv = document.getElementById('imageDeleteProgress');
+            if (progressDiv) {
+                document.body.removeChild(progressDiv);
             }
         }
     }
